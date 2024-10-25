@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field, asdict
 from typing import Union, List
+import os
+import sys
 
 @dataclass
 class TradeConfig:
@@ -10,6 +12,12 @@ class TradeConfig:
     commission: float = 0.0003
     slippage_perc: float = 0.0001
     risk_free_rate: float = 0.0
+    print_trades_table: bool = False
+    silence: bool = False
+    rolling_window_size: int = 2
+    rolling_window_step: int = 1
+    strategy_type: str = "timing"  # timing or selection
+    log_base_dir: str = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
 
     def __post_init__(self):
         # Validate and manage the tickers field
@@ -18,6 +26,15 @@ class TradeConfig:
                 raise ValueError("tickers can either be a list of tickers or the string 'all'")
         elif not isinstance(self.tickers, list) or not all(isinstance(t, str) for t in self.tickers):
             raise ValueError("tickers must be a list of strings")
+
+        # Validate the date_from and date_to fields
+        if self.date_from > self.date_to:
+            raise ValueError("date_from must be earlier than date_to")
+
+        # Validate the strategy_type field
+        if self.strategy_type not in ["timing", "selection"]:
+            raise ValueError("strategy_type must be either 'timing' or 'selection'")
+
 
     @classmethod
     def from_dict(cls, config_dict):

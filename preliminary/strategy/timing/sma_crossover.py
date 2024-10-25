@@ -1,8 +1,5 @@
-import os
-
-import pandas as pd
 import backtrader as bt
-from preliminary.strategy.base_strategy import BaseStrategy
+from preliminary.strategy.timing.base_strategy import BaseStrategy
 from preliminary.backtest_engine import BacktestingEngine
 
 
@@ -42,7 +39,10 @@ class SMACrossStrategy(BaseStrategy):
 
 if __name__ == "__main__":
     trade_config = {
-        "tickers": ["AAPL"],
+        "tickers": ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "ADBE", "NFLX"],
+        "silence": True,
+        "strategy_type": "timing"
     }
     operator = BacktestingEngine(trade_config)
-    operator.execute_iter(SMACrossStrategy)
+    # operator.execute_iter(SMACrossStrategy)
+    operator.run_rolling_window(SMACrossStrategy)

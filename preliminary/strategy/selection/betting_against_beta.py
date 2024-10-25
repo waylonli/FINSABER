@@ -1,11 +1,8 @@
 # https://paperswithbacktest.com/paper/betting-against-beta#backtest
-import backtrader as bt
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
-import datasets as ds
-import os
-from preliminary.strategy.base_strategy import BaseStrategy
+from preliminary.strategy.timing.base_strategy import BaseStrategy
 from preliminary.backtest_engine import BacktestingEngine
 
 # Define the strategy
@@ -21,7 +18,6 @@ class BettingAgainstBetaStrategy(BaseStrategy):
 
     def __init__(self):
         super().__init__()
-        self.pbar = tqdm(total=self.params.total_days)
         self.log_data = []
         self.long_positions = []
         self.short_positions = []
@@ -36,7 +32,6 @@ class BettingAgainstBetaStrategy(BaseStrategy):
 
 
     def next(self):
-        self.pbar.update(1)
         self.log_data.append({
             "date": self.datas[0].datetime.date(0).isoformat(),
             "value": self.broker.getvalue(),
@@ -213,6 +208,9 @@ if __name__ == "__main__":
 
     trade_config = {
         "tickers": "all",
+        "strategy_type": "selection",
+        "silence": True,
     }
     operator = BacktestingEngine(trade_config)
-    operator.execute_all(BettingAgainstBetaStrategy, process=preprocess_df)
+    # operator.execute_all(BettingAgainstBetaStrategy, process=preprocess_df)
+    operator.run_rolling_window(BettingAgainstBetaStrategy, process=preprocess_df)

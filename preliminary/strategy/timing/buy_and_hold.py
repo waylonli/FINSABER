@@ -1,5 +1,4 @@
-import backtrader as bt
-from preliminary.strategy.base_strategy import BaseStrategy
+from preliminary.strategy.timing.base_strategy import BaseStrategy
 from preliminary.backtest_engine import BacktestingEngine
 
 # Create a Strategy
@@ -17,7 +16,10 @@ class BuyAndHoldStrategy(BaseStrategy):
 
 if __name__ == '__main__':
     trade_config = {
-        "tickers": ["AAPL"],
+        "tickers": ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "ADBE", "NFLX"],
+        "silence": True,
+        "strategy_type": "timing"
     }
     operator = BacktestingEngine(trade_config)
-    operator.execute_iter(BuyAndHoldStrategy)
+    # operator.execute_iter(BuyAndHoldStrategy)
+    operator.run_rolling_window(BuyAndHoldStrategy)

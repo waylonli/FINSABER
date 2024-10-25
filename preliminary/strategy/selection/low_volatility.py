@@ -1,72 +1,74 @@
-# https://paperswithbacktest.com/paper/does-trend-following-work-on-stocks#top
+# https://paperswithbacktest.com/paper/the-volatility-effect-lower-risk-without-lower-return#top
 import os
 import backtrader as bt
-import datasets as ds
 import pandas as pd
+import numpy as np
+import datasets as ds
 from tqdm import tqdm
-from preliminary.strategy.base_strategy import BaseStrategy
+from preliminary.strategy.timing.base_strategy import BaseStrategy
+from preliminary.backtest_engine import BacktestingEngine
+from preliminary.strategy.timing.base_strategy import BaseStrategy
 from preliminary.backtest_engine import BacktestingEngine
 
 
-class TrendFollowingStrategy(BaseStrategy):
+class LowVolatilityStrategy(BaseStrategy):
     params = (
-        ("atr_period", 10),
-        ("period", 2520),  # Equivalent to 10 years of daily data
-        ("leverage", 0.9),  # To avoid full investment
+        ("lookback_period", 21),  # 1 month of daily data
+        ("rebalance_period", 21),  # Monthly rebalancing
+        ("leverage", 1.0),
         ("total_days", 0),
     )
 
     def __init__(self):
         super().__init__()
+        self.rebalance_counter = 0
+        self.data_volatility = {}
+        self.selected_stocks = []
         self.log_data = []  # Store portfolio values for logging
-        self.order_list = []  # Store order details for logging
-        self.highest = {}
-        self.atr = {}
-        self.stdev = {}
-        self.max_close = {}
-        self.pbar = tqdm(total=self.params.total_days)
-        for d in self.datas:
-            # Set up indicators for each data feed
-            self.highest[d] = bt.indicators.Highest(d.close, period=self.params.period)
-            self.atr[d] = bt.indicators.ATR(d, period=self.params.atr_period)
-            self.stdev[d] = bt.indicators.StdDev(d.close, period=self.params.period)
+        # Add a timer to handle monthly rebalance
+        self.add_timer(when=bt.Timer.SESSION_START, monthdays=[1], monthcarry=True)
 
-    def log(self, txt, order=None, dt=None):
-        """Logging function for this strategy"""
-        dt = dt or self.datas[0].datetime.date(0)
-        print("%s, %s" % (dt.isoformat(), txt))
-        if order is not None:
-            self.order_list.append((dt.isoformat(), txt))  # Append order log
+    def notify_timer(self, timer, when, *args, **kwargs):
+        self.rebalance()
 
     def next(self):
-        self.pbar.update(1)
-        number_of_open_positions = len(
-            [
-                d
-                for d in self.datas
-                if d.close[0] >= self.highest[d][0] and self.stdev[d][0] != 0
-            ]
-        )
-        for d in self.datas:
-            if self.stdev[d][0] == 0:
-                continue
-            if d.close[0] >= self.highest[d][0] and self.getposition(d).size == 0:
-                target = 1.0 / number_of_open_positions * self.params.leverage
-                self.order_target_percent(d, target=target)
-            elif (
-                d.close[0] < self.highest[d][0] - 2 * self.atr[d][0]
-                and self.getposition(d).size > 0
-            ):
-                self.order_target_percent(d, target=0.0)
-        # Log portfolio value for performance analysis
         self.log_data.append(
             {
                 "date": self.datas[0].datetime.date(0).isoformat(),
                 "value": self.broker.getvalue(),
             }
         )
-
         self.post_next_actions()
+
+    def rebalance(self):
+        # Calculate volatilities
+        self.data_volatility = {}
+        for d in self.datas:
+            prices = d.close.get(size=self.params.lookback_period)
+            if len(prices) < self.params.lookback_period:
+                continue
+            weekly_returns = [
+                np.log(prices[i] / prices[i - 5]) for i in range(5, len(prices), 5)
+            ]
+            is_tradable_stock = (
+                len(weekly_returns) > 0 and np.std(weekly_returns) != 0.0
+            )
+            if is_tradable_stock:
+                self.data_volatility[d._name] = np.std(weekly_returns)
+
+        # Select stocks with lowest volatility (top quartile)
+        sorted_stocks = sorted(self.data_volatility.items(), key=lambda x: x[1])
+        num_stocks = len(sorted_stocks) // 10
+        self.selected_stocks = [x[0] for x in sorted_stocks[:num_stocks]]
+
+        # Adjust portfolio
+        for d in self.datas:
+            if d._name in self.selected_stocks:
+                self.order_target_percent(
+                    d, target=1.0 / num_stocks * self.params.leverage
+                )
+            else:
+                self.order_target_percent(d, target=0.0)
 
     def get_latest_positions(self):
         # Retrieve the latest positions in the portfolio
@@ -112,7 +114,7 @@ if __name__ == "__main__":
         symbol_dfs = []
 
         # Process data and add to Cerebro
-        for symbol in pivot_df.columns.levels[1][::2]:
+        for symbol in pivot_df.columns.levels[1][::5]:
             symbol_df = pivot_df.xs(symbol, axis=1, level=1, drop_level=False).copy()
             symbol_df.columns = symbol_df.columns.droplevel(1)
             symbol_df.reset_index(inplace=True)
@@ -129,9 +131,10 @@ if __name__ == "__main__":
 
         return symbol_dfs
 
-
     trade_config = {
         "tickers": "all",
+        "strategy_type": "selection",
     }
     operator = BacktestingEngine(trade_config)
-    operator.execute_all(TrendFollowingStrategy, process=preprocess_df)
+    # operator.execute_all(LowVolatilityStrategy, process=preprocess_df)
+    operator.run_rolling_window(LowVolatilityStrategy, process=preprocess_df)

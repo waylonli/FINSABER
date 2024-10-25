@@ -10,7 +10,7 @@ load_dotenv()
 HF_ACCESS_TOKEN = os.getenv("HF_ACCESS_TOKEN")
 
 
-def get_tickers_price(tickers: list[str] or str, date_from: str, date_to: str) -> pd.DataFrame:
+def get_tickers_price(tickers: list[str] or str, date_from: str = "2000-01-01", date_to: str = "2024-01-01") -> pd.DataFrame:
     """
     Get the price of the specified tickers within the specified date range
     :param tickers: A list of tickers, or "all" to get the price of all tickers

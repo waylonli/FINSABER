@@ -61,5 +61,10 @@ class BaseStrategy(bt.Strategy):
     def notify_trade(self, trade: bt.Trade):
         if trade.isclosed:
             self.trades.append(trade)
-            returns = trade.pnlcomm / trade.price
+            # assert trade.price is a non-zero value
+            if trade.price != 0:
+                returns = trade.pnlcomm / trade.price
+            else:
+                print("Detect zero trade price at %s for trade %s" % (self.data.datetime.date(0), trade))
+                returns = 0
             self.trade_returns.append(returns)

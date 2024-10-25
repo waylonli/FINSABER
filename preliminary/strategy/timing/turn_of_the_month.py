@@ -1,7 +1,7 @@
 # https://paperswithbacktest.com/paper/equity-returns-at-the-turn-of-the-month#top
 from datetime import datetime, timedelta
 import backtrader as bt
-from preliminary.strategy.base_strategy import BaseStrategy
+from preliminary.strategy.timing.base_strategy import BaseStrategy
 import pandas as pd
 from dotenv import load_dotenv
 from preliminary.backtest_engine import BacktestingEngine
@@ -164,8 +164,11 @@ if __name__ == "__main__":
         return result_df
 
     trade_config = {
-        "tickers": ["MSFT", "AAPL", "A"],
+        "tickers": ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "ADBE", "NFLX"],
+        "silence": True,
+        "strategy_type": "timing"
     }
 
     operator = BacktestingEngine(trade_config)
-    operator.execute_iter(TurnOfTheMonthStrategy, process=preprocess_df, total_days=cal_total_days)
+    # operator.execute_iter(TurnOfTheMonthStrategy, process=preprocess_df, total_days=cal_total_days)
+    operator.run_rolling_window(TurnOfTheMonthStrategy, process=preprocess_df, total_days=cal_total_days)
