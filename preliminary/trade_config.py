@@ -9,14 +9,12 @@ class TradeConfig:
     date_from: str = "2004-01-01"
     date_to: str = "2024-01-01"
     cash: float = 100000.0
-    commission: float = 0.0003
-    slippage_perc: float = 0.0001
     risk_free_rate: float = 0.0
     print_trades_table: bool = False
     silence: bool = False
     rolling_window_size: int = 2
     rolling_window_step: int = 1
-    strategy_type: str = "timing"  # timing or selection
+    selection_strategy: str = "random:10"
     log_base_dir: str = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
 
     def __post_init__(self):
@@ -30,10 +28,6 @@ class TradeConfig:
         # Validate the date_from and date_to fields
         if self.date_from > self.date_to:
             raise ValueError("date_from must be earlier than date_to")
-
-        # Validate the strategy_type field
-        if self.strategy_type not in ["timing", "selection"]:
-            raise ValueError("strategy_type must be either 'timing' or 'selection'")
 
 
     @classmethod

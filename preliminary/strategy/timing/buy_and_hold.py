@@ -3,6 +3,10 @@ from preliminary.backtest_engine import BacktestingEngine
 
 # Create a Strategy
 class BuyAndHoldStrategy(BaseStrategy):
+    params = (
+        ("total_days", 0),
+    )
+
     def __init__(self):
         super().__init__()
         self.dataclose = self.datas[0].close
@@ -16,10 +20,14 @@ class BuyAndHoldStrategy(BaseStrategy):
 
 if __name__ == '__main__':
     trade_config = {
-        "tickers": ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "ADBE", "NFLX"],
+        "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
         "silence": True,
-        "strategy_type": "timing"
+        "selection_strategy": "selected_5",
     }
+    # trade_config = {
+    #     "tickers": "all",
+    #     "silence": False,
+    # }
     operator = BacktestingEngine(trade_config)
     # operator.execute_iter(BuyAndHoldStrategy)
     operator.run_rolling_window(BuyAndHoldStrategy)

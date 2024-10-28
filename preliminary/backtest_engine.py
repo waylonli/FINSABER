@@ -6,7 +6,7 @@ from empyrical import annual_volatility
 from tqdm import tqdm
 from tabulate import tabulate
 from preliminary.trade_config import TradeConfig
-from preliminary.operation_utils import get_tickers_price, process_for_ff
+from preliminary.operation_utils import add_tickers_data, process_for_ff, get_tickers_price
 import warnings
 import pickle
 import matplotlib.pyplot as plt
@@ -37,10 +37,27 @@ class BacktestingEngine:
         rolling_window_size = self.trade_config.rolling_window_size # in years
         rolling_window_step = self.trade_config.rolling_window_step # in years
 
+
         # e.g. 2000-01-01 to 2005-01-01, rolling_window_size=2, rolling_window_step=1, then the rolling windows are:
         # 2000-01-01 to 2002-01-01, 2001-01-01 to 2003-01-01, 2002-01-01 to 2004-01-01, 2003-01-01 to 2005-01-01
         date_from = pd.to_datetime(self.trade_config.date_from)
         date_to = pd.to_datetime(self.trade_config.date_to)
+
+        # check selection strategy
+        if self.trade_config.tickers == "all" and self.trade_config.selection_strategy.startswith("random"):
+            num_tickers = int(self.trade_config.selection_strategy.split(":")[1])
+            tickers_data = get_tickers_price("all", return_original=True)
+            # select tickers that have data for the entire period
+            # excluding weekends and holidays
+            total_years = (date_to - date_from).days // 365
+            tickers_data = tickers_data.groupby("symbol").filter(lambda x: x.shape[0] >= total_years * 252)
+            print(f"Number of tickers with data for the entire period: {tickers_data['symbol'].nunique()}")
+            # set random seed
+            np.random.seed(42)
+            tickers = list(np.random.choice(tickers_data["symbol"].unique(), num_tickers, replace=False))
+            # print(f"Selected tickers: {tickers}")
+            self.trade_config.tickers = tickers
+
         rolling_windows = []
         while date_from + pd.DateOffset(years=rolling_window_size) <= date_to:
             rolling_windows.append((date_from, date_from + pd.DateOffset(years=rolling_window_size)))
@@ -55,12 +72,11 @@ class BacktestingEngine:
             test_config["date_from"] = window[0].strftime("%Y-%m-%d")
             test_config["date_to"] = window[1].strftime("%Y-%m-%d")
 
-            test_func = self.execute_all if self.trade_config.strategy_type == "selection" else self.execute_iter
             eval_metrics[f"{window[0].strftime('%Y-%m-%d')}_{window[1].strftime('%Y-%m-%d')}"] \
-                = test_func(strategy, process, test_config=test_config, **kwargs)
+                = self.execute_iter(strategy, process, test_config=test_config, **kwargs)
 
         # export the evaluation metrics
-        output_dir = os.path.join(self.trade_config.log_base_dir, self.trade_config.strategy_type, strategy.__name__)
+        output_dir = os.path.join(self.trade_config.log_base_dir, self.trade_config.selection_strategy.replace(":", "_"), strategy.__name__)
         filename = f"{self.trade_config.date_from}_{self.trade_config.date_to}.pkl"
         os.makedirs(output_dir, exist_ok=True)
         with open(os.path.join(output_dir, filename), "wb") as f:
@@ -82,25 +98,21 @@ class BacktestingEngine:
         else:
             test_config = TradeConfig.from_dict(test_config)
 
-        tickers_data = get_tickers_price(test_config.tickers)
         eval_metrics = {}
 
-        tickers_loop = test_config.tickers if test_config.tickers != "all" else tickers_data["symbol"].unique()
+
+        tickers_loop = test_config.tickers if test_config.tickers != "all" else get_tickers_price("all")["symbol"].unique()
 
         for ticker in tickers_loop:
             cerebro = bt.Cerebro()
-            pd_data = tickers_data[tickers_data["symbol"] == ticker]
 
-            if process is not None:
-                pd_data = process(pd_data)
+            pd_data = get_tickers_price(ticker, date_from=test_config.date_from, date_to=test_config.date_to)
 
-            data = bt.feeds.PandasData(
-                dataname=pd_data,
-                fromdate=pd.to_datetime(test_config.date_from),
-                todate=pd.to_datetime(test_config.date_to)
-            )
+            if pd_data is None:
+                # print(f"No data in the period {test_config.date_from} to {test_config.date_to} for {ticker}")
+                continue
 
-            cerebro.adddata(data)
+            add_tickers_data(cerebro, pd_data)
 
             for additional_arg in kwargs:
                 # if it is callable, call it
@@ -108,12 +120,11 @@ class BacktestingEngine:
                     kwargs[additional_arg] = kwargs[additional_arg](pd_data)
 
             # Add a strategy
-            cerebro.addstrategy(strategy, **kwargs)
+            cerebro.addstrategy(strategy, total_days=len(set(pd_data.index.tolist())), **kwargs)
 
             # Set our desired cash start
             cerebro.broker.setcash(test_config.cash)
-            cerebro.broker.setcommission(commission=test_config.commission)
-            cerebro.broker.set_slippage_perc(perc=test_config.slippage_perc)
+
 
             # Add observers
             cerebro.addobserver(bt.observers.Value)
@@ -170,119 +181,6 @@ class BacktestingEngine:
 
         return eval_metrics
 
-
-    def execute_all(self, strategy: bt.Strategy, process: callable = None, test_config: dict = None, **kwargs):
-        """
-        Execute the strategy
-        :param strategy: The strategy to execute
-        :param process: The function to process the data
-        :param test_config: The configuration if different from the global configuration
-        :param kwargs: Additional arguments for the strategy
-        """
-
-        if test_config is None:
-            test_config = self.trade_config
-        else:
-            test_config = TradeConfig.from_dict(test_config)
-
-        tickers_data = get_tickers_price(test_config.tickers)
-
-        pd_data = tickers_data
-
-        if process is not None:
-            pd_data = process(pd_data)
-
-        cerebro = bt.Cerebro()
-
-        if type(pd_data) == pd.DataFrame:
-            data = bt.feeds.PandasData(
-                dataname=pd_data,
-                fromdate=pd.to_datetime(test_config.date_from),
-                todate=pd.to_datetime(test_config.date_to)
-            )
-            cerebro.adddata(data)
-        elif type(pd_data) == list:
-            for df in pd_data:
-                # assert unique symbol
-                assert len(df["symbol"].unique()) == 1
-                data = bt.feeds.PandasData(
-                    dataname=df,
-                    fromdate=pd.to_datetime(test_config.date_from),
-                    todate=pd.to_datetime(test_config.date_to)
-                )
-                cerebro.adddata(data, name=df["symbol"].unique()[0])
-                # print(df["symbol"].unique()[0], df.shape)
-
-
-        for additional_arg in kwargs:
-            # if it is callable, call it
-            if callable(kwargs[additional_arg]):
-                kwargs[additional_arg] = kwargs[additional_arg](pd_data)
-
-        # Add a strategy
-        cerebro.addstrategy(strategy, **kwargs)
-
-        # Set our desired cash start
-        cerebro.broker.setcash(test_config.cash)
-        cerebro.broker.setcommission(commission=test_config.commission)
-        cerebro.broker.set_slippage_perc(perc=test_config.slippage_perc)
-
-        # Add observers
-        cerebro.addobserver(bt.observers.Value)
-
-        # Add analyzers for Sharpe Ratio and Drawdown
-        cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='mysharpe', riskfreerate=test_config.risk_free_rate,
-                            annualize=True)
-        cerebro.addanalyzer(bt.analyzers.DrawDown, _name='mydrawdown')
-        cerebro.addanalyzer(bt.analyzers.Returns, _name='myreturns')
-        cerebro.addanalyzer(bt.analyzers.PyFolio, _name='pyfolio')
-        # cerebro.addanalyzer(bt.analyzers.AnnualReturn, _name='myannualreturn')
-        # cerebro.addanalyzer(bt.analyzers.VWR, _name='myvwr')  # Annualized volatility
-
-        # Run over everything
-        results = cerebro.run()
-        strat = results[0]
-
-
-        if not test_config.silence:
-            # Print out the final result
-            eval_metrics = self._analyze_results(
-                strat,
-                ticker="all",
-                test_config=test_config,
-                print_trades_table=test_config.print_trades_table
-            )
-        else:
-            eval_metrics = self._analyze_results(
-                strat,
-                test_config=test_config,
-                ticker="all",
-                print_trades_table=False,
-                print_annual_metrics=False,
-                print_details=False
-            )
-
-        # Obtain the equity curve
-        equity_with_time = pd.DataFrame(
-            {
-                "datetime": strat.equity_date,
-                "equity": strat.equity
-            }
-        )
-
-        eval_metrics["equity_with_time"] = equity_with_time
-
-        if not test_config.silence:
-            # Plot the result
-            plt.figure(figsize=(10, 6))
-            plt.plot(equity_with_time["datetime"], equity_with_time["equity"], label="Equity Curve")
-            plt.title(f"Equity Curve")
-            plt.xlabel("Date")
-            plt.ylabel("Equity")
-            plt.legend()
-            plt.show()
-
-        return eval_metrics
 
 
     def _analyze_results(self,
@@ -348,22 +246,30 @@ class BacktestingEngine:
             self,
             strategy: bt.Strategy,
             test_config: TradeConfig):
-        # str to datetime
-        first_date = pd.to_datetime(test_config.date_from)
-        last_date = pd.to_datetime(test_config.date_to)
-        total_days = (last_date - first_date).days
-        annual_factor = 252 / total_days
 
+        # Calculate the daily returns from the equity curve
         daily_returns = pd.Series(strategy.equity).pct_change().dropna()
 
-        if daily_returns.any() != 0:
+        if not daily_returns.empty and daily_returns.any():
             total_return = (strategy.broker.getvalue() / test_config.cash) - 1
-            annual_return = (1 + total_return) ** annual_factor - 1
+            total_periods = len(daily_returns)
+            annual_return = (1 + total_return) ** (252 / total_periods) - 1
 
+            # Calculate annual volatility
+            annual_volatility = daily_returns.std() * np.sqrt(252)
 
-            sharpe_ratio = strategy.analyzers.mysharpe.get_analysis()['sharperatio']
-            annual_volatility = (annual_return - test_config.risk_free_rate) / sharpe_ratio
-
+            # Manually calculate the Sharpe ratio if it's not provided by the analyzer
+            if strategy.analyzers.mysharpe.get_analysis()['sharperatio'] is None:
+                average_daily_return = daily_returns.mean()
+                daily_risk_free_rate = (1 + test_config.risk_free_rate) ** (1 / 252) - 1
+                excess_daily_return = average_daily_return - daily_risk_free_rate
+                sharpe_ratio = excess_daily_return / daily_returns.std() * np.sqrt(252)
+                if sharpe_ratio is None:
+                    print(daily_returns.std())
+                    raise ValueError("Sharpe ratio is None")
+            else:
+                # Use the analyzer's Sharpe ratio if available
+                sharpe_ratio = strategy.analyzers.mysharpe.get_analysis()['sharperatio']
         else:
             annual_return = annual_volatility = sharpe_ratio = 0
 

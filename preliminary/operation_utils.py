@@ -6,11 +6,11 @@ from tqdm import tqdm
 from dotenv import load_dotenv
 import pandas_datareader.data as web
 load_dotenv()
-
 HF_ACCESS_TOKEN = os.getenv("HF_ACCESS_TOKEN")
+import pwb_toolbox.datasets as pwb_ds
 
 
-def get_tickers_price(tickers: list[str] or str, date_from: str = "2000-01-01", date_to: str = "2024-01-01") -> pd.DataFrame:
+def get_tickers_price(tickers: list[str] or str, date_from: str = "2000-01-01", date_to: str = "2024-01-01", return_original: bool = False) -> pd.DataFrame:
     """
     Get the price of the specified tickers within the specified date range
     :param tickers: A list of tickers, or "all" to get the price of all tickers
@@ -18,20 +18,60 @@ def get_tickers_price(tickers: list[str] or str, date_from: str = "2000-01-01", 
     :param date_to: End date, format "YYYY-MM-DD"
     :return: A pandas DataFrame containing the price of the specified tickers within the specified date range
     """
-    df = pd.read_csv("data/stocks_daily.csv")
-    # df = pd.read_csv("data/etfs_daily.csv")
+    # df = pd.read_csv("data/stocks_daily.csv")
+    # # df = pd.read_csv("data/etfs_daily.csv")
+    #
+    # df = df[(df["date"] >= date_from) & (df["date"] <= date_to) & df["symbol"].isin(tickers)] if tickers != "all" else df[
+    #     (df["date"] >= date_from) & (df["date"] <= date_to)]
+    #
+    # if df.empty:
+    #     raise ValueError("No data available for the specified tickers and date range")
+    #
+    # df["date"] = pd.to_datetime(df["date"])
+    # # date as index
+    # df.set_index("date", inplace=True)
+    if isinstance(tickers, list):
+        df = pwb_ds.load_dataset("Stocks-Daily-Price", tickers, adjust=True)
+    elif tickers == "all":
+        df = pwb_ds.load_dataset("Stocks-Daily-Price", adjust=True)
+    else:
+        df = pwb_ds.load_dataset("Stocks-Daily-Price", [tickers], adjust=True)
 
-    df = df[(df["date"] >= date_from) & (df["date"] <= date_to) & df["symbol"].isin(tickers)] if tickers != "all" else df[
-        (df["date"] >= date_from) & (df["date"] <= date_to)]
+    df = df[df["date"] >= pd.to_datetime(date_from)]
+    df = df[df["date"] < pd.to_datetime(date_to)]
 
-    if df.empty:
-        raise ValueError("No data available for the specified tickers and date range")
+    pivot_df = pd.pivot_table(
+        df,
+        index="date",
+        columns="symbol",
+        values=["open", "high", "low", "close"],
+        aggfunc="first",
+    )
 
-    df["date"] = pd.to_datetime(df["date"])
-    # date as index
-    df.set_index("date", inplace=True)
-    return df
+    try:
+        full_date_range = pd.date_range(start=df["date"].min(), end=df["date"].max(), freq="D")
+        pivot_df = pivot_df.reindex(full_date_range)
+    except:
+        return None
 
+    return pivot_df if not return_original else df
+
+
+def add_tickers_data(cerebro: bt.Cerebro, pivot_df: pd.DataFrame):
+    # Process data and add to Cerebro
+    for symbol in pivot_df.columns.levels[1]:
+        symbol_df = pivot_df.xs(symbol, axis=1, level=1, drop_level=False).copy()
+        symbol_df.columns = symbol_df.columns.droplevel(1)
+        symbol_df.reset_index(inplace=True)
+        symbol_df.rename(columns={"index": "date"}, inplace=True)
+        symbol_df.set_index("date", inplace=True)
+        symbol_df.ffill(inplace=True)
+        symbol_df.bfill(inplace=True)
+
+        data = bt.feeds.PandasData(dataname=symbol_df)
+        cerebro.adddata(data, name=symbol)
+
+    return
 
 def process_for_ff(df: pd.DataFrame):
     """
@@ -195,17 +235,6 @@ def replace_index_with_etfs(df):
 
 
 if __name__ == "__main__":
-    # dataset = ds.load_dataset(
-    #     "paperswithbacktest/ETFs-Daily-Price", token=HF_ACCESS_TOKEN, cache_dir="data/hf/"
-    # )
-    # df = dataset["train"].to_pandas()
-    # df.to_csv("data/etfs_daily.csv", index=False)
-    #
-    # dataset = ds.load_dataset(
-    #     "paperswithbacktest/Indices-Daily-Price", token=HF_ACCESS_TOKEN, cache_dir="data/hf/"
-    # )
-    # df = dataset["train"].to_pandas()
-    # df.to_csv("data/indices_daily.csv", index=False)
     pass
 
 
