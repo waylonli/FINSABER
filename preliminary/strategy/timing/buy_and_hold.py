@@ -13,21 +13,29 @@ class BuyAndHoldStrategy(BaseStrategy):
 
     def next(self):
         if not self.position:
-            self.buy()
-
+            max_size = self._adjust_size_for_commission(int(self.broker.cash / self.dataclose[0]))
+            self.buy(size=max_size)
         self.post_next_actions()
 
 
 if __name__ == '__main__':
-    trade_config = {
-        "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
-        "silence": True,
-        "selection_strategy": "selected_5",
-    }
     # trade_config = {
-    #     "tickers": "all",
+    #     "tickers": ["MSFT"],
     #     "silence": False,
+    #     "date_from": "2016-01-01",
+    #     "date_to": "2018-01-01",
+    #     "selection_strategy": "debug",
     # }
+
+    # trade_config = {
+    #     "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
+    #     "silence": False,
+    #     "selection_strategy": "selected_5",
+    # }
+    trade_config = {
+        "tickers": "all",
+        "silence": True,
+    }
     operator = BacktestingEngine(trade_config)
     # operator.execute_iter(BuyAndHoldStrategy)
     operator.run_rolling_window(BuyAndHoldStrategy)

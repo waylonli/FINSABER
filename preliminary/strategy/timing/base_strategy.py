@@ -68,3 +68,24 @@ class BaseStrategy(bt.Strategy):
                 print("Detect zero trade price at %s for trade %s" % (self.data.datetime.date(0), trade))
                 returns = 0
             self.trade_returns.append(returns)
+
+    def _adjust_size_for_commission(self, max_size):
+        # Define the commission info to access the commission calculation
+        commission_info = self.broker.getcommissioninfo(self.data)
+
+        # Get the current cash and price
+        cash = self.broker.get_cash()
+        price = self.data.close[0]
+
+        # Adjust the max_size based on commission constraints
+        while max_size > 0:
+            # Estimate the commission for the current size
+            commission_cost = commission_info._getcommission(size=max_size, price=price, pseudoexec=True)
+
+            # Check if the cash can cover both stock purchase and commission cost
+            if cash >= (max_size * price + commission_cost):
+                return max_size
+            max_size -= 1
+
+        # Return 0 if cash cannot cover even the smallest possible order with commission
+        return 0

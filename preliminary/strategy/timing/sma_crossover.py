@@ -23,7 +23,7 @@ class SMACrossStrategy(BaseStrategy):
         if self.crossover > 0:
             if self.position.size < 0:
                 self.close()
-            self.buy(size=self.calculate_trade_size())
+            self.buy(size=self._adjust_size_for_commission(self.calculate_trade_size()))
             self.buys.append(self.data.datetime.date(0))
         elif self.crossover < 0:
             if self.position.size > 0:
@@ -41,7 +41,7 @@ class SMACrossStrategy(BaseStrategy):
 if __name__ == "__main__":
     trade_config = {
         "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
-        "silence": True,
+        "silence": False,
         "selection_strategy": "selected_5",
     }
     # trade_config = {

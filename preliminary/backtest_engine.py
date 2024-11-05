@@ -3,6 +3,7 @@ import backtrader as bt
 import numpy as np
 import pandas as pd
 from empyrical import annual_volatility
+from pyfolio.timeseries import sortino_ratio
 from tqdm import tqdm
 from tabulate import tabulate
 from preliminary.trade_config import TradeConfig
@@ -10,6 +11,7 @@ from preliminary.operation_utils import add_tickers_data, process_for_ff, get_ti
 import warnings
 import pickle
 import matplotlib.pyplot as plt
+import metrics
 warnings.filterwarnings("ignore")
 
 # TODO wandb support
@@ -76,11 +78,12 @@ class BacktestingEngine:
                 = self.execute_iter(strategy, process, test_config=test_config, **kwargs)
 
         # export the evaluation metrics
-        output_dir = os.path.join(self.trade_config.log_base_dir, self.trade_config.selection_strategy.replace(":", "_"), strategy.__name__)
-        filename = f"{self.trade_config.date_from}_{self.trade_config.date_to}.pkl"
-        os.makedirs(output_dir, exist_ok=True)
-        with open(os.path.join(output_dir, filename), "wb") as f:
-            pickle.dump(eval_metrics, f)
+        if self.trade_config.save_results:
+            output_dir = os.path.join(self.trade_config.log_base_dir, self.trade_config.selection_strategy.replace(":", "_"), strategy.__name__)
+            filename = f"{self.trade_config.date_from}_{self.trade_config.date_to}.pkl" if self.trade_config.result_filename is None else self.trade_config.result_filename
+            os.makedirs(output_dir, exist_ok=True)
+            with open(os.path.join(output_dir, filename), "wb") as f:
+                pickle.dump(eval_metrics, f)
 
         return eval_metrics
 
@@ -108,7 +111,8 @@ class BacktestingEngine:
 
             pd_data = get_tickers_price(ticker, date_from=test_config.date_from, date_to=test_config.date_to)
 
-            if pd_data is None:
+            # skip if no data or data is not start from January
+            if pd_data is None or pd_data.index.min().month != 1:
                 # print(f"No data in the period {test_config.date_from} to {test_config.date_to} for {ticker}")
                 continue
 
@@ -124,16 +128,16 @@ class BacktestingEngine:
 
             # Set our desired cash start
             cerebro.broker.setcash(test_config.cash)
-
+            commission_scheme = USStockCommission()
+            cerebro.broker.addcommissioninfo(commission_scheme)
 
             # Add observers
             cerebro.addobserver(bt.observers.Value)
 
             # Add analyzers for Sharpe Ratio and Drawdown
-            cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='mysharpe', riskfreerate=test_config.risk_free_rate, annualize=True)
+            cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='mysharpe', riskfreerate=test_config.risk_free_rate, timeframe=bt.TimeFrame.Days, annualize=True)
             cerebro.addanalyzer(bt.analyzers.DrawDown, _name='mydrawdown')
             cerebro.addanalyzer(bt.analyzers.Returns, _name='myreturns')
-            cerebro.addanalyzer(bt.analyzers.PyFolio, _name='pyfolio')
             # cerebro.addanalyzer(bt.analyzers.AnnualReturn, _name='myannualreturn')
             # cerebro.addanalyzer(bt.analyzers.VWR, _name='myvwr')  # Annualized volatility
 
@@ -147,7 +151,7 @@ class BacktestingEngine:
                     strat,
                     test_config=test_config,
                     ticker=ticker,
-                    print_trades_table=False
+                    print_trades_table=test_config.print_trades_table,
                 )
             else:
                 eval_metrics[ticker] = self._analyze_results(
@@ -156,7 +160,7 @@ class BacktestingEngine:
                     ticker=ticker,
                     print_trades_table=False,
                     print_annual_metrics=False,
-                    print_details=False
+                    print_details=test_config.print_trades_table
                 )
 
             # Obtain the equity curve
@@ -211,7 +215,7 @@ class BacktestingEngine:
             print(f"Final cash: {strategy.broker.getvalue():.2f}")
             print(f"Total return (cash): {total_return_cash:.2f}")
             print(f"Total return (%): {total_return:.2%}")
-            print(f"Max drawdown: {max_drawdown:.2f}")
+            print(f"Max drawdown (%): {max_drawdown:.2f}%")
             print(f"Number of trades: {len(strategy.trades)}")
 
         if print_annual_metrics:
@@ -219,6 +223,7 @@ class BacktestingEngine:
             print(f"Annual return: {annual_metrics['Annual Return']:.2%}")
             print(f"Annual volatility: {annual_metrics['Annual Volatility']:.2%}")
             print(f"Sharpe ratio: {annual_metrics['Sharpe Ratio']:.4f}")
+            print(f"Sortino ratio: {annual_metrics['Sortino Ratio']:.4f}")
 
         if print_trades_table:
             trades = []
@@ -237,6 +242,7 @@ class BacktestingEngine:
             'sharpe_ratio': annual_metrics['Sharpe Ratio'],
             'annual_return': annual_metrics['Annual Return'],
             'annual_volatility': annual_metrics['Annual Volatility'],
+            'sortino_ratio': annual_metrics['Sortino Ratio'],
             'max_drawdown': max_drawdown,
             'total_return': total_return
         }
@@ -250,31 +256,46 @@ class BacktestingEngine:
         # Calculate the daily returns from the equity curve
         daily_returns = pd.Series(strategy.equity).pct_change().dropna()
 
+        # average_daily_return = daily_returns.mean()
+        # daily_risk_free_rate = (1 + test_config.risk_free_rate) ** (1 / (252)) - 1
+        # excess_daily_return = average_daily_return - daily_risk_free_rate
+        # self_calculate_sharpe_ratio = excess_daily_return / daily_returns.std() * np.sqrt(252)
+        # print("Self calculated Sharpe ratio: ", self_calculate_sharpe_ratio)
+
         if not daily_returns.empty and daily_returns.any():
             total_return = (strategy.broker.getvalue() / test_config.cash) - 1
             total_periods = len(daily_returns)
             annual_return = (1 + total_return) ** (252 / total_periods) - 1
 
             # Calculate annual volatility
-            annual_volatility = daily_returns.std() * np.sqrt(252)
+            annual_volatility = metrics.calculate_annual_volatility(daily_returns)
 
-            # Manually calculate the Sharpe ratio if it's not provided by the analyzer
-            if strategy.analyzers.mysharpe.get_analysis()['sharperatio'] is None:
-                average_daily_return = daily_returns.mean()
-                daily_risk_free_rate = (1 + test_config.risk_free_rate) ** (1 / 252) - 1
-                excess_daily_return = average_daily_return - daily_risk_free_rate
-                sharpe_ratio = excess_daily_return / daily_returns.std() * np.sqrt(252)
-                if sharpe_ratio is None:
-                    print(daily_returns.std())
-                    raise ValueError("Sharpe ratio is None")
-            else:
-                # Use the analyzer's Sharpe ratio if available
-                sharpe_ratio = strategy.analyzers.mysharpe.get_analysis()['sharperatio']
+            sortino_ratio = metrics.calculate_sortino_ratio(daily_returns, risk_free_rate=test_config.risk_free_rate)
+
+            # Use the analyzer's Sharpe ratio if available
+            sharpe_ratio = strategy.analyzers.mysharpe.get_analysis()['sharperatio']
         else:
-            annual_return = annual_volatility = sharpe_ratio = 0
+            annual_return = annual_volatility = sharpe_ratio = sortino_ratio = 0
 
         return {
             "Annual Return": annual_return,
             "Annual Volatility": annual_volatility,
             "Sharpe Ratio": sharpe_ratio,
+            "Sortino Ratio": sortino_ratio,
         }
+
+
+class USStockCommission(bt.CommInfoBase):
+    params = (
+        ('commission_per_share', 0.0049),  # $0.0049 per share
+        ('min_commission', 0.99),  # Minimum $0.99 per order
+        ('stocklike', True),
+        ('commtype', bt.CommInfoBase.COMM_FIXED),  # Fixed commission per share
+    )
+
+    def _getcommission(self, size, price, pseudoexec):
+        # Calculate commission based on shares
+        commission = abs(size) * self.p.commission_per_share
+
+        # Ensure the commission is at least the minimum order commission
+        return max(commission, self.p.min_commission)

@@ -29,6 +29,7 @@ class TurnOfTheMonthStrategy(BaseStrategy):
         )
 
     def notify_timer(self, timer, when, *args, **kwargs):
+        # TODO 考虑commission
         if self.is_third_business_day(when):
             self.order_target_percent(self.data, target=0)
         elif self.is_month_end(when):
@@ -71,7 +72,7 @@ class TurnOfTheMonthStrategy(BaseStrategy):
 if __name__ == "__main__":
     trade_config = {
         "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
-        "silence": True,
+        "silence": False,
         "selection_strategy": "selected_5",
     }
     # trade_config = {

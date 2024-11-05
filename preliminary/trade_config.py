@@ -15,7 +15,10 @@ class TradeConfig:
     rolling_window_size: int = 2
     rolling_window_step: int = 1
     selection_strategy: str = "random:10"
+    result_filename: str = None
+    save_results: bool = True
     log_base_dir: str = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
+
 
     def __post_init__(self):
         # Validate and manage the tickers field

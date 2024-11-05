@@ -5,129 +5,70 @@ from preliminary.backtest_engine import BacktestingEngine
 
 class TrendFollowingStrategy(BaseStrategy):
     params = (
-        ("leverage", 5),
-        ("total_days", 0),
-        ("risk_factor", 0.002),  # 20 basis points
-        ("atr_period", 20),
-        ("ma_short", 50),
-        ("ma_long", 100),
-        ("breakout_period", 50),
-        ("atr_multiplier", 3),
+        ("atr_period", 10),
+        ("period", 252 * 10),  # Equivalent to 10 years of daily data
+        ("leverage", 0.9),  # To avoid full investment
         ("total_days", 0),
     )
 
     def __init__(self):
         super().__init__()
-        self.log_data = []
-        self.inds = dict()
+        self.log_data = []  # Store portfolio values for logging
+        self.order_list = []  # Store order details for logging
+        self.highest = {}
+        self.atr = {}
+        self.stdev = {}
+        self.max_close = {}
+
+        # 调整data, 使用全量数据
         for d in self.datas:
-            self.inds[d] = dict()
-            self.inds[d]["ma_short"] = bt.indicators.SimpleMovingAverage(
-                d.close, period=self.params.ma_short
-            )
-            self.inds[d]["ma_long"] = bt.indicators.SimpleMovingAverage(
-                d.close, period=self.params.ma_long
-            )
-            self.inds[d]["atr"] = bt.indicators.AverageTrueRange(
-                d, period=self.params.atr_period
-            )
-            self.inds[d]["highest"] = bt.indicators.Highest(
-                d.close, period=self.params.breakout_period
-            )
-            self.inds[d]["lowest"] = bt.indicators.Lowest(
-                d.close, period=self.params.breakout_period
-            )
-            self.inds[d]["entry_high"] = None
-            self.inds[d]["entry_low"] = None
+            # Set up indicators for each data feed
+            self.highest[d] = bt.indicators.Highest(d.close, period=self.params.period)
+            self.atr[d] = bt.indicators.ATR(d, period=self.params.atr_period)
+            self.stdev[d] = bt.indicators.StdDev(d.close, period=self.params.period)
 
     def next(self):
+        number_of_open_positions = len(
+            [
+                d
+                for d in self.datas
+                if d.close[0] >= self.highest[d][0] and self.stdev[d][0] != 0
+            ]
+        )
+        for d in self.datas:
+            if self.stdev[d][0] == 0:
+                continue
+            if d.close[0] >= self.highest[d][0] and self.getposition(d).size == 0:
+                target = 1.0 / number_of_open_positions * self.params.leverage
+                self.order_target_percent(d, target=target)
+            elif (
+                d.close[0] < self.highest[d][0] - 2 * self.atr[d][0]
+                and self.getposition(d).size > 0
+            ):
+                self.order_target_percent(d, target=0.0)
+        # Log portfolio value for performance analysis
         self.log_data.append(
             {
                 "date": self.datas[0].datetime.date(0).isoformat(),
                 "value": self.broker.getvalue(),
             }
         )
-
-        for d in self.datas:
-            if not self.is_tradable(d):
-                continue
-            if len(d) < max(
-                self.params.ma_long, self.params.breakout_period, self.params.atr_period
-            ):
-                continue
-
-            pos = self.getposition(d).size
-            ma_short = self.inds[d]["ma_short"][0]
-            ma_long = self.inds[d]["ma_long"][0]
-            close = d.close[0]
-            atr = self.inds[d]["atr"][0]
-            highest = self.inds[d]["highest"][-1]
-            lowest = self.inds[d]["lowest"][-1]
-
-            if pos == 0:
-                if ma_short > ma_long and close >= highest:
-                    size = self.calculate_position_size(d, atr)
-                    if size > 0:
-                        self.buy(data=d, size=size)
-                        self.inds[d]["entry_high"] = close
-                elif ma_short < ma_long and close <= lowest:
-                    size = self.calculate_position_size(d, atr)
-                    if size > 0:
-                        self.sell(data=d, size=size)
-                        self.inds[d]["entry_low"] = close
-
-            elif pos > 0:
-                self.inds[d]["entry_high"] = (
-                    max(self.inds[d]["entry_high"], close)
-                    if self.inds[d]["entry_high"]
-                    else close
-                )
-                if (
-                    close
-                    <= self.inds[d]["entry_high"] - self.params.atr_multiplier * atr
-                ):
-                    self.close(data=d)
-                    self.inds[d]["entry_high"] = None
-
-            elif pos < 0:
-                self.inds[d]["entry_low"] = (
-                    min(self.inds[d]["entry_low"], close)
-                    if self.inds[d]["entry_low"]
-                    else close
-                )
-                if (
-                    close
-                    >= self.inds[d]["entry_low"] + self.params.atr_multiplier * atr
-                ):
-                    self.close(data=d)
-                    self.inds[d]["entry_low"] = None
-
         self.post_next_actions()
 
-    def calculate_position_size(self, data, atr):
-        risk_per_trade = self.params.risk_factor * self.broker.getvalue()
-        if atr < 0.001:  # Avoid division by zero
-            return 0
-        size = risk_per_trade / (atr * data.close[0])
-        size *= self.params.leverage
-        return size
-
-    def is_tradable(self, data):
-        if len(data.close) < 3:
-            return False
-        return data.close[0] != data.close[-2]
-
     def get_latest_positions(self):
+        # Retrieve the latest positions in the portfolio
         positions = {
             data._name: self.broker.getposition(data).size for data in self.datas
         }
         return positions
 
+
 if __name__ == "__main__":
     trade_config = {
         "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
-        "silence": True,
+        "silence": False,
         "selection_strategy": "selected_5",
+        "date_from": "1994-01-01",
     }
     # trade_config = {
     #     "tickers": "all",
