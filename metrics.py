@@ -9,7 +9,7 @@ def calculate_sortino_ratio(daily_returns, risk_free_rate=0):
     """
     # Calculate downside deviation (for Sortino Ratio)
     downside_returns = daily_returns[daily_returns < 0]
-    downside_deviation = np.sqrt((downside_returns ** 2).mean()) * np.sqrt(252)
+    downside_deviation = downside_returns.std() * np.sqrt(252)
 
     # Calculate Sortino Ratio
     if downside_deviation != 0:

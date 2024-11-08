@@ -55,8 +55,15 @@ class BacktestingEngine:
             tickers_data = tickers_data.groupby("symbol").filter(lambda x: x.shape[0] >= total_years * 252)
             print(f"Number of tickers with data for the entire period: {tickers_data['symbol'].nunique()}")
             # set random seed
-            np.random.seed(42)
-            tickers = list(np.random.choice(tickers_data["symbol"].unique(), num_tickers, replace=False))
+            if os.path.exists(os.path.join(self.trade_config.log_base_dir, "random_10", "random_10_symbols.txt")):
+                with open(os.path.join(self.trade_config.log_base_dir, "random_10", "random_10_symbols.txt"), "r") as f:
+                    tickers = f.read().splitlines()
+            else:
+                np.random.seed(42)
+                tickers = list(np.random.choice(tickers_data["symbol"].unique(), num_tickers, replace=False))
+                with open(os.path.join(self.trade_config.log_base_dir, "random_10", "random_10_symbols.txt"), "w") as f:
+                    f.write("\n".join(tickers))
+
             # print(f"Selected tickers: {tickers}")
             self.trade_config.tickers = tickers
 

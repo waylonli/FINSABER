@@ -9,7 +9,7 @@ class TradeConfig:
     date_from: str = "2004-01-01"
     date_to: str = "2024-01-01"
     cash: float = 100000.0
-    risk_free_rate: float = 0.0
+    risk_free_rate: float = 0.03
     print_trades_table: bool = False
     silence: bool = False
     rolling_window_size: int = 2
