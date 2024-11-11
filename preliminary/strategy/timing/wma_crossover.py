@@ -8,7 +8,7 @@ class WMAStrategy(BaseStrategy):
     params = (
         ('short_window', 5),
         ('long_window', 20),
-        ('trade_size', 0.01),
+        ('trade_size', 1.0),
         ("total_days", 0),
     )
 
@@ -53,16 +53,16 @@ class WMAStrategy(BaseStrategy):
 
 
 if __name__ == "__main__":
-    trade_config = {
-        "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
-        "silence": True,
-        "selection_strategy": "selected_5",
-    }
-
     # trade_config = {
-    #     "tickers": "all",
-    #     "silence": False,
+    #     "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
+    #     "silence": True,
+    #     "selection_strategy": "selected_5",
     # }
+
+    trade_config = {
+        "tickers": "all",
+        "silence": False,
+    }
 
     operator = BacktestingEngine(trade_config)
     # operator.execute_iter(WMAStrategy)

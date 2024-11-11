@@ -2,12 +2,13 @@ import backtrader as bt
 
 from preliminary.strategy.timing.base_strategy import BaseStrategy
 from preliminary.backtest_engine import BacktestingEngine
+from preliminary.operation_utils import get_tickers_price
 
 class TrendFollowingStrategy(BaseStrategy):
     params = (
         ("atr_period", 10),
-        ("period", 252 * 10),  # Equivalent to 10 years of daily data
-        ("leverage", 0.9),  # To avoid full investment
+        ("period", 252 * 1),  # Equivalent to 1 year of daily data
+        ("leverage", 0.95),  # To avoid full investment
         ("total_days", 0),
     )
 
@@ -20,7 +21,6 @@ class TrendFollowingStrategy(BaseStrategy):
         self.stdev = {}
         self.max_close = {}
 
-        # 调整data, 使用全量数据
         for d in self.datas:
             # Set up indicators for each data feed
             self.highest[d] = bt.indicators.Highest(d.close, period=self.params.period)
@@ -64,15 +64,15 @@ class TrendFollowingStrategy(BaseStrategy):
 
 
 if __name__ == "__main__":
-    trade_config = {
-        "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
-        "silence": False,
-        "selection_strategy": "selected_5",
-        "date_from": "1994-01-01",
-    }
     # trade_config = {
-    #     "tickers": "all",
+    #     "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
     #     "silence": False,
+    #     "selection_strategy": "selected_5",
+    #     "date_from": "2004-01-01",
     # }
+    trade_config = {
+        "tickers": "all",
+        "silence": False,
+    }
     operator = BacktestingEngine(trade_config)
     operator.run_rolling_window(TrendFollowingStrategy)

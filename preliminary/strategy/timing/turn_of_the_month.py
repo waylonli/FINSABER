@@ -33,7 +33,7 @@ class TurnOfTheMonthStrategy(BaseStrategy):
         if self.is_third_business_day(when):
             self.order_target_percent(self.data, target=0)
         elif self.is_month_end(when):
-            self.order_target_percent(self.data, target=1)
+            self.order_target_percent(self.data, target=0.95)
 
     def is_month_end(self, when):
         return (
@@ -70,15 +70,15 @@ class TurnOfTheMonthStrategy(BaseStrategy):
 
 
 if __name__ == "__main__":
-    trade_config = {
-        "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
-        "silence": False,
-        "selection_strategy": "selected_5",
-    }
     # trade_config = {
-    #     "tickers": "all",
+    #     "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
     #     "silence": False,
+    #     "selection_strategy": "selected_5",
     # }
+    trade_config = {
+        "tickers": "all",
+        "silence": False,
+    }
 
     operator = BacktestingEngine(trade_config)
     # operator.execute_iter(TurnOfTheMonthStrategy, process=preprocess_df, total_days=cal_total_days)
