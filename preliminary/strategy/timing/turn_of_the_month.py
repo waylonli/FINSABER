@@ -77,9 +77,20 @@ if __name__ == "__main__":
     # }
     trade_config = {
         "tickers": "all",
-        "silence": False,
+        "silence": True,
+        "selection_strategy": "random:50",
+    }
+    cherry_config = {
+        "date_from": "2022-10-06",
+        "date_to": "2023-04-10",
+        "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
+        "selection_strategy": "cherry_pick_both"
     }
 
-    operator = BacktestingEngine(trade_config)
+    # operator = BacktestingEngine(trade_config)
     # operator.execute_iter(TurnOfTheMonthStrategy, process=preprocess_df, total_days=cal_total_days)
-    operator.run_rolling_window(TurnOfTheMonthStrategy)
+    # operator.run_rolling_window(TurnOfTheMonthStrategy)
+
+    cherry_operator = BacktestingEngine(cherry_config)
+    cherry_operator.execute_iter(TurnOfTheMonthStrategy, test_config=cherry_config)
+

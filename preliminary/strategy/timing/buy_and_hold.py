@@ -19,23 +19,22 @@ class BuyAndHoldStrategy(BaseStrategy):
 
 
 if __name__ == '__main__':
-    # trade_config = {
-    #     "tickers": ["MSFT"],
-    #     "silence": False,
-    #     "date_from": "2016-01-01",
-    #     "date_to": "2018-01-01",
-    #     "selection_strategy": "debug",
-    # }
 
-    # trade_config = {
-    #     "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
-    #     "silence": False,
-    #     "selection_strategy": "selected_5",
-    # }
     trade_config = {
-        "tickers": "all",
-        "silence": True,
+        "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
+        "silence": False,
+        "selection_strategy": "selected_5",
     }
+    # trade_config = {
+    #     "tickers": "all",
+    #     "silence": True,
+    #     "selection_strategy": "random:50",
+    # }
     operator = BacktestingEngine(trade_config)
     # operator.execute_iter(BuyAndHoldStrategy)
-    operator.run_rolling_window(BuyAndHoldStrategy)
+    # operator.run_rolling_window(BuyAndHoldStrategy)
+    print(operator.execute_iter(BuyAndHoldStrategy, test_config={
+        "date_from": "2022-10-06",
+        "date_to": "2023-04-10",
+        "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"]
+    }))

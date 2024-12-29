@@ -5,9 +5,9 @@ from preliminary.backtest_engine import BacktestingEngine
 
 class SMACrossStrategy(BaseStrategy):
     params = (
-        ('short_window', 5),
-        ('long_window', 20),
-        ('trade_size', 1.0),
+        ('short_window', 20),
+        ('long_window', 100),
+        ('trade_size', 0.95),
         ("total_days", 0),
     )
 
@@ -44,10 +44,19 @@ if __name__ == "__main__":
     #     "silence": False,
     #     "selection_strategy": "selected_5",
     # }
-    trade_config = {
-        "tickers": "all",
-        "silence": False,
+    # trade_config = {
+    #     "tickers": "all",
+    #     "silence": True,
+    #     "selection_strategy": "random:50",
+    # }
+    cherry_config = {
+        "date_from": "2022-10-06",
+        "date_to": "2023-04-10",
+        "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
+        "selection_strategy": "cherry_pick_both"
     }
-    operator = BacktestingEngine(trade_config)
-    # operator.execute_iter(SMACrossStrategy)
-    operator.run_rolling_window(SMACrossStrategy)
+    # operator = BacktestingEngine(trade_config)
+    # operator.run_rolling_window(SMACrossStrategy)
+
+    cherry_operator = BacktestingEngine(cherry_config)
+    cherry_operator.execute_iter(SMACrossStrategy, test_config=cherry_config)

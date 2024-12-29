@@ -1,3 +1,4 @@
+import datetime
 import os
 import backtrader as bt
 import datasets as ds
@@ -5,31 +6,32 @@ import pandas as pd
 from tqdm import tqdm
 from dotenv import load_dotenv
 import pandas_datareader.data as web
+import pickle
 load_dotenv()
 HF_ACCESS_TOKEN = os.getenv("HF_ACCESS_TOKEN")
 import pwb_toolbox.datasets as pwb_ds
 
 
-def get_tickers_price(tickers: list[str] or str, date_from: str = "2000-01-01", date_to: str = "2024-01-01", return_original: bool = False) -> pd.DataFrame:
+def get_tickers_price(
+    tickers: list[str] | str,
+    date_from: str = "2000-01-01",
+    date_to: str = "2024-01-01",
+    return_original: bool = False
+) -> pd.DataFrame:
     """
-    Get the price of the specified tickers within the specified date range
-    :param tickers: A list of tickers, or "all" to get the price of all tickers
-    :param date_from: Start date, format "YYYY-MM-DD"
-    :param date_to: End date, format "YYYY-MM-DD"
-    :return: A pandas DataFrame containing the price of the specified tickers within the specified date range
+    Get daily price and technical indicators for specified tickers within the given date range.
+    Technical indicators added:
+      - EMA_9
+      - SMA_5, SMA_10, SMA_15, SMA_30
+      - RSI
+      - MACD (plus signal and histogram)
+
+    Note: To obtain SMA_30 correctly from the first day, we load 30 days before `date_from` and then filter them out.
     """
-    # df = pd.read_csv("data/stocks_daily.csv")
-    # # df = pd.read_csv("data/etfs_daily.csv")
-    #
-    # df = df[(df["date"] >= date_from) & (df["date"] <= date_to) & df["symbol"].isin(tickers)] if tickers != "all" else df[
-    #     (df["date"] >= date_from) & (df["date"] <= date_to)]
-    #
-    # if df.empty:
-    #     raise ValueError("No data available for the specified tickers and date range")
-    #
-    # df["date"] = pd.to_datetime(df["date"])
-    # # date as index
-    # df.set_index("date", inplace=True)
+    # Extend the start date to fetch enough data for 30-day calculations
+    extended_date_from = (pd.to_datetime(date_from) - datetime.timedelta(days=30)).strftime("%Y-%m-%d")
+
+    # Load data from your source
     if isinstance(tickers, list):
         df = pwb_ds.load_dataset("Stocks-Daily-Price", tickers, adjust=True)
     elif tickers == "all":
@@ -37,27 +39,83 @@ def get_tickers_price(tickers: list[str] or str, date_from: str = "2000-01-01", 
     else:
         df = pwb_ds.load_dataset("Stocks-Daily-Price", [tickers], adjust=True)
 
-    df = df[df["date"] >= pd.to_datetime(date_from)]
-    df = df[df["date"] < pd.to_datetime(date_to)]
+    # Filter by extended date range
+    df = df[(df["date"] >= pd.to_datetime(extended_date_from)) & (df["date"] < pd.to_datetime(date_to))]
+    df = df.sort_values(["symbol", "date"])
 
+    # Function to compute indicators on a per-symbol basis
+    def compute_indicators(g):
+        g = g.sort_values("date")
+
+        # Simple moving averages
+        g["SMA_5"] = g["close"].rolling(5).mean()
+        g["SMA_10"] = g["close"].rolling(10).mean()
+        g["SMA_15"] = g["close"].rolling(15).mean()
+        g["SMA_30"] = g["close"].rolling(30).mean()
+
+        # Exponential moving average
+        g["EMA_9"] = g["close"].ewm(span=9, adjust=False).mean()
+
+        # RSI
+        delta = g["close"].diff()
+        gain = delta.clip(lower=0)
+        loss = (-delta).clip(lower=0)
+        avg_gain = gain.rolling(window=14).mean()
+        avg_loss = loss.rolling(window=14).mean()
+        rs = avg_gain / avg_loss
+        g["RSI"] = 100 - (100 / (1 + rs))
+
+        # MACD
+        short_ema = g["close"].ewm(span=12, adjust=False).mean()
+        long_ema = g["close"].ewm(span=26, adjust=False).mean()
+        macd_line = short_ema - long_ema
+        signal_line = macd_line.ewm(span=9, adjust=False).mean()
+        g["MACD"] = macd_line
+        g["MACD_signal"] = signal_line
+        g["MACD_hist"] = macd_line - signal_line
+
+        return g
+
+    # Apply indicators per symbol
+    df = df.groupby("symbol", group_keys=False).apply(compute_indicators)
+
+    # Filter out rows earlier than original date_from
+    df = df[df["date"] >= pd.to_datetime(date_from)]
+
+    # if df becomes empty, return None
+    if df.empty:
+        return None
+
+    # Pivot to have open, high, low, close, and indicators in columns
     pivot_df = pd.pivot_table(
         df,
         index="date",
         columns="symbol",
-        values=["open", "high", "low", "close"],
+        values=[
+            "open", "high", "low", "close",
+            "SMA_5", "SMA_10", "SMA_15", "SMA_30",
+            "EMA_9", "RSI",
+            "MACD", "MACD_signal", "MACD_hist"
+        ],
         aggfunc="first",
     )
 
+    # Reindex to ensure all dates are represented
     try:
-        full_date_range = pd.date_range(start=df["date"].min(), end=df["date"].max(), freq="D")
+        full_date_range = pd.date_range(
+            start=df["date"].min(),
+            end=df["date"].max(),
+            freq="D"
+        )
         pivot_df = pivot_df.reindex(full_date_range)
-    except:
+    except Exception:
         return None
 
     return pivot_df if not return_original else df
 
 
 def add_tickers_data(cerebro: bt.Cerebro, pivot_df: pd.DataFrame):
+    datas = []
     # Process data and add to Cerebro
     for symbol in pivot_df.columns.levels[1]:
         symbol_df = pivot_df.xs(symbol, axis=1, level=1, drop_level=False).copy()
@@ -69,9 +127,12 @@ def add_tickers_data(cerebro: bt.Cerebro, pivot_df: pd.DataFrame):
         symbol_df.bfill(inplace=True)
 
         data = bt.feeds.PandasData(dataname=symbol_df)
-        cerebro.adddata(data, name=symbol)
+        datas.append((symbol, data))
 
-    return
+        if cerebro is not None:
+            cerebro.adddata(data, name=symbol)
+
+    return datas
 
 def process_for_ff(df: pd.DataFrame):
     """
@@ -232,6 +293,136 @@ def replace_index_with_etfs(df):
     )
 
     return result_df
+
+
+def aggregate_results(selection_strategy:str):
+    # read all the folders in the selection strategy
+    strategy_names = os.listdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), "output", selection_strategy))
+    loop = tqdm(strategy_names)
+    for strategy_name in loop:
+        if "." in strategy_name:
+            continue
+
+        loop.set_description(f"Processing {strategy_name}")
+        # automatically check the filename xxx.pkl under the directory
+        output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output", selection_strategy, strategy_name)
+        output_file = os.path.join(output_dir, os.listdir(output_dir)[0])
+
+        with open(output_file, "rb") as f:
+            all_results = pickle.load(f)
+
+        # import ipdb; ipdb.set_trace()
+        # level 0 keys
+        rolling_windows = all_results.keys()
+        # level 1 keys
+        tickers = all_results[list(rolling_windows)[-1]].keys()
+
+        results_df_by_tickers = pd.DataFrame(
+            columns=["Period", "ticker", "total_return (%)", "annual_return (%)", "annual_volatility (%)", "sharpe_ratio", "sortino_ratio",
+                     "max_drawdown"])
+
+        all_ticker_avg_total_return = 0
+        all_ticker_avg_annual_return = 0
+        all_ticker_avg_annual_volatility = 0
+        all_ticker_avg_sharpe_ratio = 0
+        all_ticker_avg_sortino_ratio = 0
+        all_ticker_avg_max_drawdown = 0
+        all_ticker_valid_window = 0
+
+        try:
+            for ticker in tickers:
+                valid_window = 0
+                # calculate the average return
+                avg_total_return = 0
+                avg_annual_return = 0
+                avg_annual_volatility = 0
+                avg_sharpe_ratio = 0
+                avg_sortino_ratio = 0
+                avg_max_drawdown = 0
+
+                for window in rolling_windows:
+                    if ticker not in all_results[window]:
+                        continue
+
+                    avg_total_return += all_results[window][ticker]["total_return"]
+                    avg_annual_return += all_results[window][ticker]["annual_return"]
+                    avg_annual_volatility += all_results[window][ticker]["annual_volatility"]
+                    avg_sharpe_ratio += all_results[window][ticker]["sharpe_ratio"]
+                    avg_sortino_ratio += all_results[window][ticker]["sortino_ratio"]
+                    avg_max_drawdown += all_results[window][ticker]["max_drawdown"]
+
+                    all_ticker_avg_total_return += all_results[window][ticker]["total_return"]
+                    all_ticker_avg_annual_return += all_results[window][ticker]["annual_return"]
+                    all_ticker_avg_annual_volatility += all_results[window][ticker]["annual_volatility"]
+                    all_ticker_avg_sharpe_ratio += all_results[window][ticker]["sharpe_ratio"]
+                    all_ticker_avg_sortino_ratio += all_results[window][ticker]["sortino_ratio"]
+                    all_ticker_avg_max_drawdown += all_results[window][ticker]["max_drawdown"]
+
+                    # print("="*10)
+                    # print(all_ticker_avg_sharpe_ratio)
+                    # print(all_results[window][ticker]["sharpe_ratio"])
+
+                    valid_window += 1
+                    all_ticker_valid_window += 1
+
+                    results_df_by_tickers = results_df_by_tickers._append(
+                        {
+                            "Period": window,
+                            "ticker": ticker,
+                            "total_return (%)": "{:.3f}".format(all_results[window][ticker]["total_return"] * 100),
+                            "annual_return (%)": "{:.3f}".format(all_results[window][ticker]["annual_return"] * 100),
+                            "annual_volatility (%)": "{:.3f}".format(all_results[window][ticker]["annual_volatility"] * 100),
+                            "sharpe_ratio": "{:.3f}".format(all_results[window][ticker]["sharpe_ratio"]),
+                            "sortino_ratio": "{:.3f}".format(all_results[window][ticker]["sortino_ratio"]),
+                            "max_drawdown": "{:.3f}".format(-all_results[window][ticker]["max_drawdown"]),
+                        },
+                        ignore_index=True)
+
+                avg_total_return /= valid_window
+                avg_annual_return /= valid_window
+                avg_annual_volatility /= valid_window
+                avg_sharpe_ratio /= valid_window
+                avg_sortino_ratio /= valid_window
+                avg_max_drawdown /= valid_window
+
+                results_df_by_tickers = results_df_by_tickers._append(
+                    {
+                        "Period": "Average",
+                        "ticker": ticker,
+                        "total_return (%)": "{:.3f}".format(avg_total_return * 100),
+                        "annual_return (%)": "{:.3f}".format(avg_annual_return * 100),
+                        "annual_volatility (%)": "{:.3f}".format(avg_annual_volatility * 100),
+                        "sharpe_ratio": "{:.3f}".format(avg_sharpe_ratio),
+                        "sortino_ratio": "{:.3f}".format(avg_sortino_ratio),
+                        "max_drawdown": "{:.3f}".format(-avg_max_drawdown),
+                    },
+                    ignore_index=True)
+
+            all_ticker_avg_total_return /= all_ticker_valid_window
+            all_ticker_avg_annual_return /= all_ticker_valid_window
+            all_ticker_avg_annual_volatility /= all_ticker_valid_window
+            all_ticker_avg_sharpe_ratio /= all_ticker_valid_window
+            all_ticker_avg_sortino_ratio /= all_ticker_valid_window
+            all_ticker_avg_max_drawdown /= all_ticker_valid_window
+
+            results_df_by_tickers = results_df_by_tickers._append(
+                {
+                    "Period": "Average",
+                    "ticker": "All",
+                    "total_return (%)": "{:.3f}".format(all_ticker_avg_total_return * 100),
+                    "annual_return (%)": "{:.3f}".format(all_ticker_avg_annual_return * 100),
+                    "annual_volatility (%)": "{:.3f}".format(all_ticker_avg_annual_volatility * 100),
+                    "sharpe_ratio": "{:.3f}".format(all_ticker_avg_sharpe_ratio),
+                    "sortino_ratio": "{:.3f}".format(all_ticker_avg_sortino_ratio),
+                    "max_drawdown": "{:.3f}".format(-all_ticker_avg_max_drawdown),
+                },
+                ignore_index=True)
+
+            results_df_by_tickers.to_csv(os.path.join(os.path.dirname(os.path.abspath(__file__)), "output", selection_strategy, strategy_name, "results.csv"),
+                                         index=False)
+        except Exception as e:
+            print(f"Error processing {strategy_name}: {e}")
+            continue
 
 
 if __name__ == "__main__":

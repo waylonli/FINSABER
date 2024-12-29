@@ -55,13 +55,14 @@ class BacktestingEngine:
             tickers_data = tickers_data.groupby("symbol").filter(lambda x: x.shape[0] >= total_years * 252)
             print(f"Number of tickers with data for the entire period: {tickers_data['symbol'].nunique()}")
             # set random seed
-            if os.path.exists(os.path.join(self.trade_config.log_base_dir, "random_10", "random_10_symbols.txt")):
-                with open(os.path.join(self.trade_config.log_base_dir, "random_10", "random_10_symbols.txt"), "r") as f:
+            if os.path.exists(os.path.join(self.trade_config.log_base_dir, f"random_{num_tickers}", f"random_{num_tickers}_symbols.txt")):
+                with open(os.path.join(self.trade_config.log_base_dir, f"random_{num_tickers}", f"random_{num_tickers}_symbols.txt"), "r") as f:
                     tickers = f.read().splitlines()
             else:
                 np.random.seed(42)
                 tickers = list(np.random.choice(tickers_data["symbol"].unique(), num_tickers, replace=False))
-                with open(os.path.join(self.trade_config.log_base_dir, "random_10", "random_10_symbols.txt"), "w") as f:
+                os.makedirs(os.path.join(self.trade_config.log_base_dir, f"random_{num_tickers}"), exist_ok=True)
+                with open(os.path.join(self.trade_config.log_base_dir, f"random_{num_tickers}", f"random_{num_tickers}_symbols.txt"), "w") as f:
                     f.write("\n".join(tickers))
 
             # print(f"Selected tickers: {tickers}")
@@ -91,6 +92,7 @@ class BacktestingEngine:
             os.makedirs(output_dir, exist_ok=True)
             with open(os.path.join(output_dir, filename), "wb") as f:
                 pickle.dump(eval_metrics, f)
+            f.close()
 
         return eval_metrics
 
@@ -117,18 +119,39 @@ class BacktestingEngine:
             cerebro = bt.Cerebro()
 
             pd_data = get_tickers_price(ticker, date_from=test_config.date_from, date_to=test_config.date_to)
-
-            # skip if no data or data is not start from January
-            if pd_data is None or pd_data.index.min().month != 1:
-                # print(f"No data in the period {test_config.date_from} to {test_config.date_to} for {ticker}")
-                continue
-
-            add_tickers_data(cerebro, pd_data)
+            train_data = None
 
             for additional_arg in kwargs:
                 # if it is callable, call it
                 if callable(kwargs[additional_arg]):
                     kwargs[additional_arg] = kwargs[additional_arg](pd_data)
+
+            # if the model needs to be trained, set the training data that are not used for backtesting
+            if "train_period" in vars(strategy.params).keys():
+                if not strategy.params.train_period % 252 == 0:
+                    raise ValueError("train_period must be a multiple of 252")
+
+                train_year = strategy.params.train_period // 252
+                train_data = get_tickers_price(
+                    ticker,
+                    date_from=(pd.to_datetime(test_config.date_from) - pd.DateOffset(years=train_year)).strftime("%Y-%m-%d"),
+                    date_to=(pd.to_datetime(test_config.date_from) - pd.DateOffset(days=1)).strftime("%Y-%m-%d")
+                )
+
+                kwargs["train_data"] = train_data
+
+            # skip if no data or data is not start from January
+            if (pd_data is None or pd_data.index.min().month != 1) and ("cherry_pick" not in test_config.selection_strategy):
+                # print(f"No data in the period {test_config.date_from} to {test_config.date_to} for {ticker}")
+                continue
+
+            # skip if no enough data for training
+            if train_data:
+                if train_data.index.min().year > pd.to_datetime(test_config.date_from).year - train_year:
+                    # print(f"Train data for {ticker} is not enough at year {pd.to_datetime(test_config.date_from).year}")
+                    continue
+
+            add_tickers_data(cerebro, pd_data)
 
             # Add a strategy
             cerebro.addstrategy(strategy, total_days=len(set(pd_data.index.tolist())), **kwargs)
@@ -137,6 +160,7 @@ class BacktestingEngine:
             cerebro.broker.setcash(test_config.cash)
             commission_scheme = USStockCommission()
             cerebro.broker.addcommissioninfo(commission_scheme)
+            cerebro.broker.set_shortcash(False)
 
             # Add observers
             cerebro.addobserver(bt.observers.Value)
@@ -189,6 +213,15 @@ class BacktestingEngine:
                 plt.ylabel("Equity")
                 plt.legend()
                 plt.show()
+
+        if "cherry_pick" in test_config.selection_strategy and test_config.save_results:
+            # store the results using pickle
+            output_dir = os.path.join(test_config.log_base_dir, test_config.selection_strategy.replace(":", "_"), strategy.__name__)
+            filename = f"{test_config.date_from}_{test_config.date_to}.pkl" if test_config.result_filename is None else test_config.result_filename
+            os.makedirs(output_dir, exist_ok=True)
+            with open(os.path.join(output_dir, filename), "wb") as f:
+                pickle.dump({f"{test_config.date_from}_{test_config.date_to}": eval_metrics}, f)
+            f.close()
 
         return eval_metrics
 
@@ -273,6 +306,18 @@ class BacktestingEngine:
             total_return = (strategy.broker.getvalue() / test_config.cash) - 1
             total_periods = len(daily_returns)
             annual_return = (1 + total_return) ** (252 / total_periods) - 1
+            # check if annual return is float
+            try:
+                assert isinstance(annual_return, float), f"Annual return is not float: {annual_return}"
+            except AssertionError as e:
+                print("value", strategy.broker.getvalue())
+                print("cash", test_config.cash)
+                print("total return", total_return)
+                print("total periods", total_periods)
+                print("annual return", annual_return)
+                # print stock symbol
+                print("stock symbol", strategy.datas[0]._name)
+                raise e
 
             # Calculate annual volatility
             annual_volatility = metrics.calculate_annual_volatility(daily_returns)

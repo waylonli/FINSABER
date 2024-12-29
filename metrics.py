@@ -9,15 +9,16 @@ def calculate_sortino_ratio(daily_returns, risk_free_rate=0):
     """
     # Calculate downside deviation (for Sortino Ratio)
     downside_returns = daily_returns[daily_returns < 0]
+
+    if len(downside_returns) < 2:
+        return 0
+
     downside_deviation = downside_returns.std() * np.sqrt(252)
 
-    # Calculate Sortino Ratio
-    if downside_deviation != 0:
-        sortino_ratio = (daily_returns.mean() * 252 - risk_free_rate) / downside_deviation
-    else:
-        sortino_ratio = 0
+    if downside_deviation == 0:
+        return 0
 
-    return sortino_ratio
+    return (daily_returns.mean() * 252 - risk_free_rate) / downside_deviation
 
 def calculate_annual_volatility(daily_returns):
     """

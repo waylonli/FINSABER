@@ -68,11 +68,11 @@ if __name__ == "__main__":
     #     "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
     #     "silence": False,
     #     "selection_strategy": "selected_5",
-    #     "date_from": "2004-01-01",
     # }
     trade_config = {
         "tickers": "all",
-        "silence": False,
+        "silence": True,
+        "selection_strategy": "random:50",
     }
     operator = BacktestingEngine(trade_config)
     operator.run_rolling_window(TrendFollowingStrategy)

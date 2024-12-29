@@ -6,9 +6,9 @@ from preliminary.backtest_engine import BacktestingEngine
 
 class WMAStrategy(BaseStrategy):
     params = (
-        ('short_window', 5),
-        ('long_window', 20),
-        ('trade_size', 1.0),
+        ('short_window', 20),
+        ('long_window', 100),
+        ('trade_size', 0.95),
         ("total_days", 0),
     )
 
@@ -61,7 +61,9 @@ if __name__ == "__main__":
 
     trade_config = {
         "tickers": "all",
-        "silence": False,
+        "silence": True,
+        "selection_strategy": "random:50",
+        "print_trades_table": True,
     }
 
     operator = BacktestingEngine(trade_config)
