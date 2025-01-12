@@ -1,5 +1,4 @@
 /data/
 .env
 .idea
-finmem
-finrobot
+llm_traders/
