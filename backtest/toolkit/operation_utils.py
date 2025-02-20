@@ -425,6 +425,128 @@ def aggregate_results(selection_strategy:str):
             continue
 
 
+def aggregate_results_one_strategy(selection_strategy: str, trading_strategy: str):
+
+    # automatically check the filename xxx.pkl under the directory
+    # root dir is the grandparent directory of this file
+    output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "output", selection_strategy, trading_strategy)
+    output_file = os.path.join(output_dir, [file for file in os.listdir(output_dir) if file.endswith(".pkl")][0])
+
+    with open(output_file, "rb") as f:
+        all_results = pickle.load(f)
+
+    # import ipdb; ipdb.set_trace()
+    # level 0 keys
+    rolling_windows = all_results.keys()
+    # level 1 keys
+    tickers = all_results[list(rolling_windows)[-1]].keys()
+
+    results_df_by_tickers = pd.DataFrame(
+        columns=["Period", "ticker", "total_return (%)", "annual_return (%)", "annual_volatility (%)", "sharpe_ratio", "sortino_ratio",
+                 "max_drawdown"])
+
+    all_ticker_avg_total_return = 0
+    all_ticker_avg_annual_return = 0
+    all_ticker_avg_annual_volatility = 0
+    all_ticker_avg_sharpe_ratio = 0
+    all_ticker_avg_sortino_ratio = 0
+    all_ticker_avg_max_drawdown = 0
+    all_ticker_valid_window = 0
+
+    try:
+        for ticker in tickers:
+            valid_window = 0
+            # calculate the average return
+            avg_total_return = 0
+            avg_annual_return = 0
+            avg_annual_volatility = 0
+            avg_sharpe_ratio = 0
+            avg_sortino_ratio = 0
+            avg_max_drawdown = 0
+
+            for window in rolling_windows:
+                if ticker not in all_results[window]:
+                    continue
+
+                avg_total_return += all_results[window][ticker]["total_return"]
+                avg_annual_return += all_results[window][ticker]["annual_return"]
+                avg_annual_volatility += all_results[window][ticker]["annual_volatility"]
+                avg_sharpe_ratio += all_results[window][ticker]["sharpe_ratio"]
+                avg_sortino_ratio += all_results[window][ticker]["sortino_ratio"]
+                avg_max_drawdown += all_results[window][ticker]["max_drawdown"]
+
+                all_ticker_avg_total_return += all_results[window][ticker]["total_return"]
+                all_ticker_avg_annual_return += all_results[window][ticker]["annual_return"]
+                all_ticker_avg_annual_volatility += all_results[window][ticker]["annual_volatility"]
+                all_ticker_avg_sharpe_ratio += all_results[window][ticker]["sharpe_ratio"]
+                all_ticker_avg_sortino_ratio += all_results[window][ticker]["sortino_ratio"]
+                all_ticker_avg_max_drawdown += all_results[window][ticker]["max_drawdown"]
+
+                # print("="*10)
+                # print(all_ticker_avg_sharpe_ratio)
+                # print(all_results[window][ticker]["sharpe_ratio"])
+
+                valid_window += 1
+                all_ticker_valid_window += 1
+
+                results_df_by_tickers = results_df_by_tickers._append(
+                    {
+                        "Period": window,
+                        "ticker": ticker,
+                        "total_return (%)": "{:.3f}".format(all_results[window][ticker]["total_return"] * 100),
+                        "annual_return (%)": "{:.3f}".format(all_results[window][ticker]["annual_return"] * 100),
+                        "annual_volatility (%)": "{:.3f}".format(all_results[window][ticker]["annual_volatility"] * 100),
+                        "sharpe_ratio": "{:.3f}".format(all_results[window][ticker]["sharpe_ratio"]),
+                        "sortino_ratio": "{:.3f}".format(all_results[window][ticker]["sortino_ratio"]),
+                        "max_drawdown": "{:.3f}".format(-all_results[window][ticker]["max_drawdown"]),
+                    },
+                    ignore_index=True)
+
+            avg_total_return /= valid_window
+            avg_annual_return /= valid_window
+            avg_annual_volatility /= valid_window
+            avg_sharpe_ratio /= valid_window
+            avg_sortino_ratio /= valid_window
+            avg_max_drawdown /= valid_window
+
+            results_df_by_tickers = results_df_by_tickers._append(
+                {
+                    "Period": "Average",
+                    "ticker": ticker,
+                    "total_return (%)": "{:.3f}".format(avg_total_return * 100),
+                    "annual_return (%)": "{:.3f}".format(avg_annual_return * 100),
+                    "annual_volatility (%)": "{:.3f}".format(avg_annual_volatility * 100),
+                    "sharpe_ratio": "{:.3f}".format(avg_sharpe_ratio),
+                    "sortino_ratio": "{:.3f}".format(avg_sortino_ratio),
+                    "max_drawdown": "{:.3f}".format(-avg_max_drawdown),
+                },
+                ignore_index=True)
+
+        all_ticker_avg_total_return /= all_ticker_valid_window
+        all_ticker_avg_annual_return /= all_ticker_valid_window
+        all_ticker_avg_annual_volatility /= all_ticker_valid_window
+        all_ticker_avg_sharpe_ratio /= all_ticker_valid_window
+        all_ticker_avg_sortino_ratio /= all_ticker_valid_window
+        all_ticker_avg_max_drawdown /= all_ticker_valid_window
+
+        results_df_by_tickers = results_df_by_tickers._append(
+            {
+                "Period": "Average",
+                "ticker": "All",
+                "total_return (%)": "{:.3f}".format(all_ticker_avg_total_return * 100),
+                "annual_return (%)": "{:.3f}".format(all_ticker_avg_annual_return * 100),
+                "annual_volatility (%)": "{:.3f}".format(all_ticker_avg_annual_volatility * 100),
+                "sharpe_ratio": "{:.3f}".format(all_ticker_avg_sharpe_ratio),
+                "sortino_ratio": "{:.3f}".format(all_ticker_avg_sortino_ratio),
+                "max_drawdown": "{:.3f}".format(-all_ticker_avg_max_drawdown),
+            },
+            ignore_index=True)
+
+        results_df_by_tickers.to_csv(os.path.join(output_dir, "results.csv"),
+                                     index=False)
+    except Exception as e:
+        print(f"Error processing {trading_strategy}: {e}")
+
 if __name__ == "__main__":
     pass
 

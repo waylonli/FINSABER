@@ -3,9 +3,11 @@ import numpy as np
 import pickle
 from datetime import datetime
 import matplotlib.pyplot as plt
+from tqdm import tqdm
+
 from backtest.strategy.timing_iso.base_strategy_iso import BaseStrategyIso
 
-class BacktestFramework:
+class BacktestFrameworkIso:
     def __init__(self, initial_cash=100000, risk_free_rate=0.0, commission_per_share=0.0049, min_commission=0.99):
         self.initial_cash = initial_cash
         self.cash = initial_cash
@@ -14,8 +16,9 @@ class BacktestFramework:
         self.risk_free_rate = risk_free_rate
         self.commission_per_share = commission_per_share
         self.min_commission = min_commission
+        self.data = None
 
-    def load_data(self, data):
+    def load_backtest_data(self, data: dict or str, start_date: datetime = None, end_date: datetime = None):
         if isinstance(data, str):
             with open(data, 'rb') as file:
                 self.data = pickle.load(file)
@@ -24,14 +27,27 @@ class BacktestFramework:
         else:
             raise ValueError("Data format not supported.")
 
+        if start_date is not None and end_date is not None:
+            self.data = {d: data[d] for d in data if pd.to_datetime(start_date).date() <= d <= pd.to_datetime(end_date).date()}
+
+
     def calculate_commission(self, quantity):
         commission = abs(quantity) * self.commission_per_share
         return max(commission, self.min_commission)
 
     def buy(self, date, ticker, price, quantity):
-        cost = price * quantity
-        commission = self.calculate_commission(quantity)
-        total_cost = cost + commission
+        if quantity >= 0:
+            cost = price * quantity
+            commission = self.calculate_commission(quantity)
+            total_cost = cost + commission
+        elif quantity == -1:
+            # Buy all available cash, taking into account commission
+            total_cost = self.cash
+            commission = self.calculate_commission(int(total_cost / price))
+            total_cost -= commission
+            quantity = int(total_cost / price)
+            total_cost = price * quantity + commission
+
         if self.cash >= total_cost:
             self.cash -= total_cost
             if ticker in self.portfolio:
@@ -59,18 +75,26 @@ class BacktestFramework:
         for date, data in self.data.items():
             prices = data['price']
             strategy.on_data(date, prices, self)
+            strategy.update_info(date, prices, self)
+            # import pdb; pdb.set_trace()
+        # if there are any remaining holdings, sell them all at the last date
+        try:
+            last_date = list(self.data.keys())[-1]
+        except:
+            import pdb; pdb.set_trace()
+        for ticker in list(self.portfolio.keys()):
+            price = self.data[last_date]['price'][ticker]
+            quantity = self.portfolio[ticker]['quantity']
+            self.sell(last_date, ticker, price, quantity)
 
-    def evaluate(self):
+    def evaluate(self, strategy: BaseStrategyIso):
         final_value = self.cash + sum(
             [self.portfolio[ticker]['quantity'] * self.data[list(self.data.keys())[-1]]['price'][ticker]
              for ticker in self.portfolio])
 
-        returns = [
-            trade['price'] * trade['quantity'] * (1 if trade['type'] == 'sell' else -1) / self.initial_cash
-            for trade in self.history
-        ]
-
-        daily_returns = pd.Series(returns).pct_change().dropna()
+        assert len(strategy.equity) > 1, "Equity data is missing."
+        daily_returns = pd.Series([strategy.equity[i] / strategy.equity[i - 1] - 1
+                                   for i in range(1, len(strategy.equity))])
 
         total_return = (final_value / self.initial_cash) - 1
         annual_return = (1 + total_return) ** (252 / len(self.data)) - 1
@@ -83,6 +107,12 @@ class BacktestFramework:
 
         total_commission = sum([trade['commission'] for trade in self.history])
 
+        # Calculate maximum drawdown
+        equity_series = pd.Series(strategy.equity)
+        running_max = equity_series.cummax()
+        drawdowns = (equity_series - running_max) / running_max
+        max_drawdown = abs(drawdowns.min()) * 100
+
         return {
             'final_value': final_value,
             'total_return': total_return,
@@ -90,27 +120,35 @@ class BacktestFramework:
             'annual_volatility': annual_volatility,
             'sharpe_ratio': sharpe_ratio,
             'sortino_ratio': sortino_ratio,
-            'total_commission': total_commission
+            'total_commission': total_commission,
+            'max_drawdown': max_drawdown
         }
 
-    def plot(self):
-        dates = [trade['date'] for trade in self.history]
-        equity_curve = [
-            self.initial_cash + sum(
-                [
-                    trade['price'] * trade['quantity'] * (1 if trade['type'] == 'sell' else -1)
-                    for trade in self.history[:i+1]
-                ]
-            ) for i in range(len(self.history))
-        ]
+    # def plot(self):
+    #     dates = [trade['date'] for trade in self.history]
+    #     equity_curve = [
+    #         self.initial_cash + sum(
+    #             [
+    #                 trade['price'] * trade['quantity'] * (1 if trade['type'] == 'sell' else -1)
+    #                 for trade in self.history[:i+1]
+    #             ]
+    #         ) for i in range(len(self.history))
+    #     ]
+    #
+    #     plt.figure(figsize=(10, 6))
+    #     plt.plot(dates, equity_curve, label="Equity Curve")
+    #     plt.title("Equity Curve")
+    #     plt.xlabel("Date")
+    #     plt.ylabel("Equity")
+    #     plt.legend()
+    #     plt.show()
+    #     import pdb; pdb.set_trace()
 
-        plt.figure(figsize=(10, 6))
-        plt.plot(dates, equity_curve, label="Equity Curve")
-        plt.title("Equity Curve")
-        plt.xlabel("Date")
-        plt.ylabel("Equity")
-        plt.legend()
-        plt.show()
+    def reset(self):
+        self.cash = self.initial_cash
+        self.portfolio = {}
+        self.history = []
+        self.data = None
 
 # class SampleStrategy(BaseStrategyIso):
 #     def on_data(self, date, prices, framework):

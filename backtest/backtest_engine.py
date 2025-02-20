@@ -220,7 +220,6 @@ class BacktestingEngine:
             with open(os.path.join(output_dir, filename), "wb") as f:
                 pickle.dump({f"{test_config.date_from}_{test_config.date_to}": eval_metrics}, f)
             f.close()
-
         return eval_metrics
 
 
