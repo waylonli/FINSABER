@@ -5,3 +5,9 @@ llm_traders/
 /workdir
 /scripts
 /backtest/scripts
+.cache
+.vscode
+.DS_Store
+/backtest/__pycache__/
+/backtest/.DS_Store
+seekalpha invoice.pdf
