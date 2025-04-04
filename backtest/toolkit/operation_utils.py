@@ -12,6 +12,58 @@ HF_ACCESS_TOKEN = os.getenv("HF_ACCESS_TOKEN")
 import pwb_toolbox.datasets as pwb_ds
 
 
+def load_price_dataset(
+        symbols=None,
+        dataset_type: str="sp500",
+        adjust=True,
+        extend=False,
+        rate_to_price=True,
+) -> pd.DataFrame:
+
+    if dataset_type == "paperswithbacktest":
+        return pwb_ds.load_dataset(
+            "Stocks-Daily-Price",
+            symbols,
+            adjust=adjust,
+            extend=extend,
+            rate_to_price=rate_to_price,
+            cache_dir=os.path.join("data", "hf")
+        )
+    else:
+        df = pd.read_csv(os.path.join("data", "price", "all_sp500_prices_2000_2024_delisted_include.csv")) if dataset_type == "sp500" else pd.read_parquet(os.path.join("data", "price", "stock_price_daily.parquet"))
+
+        df["date"] = pd.to_datetime(df["date"])
+
+        if symbols is not None:
+            df = df[df["symbol"].isin(symbols)].copy()
+
+
+        if adjust and "adjusted_close" in df.columns:
+            # rename "adjusted_close" to "adj_close"
+            df.rename(columns={"adjusted_close": "adj_close"}, inplace=True)
+
+            adj_factor = df["adj_close"] / df["close"]
+            df["adj_open"] = df["open"] * adj_factor
+            df["adj_high"] = df["high"] * adj_factor
+            df["adj_low"] = df["low"] * adj_factor
+            df.drop(columns=["open", "high", "low", "close"], inplace=True)
+            df.rename(
+                columns={
+                    "adj_open": "open",
+                    "adj_high": "high",
+                    "adj_low": "low",
+                    "adj_close": "close",
+                },
+                inplace=True,
+            )
+        else:
+            if "adjusted_close" in df.columns:
+                df.rename(columns={"adjusted_close": "adj_close"}, inplace=True)
+                df.drop(columns=["adj_close"])
+
+        return df
+
+
 def get_tickers_price(
     tickers: list[str] | str,
     date_from: str = "2000-01-01",
@@ -33,11 +85,11 @@ def get_tickers_price(
 
     # Load data from your source
     if isinstance(tickers, list):
-        df = pwb_ds.load_dataset("Stocks-Daily-Price", tickers, adjust=True)
+        df = load_price_dataset(symbols=tickers, adjust=True)
     elif tickers == "all":
-        df = pwb_ds.load_dataset("Stocks-Daily-Price", adjust=True)
+        df = load_price_dataset(adjust=True)
     else:
-        df = pwb_ds.load_dataset("Stocks-Daily-Price", [tickers], adjust=True)
+        df = load_price_dataset(symbols=[tickers], adjust=True)
 
     # Filter by extended date range
     df = df[(df["date"] >= pd.to_datetime(extended_date_from)) & (df["date"] < pd.to_datetime(date_to))]
@@ -295,9 +347,9 @@ def replace_index_with_etfs(df):
     return result_df
 
 
-def aggregate_results(selection_strategy:str):
+def aggregate_results(setup_name:str):
     # read all the folders in the selection strategy
-    strategy_names = os.listdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), "output", selection_strategy))
+    strategy_names = os.listdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), "output", setup_name))
     loop = tqdm(strategy_names)
     for strategy_name in loop:
         if "." in strategy_name:
@@ -305,7 +357,7 @@ def aggregate_results(selection_strategy:str):
 
         loop.set_description(f"Processing {strategy_name}")
         # automatically check the filename xxx.pkl under the directory
-        output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output", selection_strategy, strategy_name)
+        output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output", setup_name, strategy_name)
         output_file = os.path.join(output_dir, os.listdir(output_dir)[0])
 
         with open(output_file, "rb") as f:
@@ -315,7 +367,11 @@ def aggregate_results(selection_strategy:str):
         # level 0 keys
         rolling_windows = all_results.keys()
         # level 1 keys
-        tickers = all_results[list(rolling_windows)[-1]].keys()
+        tickers = set()
+        for window in rolling_windows:
+            tickers.update(all_results[window])
+
+        tickers = list(tickers)
 
         results_df_by_tickers = pd.DataFrame(
             columns=["Period", "ticker", "total_return (%)", "annual_return (%)", "annual_volatility (%)", "sharpe_ratio", "sortino_ratio",
@@ -418,18 +474,22 @@ def aggregate_results(selection_strategy:str):
                 },
                 ignore_index=True)
 
-            results_df_by_tickers.to_csv(os.path.join(os.path.dirname(os.path.abspath(__file__)), "output", selection_strategy, strategy_name, "results.csv"),
+            results_df_by_tickers.to_csv(os.path.join(os.path.dirname(os.path.abspath(__file__)), "output", setup_name, strategy_name, "results.csv"),
                                          index=False)
         except Exception as e:
             print(f"Error processing {strategy_name}: {e}")
             continue
 
 
-def aggregate_results_one_strategy(selection_strategy: str, trading_strategy: str):
+def aggregate_results_one_strategy(setup_name: str, trading_strategy: str, output_dir: str = None):
 
     # automatically check the filename xxx.pkl under the directory
     # root dir is the grandparent directory of this file
-    output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "output", selection_strategy, trading_strategy)
+    if output_dir is None:
+        output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "output", setup_name.replace(":","_"), trading_strategy)
+    else:
+        output_dir = os.path.join(output_dir, setup_name.replace(":","_"), trading_strategy)
+
     output_file = os.path.join(output_dir, [file for file in os.listdir(output_dir) if file.endswith(".pkl")][0])
 
     with open(output_file, "rb") as f:
@@ -438,8 +498,12 @@ def aggregate_results_one_strategy(selection_strategy: str, trading_strategy: st
     # import ipdb; ipdb.set_trace()
     # level 0 keys
     rolling_windows = all_results.keys()
-    # level 1 keys
-    tickers = all_results[list(rolling_windows)[-1]].keys()
+    # level 1 keys, loop all the windows to get all the tickers
+    tickers = set()
+    for window in rolling_windows:
+        tickers.update(all_results[window])
+
+    tickers = list(tickers)
 
     results_df_by_tickers = pd.DataFrame(
         columns=["Period", "ticker", "total_return (%)", "annual_return (%)", "annual_volatility (%)", "sharpe_ratio", "sortino_ratio",
@@ -453,101 +517,106 @@ def aggregate_results_one_strategy(selection_strategy: str, trading_strategy: st
     all_ticker_avg_max_drawdown = 0
     all_ticker_valid_window = 0
 
-    try:
-        for ticker in tickers:
-            valid_window = 0
-            # calculate the average return
-            avg_total_return = 0
-            avg_annual_return = 0
-            avg_annual_volatility = 0
-            avg_sharpe_ratio = 0
-            avg_sortino_ratio = 0
-            avg_max_drawdown = 0
+    # try:
+    for ticker in tickers:
+        valid_window = 0
+        # calculate the average return
+        avg_total_return = 0
+        avg_annual_return = 0
+        avg_annual_volatility = 0
+        avg_sharpe_ratio = 0
+        avg_sortino_ratio = 0
+        avg_max_drawdown = 0
 
-            for window in rolling_windows:
-                if ticker not in all_results[window]:
-                    continue
+        for window in rolling_windows:
+            if ticker not in all_results[window]:
+                continue
 
-                avg_total_return += all_results[window][ticker]["total_return"]
-                avg_annual_return += all_results[window][ticker]["annual_return"]
-                avg_annual_volatility += all_results[window][ticker]["annual_volatility"]
-                avg_sharpe_ratio += all_results[window][ticker]["sharpe_ratio"]
-                avg_sortino_ratio += all_results[window][ticker]["sortino_ratio"]
-                avg_max_drawdown += all_results[window][ticker]["max_drawdown"]
+            avg_total_return += all_results[window][ticker]["total_return"]
+            avg_annual_return += all_results[window][ticker]["annual_return"]
+            avg_annual_volatility += all_results[window][ticker]["annual_volatility"]
+            avg_sharpe_ratio += all_results[window][ticker]["sharpe_ratio"]
+            avg_sortino_ratio += all_results[window][ticker]["sortino_ratio"]
+            avg_max_drawdown += all_results[window][ticker]["max_drawdown"]
 
-                all_ticker_avg_total_return += all_results[window][ticker]["total_return"]
-                all_ticker_avg_annual_return += all_results[window][ticker]["annual_return"]
-                all_ticker_avg_annual_volatility += all_results[window][ticker]["annual_volatility"]
-                all_ticker_avg_sharpe_ratio += all_results[window][ticker]["sharpe_ratio"]
-                all_ticker_avg_sortino_ratio += all_results[window][ticker]["sortino_ratio"]
-                all_ticker_avg_max_drawdown += all_results[window][ticker]["max_drawdown"]
+            all_ticker_avg_total_return += all_results[window][ticker]["total_return"]
+            all_ticker_avg_annual_return += all_results[window][ticker]["annual_return"]
+            all_ticker_avg_annual_volatility += all_results[window][ticker]["annual_volatility"]
+            all_ticker_avg_sharpe_ratio += all_results[window][ticker]["sharpe_ratio"]
+            all_ticker_avg_sortino_ratio += all_results[window][ticker]["sortino_ratio"]
+            all_ticker_avg_max_drawdown += all_results[window][ticker]["max_drawdown"]
 
-                # print("="*10)
-                # print(all_ticker_avg_sharpe_ratio)
-                # print(all_results[window][ticker]["sharpe_ratio"])
+            # print("="*10)
+            # print(all_ticker_avg_sharpe_ratio)
+            # print(all_results[window][ticker]["sharpe_ratio"])
 
-                valid_window += 1
-                all_ticker_valid_window += 1
-
-                results_df_by_tickers = results_df_by_tickers._append(
-                    {
-                        "Period": window,
-                        "ticker": ticker,
-                        "total_return (%)": "{:.3f}".format(all_results[window][ticker]["total_return"] * 100),
-                        "annual_return (%)": "{:.3f}".format(all_results[window][ticker]["annual_return"] * 100),
-                        "annual_volatility (%)": "{:.3f}".format(all_results[window][ticker]["annual_volatility"] * 100),
-                        "sharpe_ratio": "{:.3f}".format(all_results[window][ticker]["sharpe_ratio"]),
-                        "sortino_ratio": "{:.3f}".format(all_results[window][ticker]["sortino_ratio"]),
-                        "max_drawdown": "{:.3f}".format(-all_results[window][ticker]["max_drawdown"]),
-                    },
-                    ignore_index=True)
-
-            avg_total_return /= valid_window
-            avg_annual_return /= valid_window
-            avg_annual_volatility /= valid_window
-            avg_sharpe_ratio /= valid_window
-            avg_sortino_ratio /= valid_window
-            avg_max_drawdown /= valid_window
+            valid_window += 1
+            all_ticker_valid_window += 1
 
             results_df_by_tickers = results_df_by_tickers._append(
                 {
-                    "Period": "Average",
+                    "Period": window,
                     "ticker": ticker,
-                    "total_return (%)": "{:.3f}".format(avg_total_return * 100),
-                    "annual_return (%)": "{:.3f}".format(avg_annual_return * 100),
-                    "annual_volatility (%)": "{:.3f}".format(avg_annual_volatility * 100),
-                    "sharpe_ratio": "{:.3f}".format(avg_sharpe_ratio),
-                    "sortino_ratio": "{:.3f}".format(avg_sortino_ratio),
-                    "max_drawdown": "{:.3f}".format(-avg_max_drawdown),
+                    "total_return (%)": "{:.3f}".format(all_results[window][ticker]["total_return"] * 100),
+                    "annual_return (%)": "{:.3f}".format(all_results[window][ticker]["annual_return"] * 100),
+                    "annual_volatility (%)": "{:.3f}".format(all_results[window][ticker]["annual_volatility"] * 100),
+                    "sharpe_ratio": "{:.3f}".format(all_results[window][ticker]["sharpe_ratio"]),
+                    "sortino_ratio": "{:.3f}".format(all_results[window][ticker]["sortino_ratio"]),
+                    "max_drawdown": "{:.3f}".format(-all_results[window][ticker]["max_drawdown"]),
                 },
                 ignore_index=True)
 
-        all_ticker_avg_total_return /= all_ticker_valid_window
-        all_ticker_avg_annual_return /= all_ticker_valid_window
-        all_ticker_avg_annual_volatility /= all_ticker_valid_window
-        all_ticker_avg_sharpe_ratio /= all_ticker_valid_window
-        all_ticker_avg_sortino_ratio /= all_ticker_valid_window
-        all_ticker_avg_max_drawdown /= all_ticker_valid_window
+        avg_total_return /= valid_window
+        avg_annual_return /= valid_window
+        avg_annual_volatility /= valid_window
+        avg_sharpe_ratio /= valid_window
+        avg_sortino_ratio /= valid_window
+        avg_max_drawdown /= valid_window
 
         results_df_by_tickers = results_df_by_tickers._append(
             {
                 "Period": "Average",
-                "ticker": "All",
-                "total_return (%)": "{:.3f}".format(all_ticker_avg_total_return * 100),
-                "annual_return (%)": "{:.3f}".format(all_ticker_avg_annual_return * 100),
-                "annual_volatility (%)": "{:.3f}".format(all_ticker_avg_annual_volatility * 100),
-                "sharpe_ratio": "{:.3f}".format(all_ticker_avg_sharpe_ratio),
-                "sortino_ratio": "{:.3f}".format(all_ticker_avg_sortino_ratio),
-                "max_drawdown": "{:.3f}".format(-all_ticker_avg_max_drawdown),
+                "ticker": ticker,
+                "total_return (%)": "{:.3f}".format(avg_total_return * 100),
+                "annual_return (%)": "{:.3f}".format(avg_annual_return * 100),
+                "annual_volatility (%)": "{:.3f}".format(avg_annual_volatility * 100),
+                "sharpe_ratio": "{:.3f}".format(avg_sharpe_ratio),
+                "sortino_ratio": "{:.3f}".format(avg_sortino_ratio),
+                "max_drawdown": "{:.3f}".format(-avg_max_drawdown),
             },
             ignore_index=True)
 
-        results_df_by_tickers.to_csv(os.path.join(output_dir, "results.csv"),
-                                     index=False)
-    except Exception as e:
-        print(f"Error processing {trading_strategy}: {e}")
+    all_ticker_avg_total_return /= all_ticker_valid_window
+    all_ticker_avg_annual_return /= all_ticker_valid_window
+    all_ticker_avg_annual_volatility /= all_ticker_valid_window
+    all_ticker_avg_sharpe_ratio /= all_ticker_valid_window
+    all_ticker_avg_sortino_ratio /= all_ticker_valid_window
+    all_ticker_avg_max_drawdown /= all_ticker_valid_window
+
+    results_df_by_tickers = results_df_by_tickers._append(
+        {
+            "Period": "Average",
+            "ticker": "All",
+            "total_return (%)": "{:.3f}".format(all_ticker_avg_total_return * 100),
+            "annual_return (%)": "{:.3f}".format(all_ticker_avg_annual_return * 100),
+            "annual_volatility (%)": "{:.3f}".format(all_ticker_avg_annual_volatility * 100),
+            "sharpe_ratio": "{:.3f}".format(all_ticker_avg_sharpe_ratio),
+            "sortino_ratio": "{:.3f}".format(all_ticker_avg_sortino_ratio),
+            "max_drawdown": "{:.3f}".format(-all_ticker_avg_max_drawdown),
+        },
+        ignore_index=True)
+
+    results_df_by_tickers.to_csv(os.path.join(output_dir, "results.csv"),
+                                 index=False)
+    # except Exception as e:
+    #     print(f"Error processing {trading_strategy}: {e}")
 
 if __name__ == "__main__":
-    pass
+    df = pwb_ds.load_dataset("Stocks-Daily-Price", adjust=False, cache_dir="data/hf/")
+    adj_factor = df["adj_close"] / df["close"]
+    df["adj_open"] = df["open"] * adj_factor
+    df["adj_high"] = df["high"] * adj_factor
+    df["adj_low"] = df["low"] * adj_factor
+    import pdb; pdb.set_trace()
 
 

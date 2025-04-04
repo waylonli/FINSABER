@@ -6,6 +6,7 @@ from tqdm import tqdm
 from tabulate import tabulate
 from backtest.toolkit.trade_config import TradeConfig
 from backtest.toolkit.operation_utils import add_tickers_data, get_tickers_price
+from backtest.strategy.selection import *
 import warnings
 import pickle
 import matplotlib.pyplot as plt
@@ -45,27 +46,33 @@ class BacktestingEngine:
         date_to = pd.to_datetime(self.trade_config.date_to)
 
         # check selection strategy
-        if self.trade_config.tickers == "all" and self.trade_config.selection_strategy.startswith("random"):
-            num_tickers = int(self.trade_config.selection_strategy.split(":")[1])
-            tickers_data = get_tickers_price("all", return_original=True)
-            # select tickers that have data for the entire period
-            # excluding weekends and holidays
-            total_years = (date_to - date_from).days // 365
-            tickers_data = tickers_data.groupby("symbol").filter(lambda x: x.shape[0] >= total_years * 252)
-            print(f"Number of tickers with data for the entire period: {tickers_data['symbol'].nunique()}")
-            # set random seed
-            if os.path.exists(os.path.join(self.trade_config.log_base_dir, f"random_{num_tickers}", f"random_{num_tickers}_symbols.txt")):
-                with open(os.path.join(self.trade_config.log_base_dir, f"random_{num_tickers}", f"random_{num_tickers}_symbols.txt"), "r") as f:
-                    tickers = f.read().splitlines()
-            else:
-                np.random.seed(42)
-                tickers = list(np.random.choice(tickers_data["symbol"].unique(), num_tickers, replace=False))
-                os.makedirs(os.path.join(self.trade_config.log_base_dir, f"random_{num_tickers}"), exist_ok=True)
-                with open(os.path.join(self.trade_config.log_base_dir, f"random_{num_tickers}", f"random_{num_tickers}_symbols.txt"), "w") as f:
-                    f.write("\n".join(tickers))
+        if self.trade_config.setup_name in ["selected_4", "selected_5", "cherry_pick_both_finmem"]:
+            stock_selector = FinMemSelector()
+        else:
+            # TODO: implement other selection strategies
+            stock_selector = self.trade_config.selection_strategy
 
-            # print(f"Selected tickers: {tickers}")
-            self.trade_config.tickers = tickers
+        # elif self.trade_config.tickers == "all" and self.trade_config.setup_name.startswith("random"):
+        #     num_tickers = int(self.trade_config.setup_name.split(":")[1])
+        #     tickers_data = get_tickers_price("all", return_original=True)
+        #     # select tickers that have data for the entire period
+        #     # excluding weekends and holidays
+        #     total_years = (date_to - date_from).days // 365
+        #     tickers_data = tickers_data.groupby("symbol").filter(lambda x: x.shape[0] >= total_years * 252)
+        #     print(f"Number of tickers with data for the entire period: {tickers_data['symbol'].nunique()}")
+        #     # set random seed
+        #     if os.path.exists(os.path.join(self.trade_config.log_base_dir, f"random_{num_tickers}", f"random_{num_tickers}_symbols.txt")):
+        #         with open(os.path.join(self.trade_config.log_base_dir, f"random_{num_tickers}", f"random_{num_tickers}_symbols.txt"), "r") as f:
+        #             tickers = f.read().splitlines()
+        #     else:
+        #         np.random.seed(42)
+        #         tickers = list(np.random.choice(tickers_data["symbol"].unique(), num_tickers, replace=False))
+        #         os.makedirs(os.path.join(self.trade_config.log_base_dir, f"random_{num_tickers}"), exist_ok=True)
+        #         with open(os.path.join(self.trade_config.log_base_dir, f"random_{num_tickers}", f"random_{num_tickers}_symbols.txt"), "w") as f:
+        #             f.write("\n".join(tickers))
+        #
+        #     # print(f"Selected tickers: {tickers}")
+        #     self.trade_config.tickers = tickers
 
         rolling_windows = []
         while date_from + pd.DateOffset(years=rolling_window_size) <= date_to:
@@ -77,6 +84,8 @@ class BacktestingEngine:
 
         for window in windows_loop:
             windows_loop.set_description(f"Processing window {window[0].strftime('%Y')} to {window[1].strftime('%Y')}")
+            self.trade_config.tickers = stock_selector.select(self.trade_config.data_loader, window[0], window[1])
+            print(f"Selected tickers for the period {window[0].strftime('%Y')} to {window[1].strftime('%Y')}: {self.trade_config.tickers}")
             test_config = self.trade_config.to_dict()
             test_config["date_from"] = window[0].strftime("%Y-%m-%d")
             test_config["date_to"] = window[1].strftime("%Y-%m-%d")
@@ -86,7 +95,7 @@ class BacktestingEngine:
 
         # export the evaluation metrics
         if self.trade_config.save_results:
-            output_dir = os.path.join(self.trade_config.log_base_dir, self.trade_config.selection_strategy.replace(":", "_"), strategy.__name__)
+            output_dir = os.path.join(self.trade_config.log_base_dir, self.trade_config.setup_name.replace(":", "_"), strategy.__name__)
             filename = f"{self.trade_config.date_from}_{self.trade_config.date_to}.pkl" if self.trade_config.result_filename is None else self.trade_config.result_filename
             os.makedirs(output_dir, exist_ok=True)
             with open(os.path.join(output_dir, filename), "wb") as f:
@@ -114,6 +123,8 @@ class BacktestingEngine:
         tickers_loop = test_config.tickers if test_config.tickers != "all" else get_tickers_price("all")["symbol"].unique()
 
         for ticker in tickers_loop:
+            # print(f"Executing ticker: {ticker}")
+
             cerebro = bt.Cerebro()
 
             pd_data = get_tickers_price(ticker, date_from=test_config.date_from, date_to=test_config.date_to)
@@ -123,6 +134,25 @@ class BacktestingEngine:
                 # if it is callable, call it
                 if callable(kwargs[additional_arg]):
                     kwargs[additional_arg] = kwargs[additional_arg](pd_data)
+
+            if "prior_period" in vars(strategy.params).keys():
+                if not strategy.params.prior_period % 252 == 0:
+                    raise ValueError("prior_period must be a multiple of 252")
+
+                prior_year = strategy.params.prior_period // 252
+                prior_data = get_tickers_price(
+                    ticker,
+                    date_from=(pd.to_datetime(test_config.date_from) - pd.DateOffset(years=prior_year)).strftime("%Y-%m-%d"),
+                    date_to=(pd.to_datetime(test_config.date_from) - pd.DateOffset(days=1)).strftime("%Y-%m-%d")
+                )
+
+                if prior_data is not None:
+                    if prior_data.index.min().year > pd.to_datetime(test_config.date_from).year - prior_year:
+                        print(f"Prior data for {ticker} is not enough at year {pd.to_datetime(test_config.date_from).year}")
+                        continue
+                else:
+                    print(f"No prior data for {ticker} at year {pd.to_datetime(test_config.date_from).year}")
+                    continue
 
             # if the model needs to be trained, set the training data that are not used for backtesting
             if "train_period" in vars(strategy.params).keys():
@@ -139,15 +169,42 @@ class BacktestingEngine:
                 kwargs["train_data"] = train_data
 
             # skip if no data or data is not start from January
-            if (pd_data is None or pd_data.index.min().month != 1) and ("cherry_pick" not in test_config.selection_strategy):
+            if (pd_data is None or pd_data.index.min().month != 1) and ("cherry_pick" not in test_config.setup_name):
                 # print(f"No data in the period {test_config.date_from} to {test_config.date_to} for {ticker}")
                 continue
 
             # skip if no enough data for training
             if train_data is not None:
                 if train_data.index.min().year > pd.to_datetime(test_config.date_from).year - train_year:
-                    # print(f"Train data for {ticker} is not enough at year {pd.to_datetime(test_config.date_from).year}")
+                    print(f"Train data for {ticker} is not enough at year {pd.to_datetime(test_config.date_from).year}")
                     continue
+
+            # detect if the stock is delisted in the middle of the period, if it is, assign 0 price to the missing dates
+            # This indicates a complete loss of the stock
+            end_date = pd.to_datetime(test_config.date_to) - pd.DateOffset(days=1)
+            all_expected_trading_days = pd.bdate_range(start=pd_data.index.min(), end=end_date)
+            last_expected_date = all_expected_trading_days[-1]
+            last_data_date = pd_data.index.max()
+
+            if last_data_date < last_expected_date:
+                print(
+                    f"{ticker} appears to be delisted before {end_date.strftime('%Y-%m-%d')}, applying complete loss after {last_data_date.strftime('%Y-%m-%d')}")
+
+                missing_dates = all_expected_trading_days[all_expected_trading_days > last_data_date]
+                # sort the missing dates
+                missing_dates = missing_dates.sort_values()
+
+                # Create 0-price rows for the missing dates
+                zero_data = pd.DataFrame(index=missing_dates[:1], columns=pd_data.columns)
+                for col in pd_data.columns:
+                    if col[0] in ["open", "high", "low", "close", "volume"]:
+                        zero_data[col] = 1e-10
+                    else:
+                        zero_data[col] = pd_data[col].iloc[-1]  # forward-fill other fields like 'symbol'
+
+                # Concatenate and sort
+                pd_data = pd.concat([pd_data, zero_data])
+                pd_data = pd_data[~pd_data.index.duplicated(keep='first')].sort_index()
 
             add_tickers_data(cerebro, pd_data)
 
@@ -212,9 +269,9 @@ class BacktestingEngine:
                 plt.legend()
                 plt.show()
 
-        if "cherry_pick" in test_config.selection_strategy and test_config.save_results:
+        if "cherry_pick" in test_config.setup_name and test_config.save_results:
             # store the results using pickle
-            output_dir = os.path.join(test_config.log_base_dir, test_config.selection_strategy.replace(":", "_"), strategy.__name__)
+            output_dir = os.path.join(test_config.log_base_dir, test_config.setup_name.replace(":", "_"), strategy.__name__)
             filename = f"{test_config.date_from}_{test_config.date_to}.pkl" if test_config.result_filename is None else test_config.result_filename
             os.makedirs(output_dir, exist_ok=True)
             with open(os.path.join(output_dir, filename), "wb") as f:

@@ -1,16 +1,23 @@
 from backtest.backtest_engine_iso import BacktestingEngineIso
+from backtest.strategy.selection import RandomSP500Selector
 from backtest.strategy.timing_iso.base_strategy_iso import BaseStrategyIso
 from backtest.toolkit.backtest_framework_iso import BacktestFrameworkIso
 import toml
 import pickle
 import warnings
+import os
+from backtest.toolkit.custom_exceptions import InsufficientTrainingDataException
+
 warnings.filterwarnings("ignore")
 from datetime import datetime, timedelta
 from llm_traders.finmem.puppy import MarketEnvironment, LLMAgent, RunMode
 from dotenv import load_dotenv
 from backtest.toolkit.llm_cost_monitor import get_llm_cost
+from backtest.data_util import FinMemDataset
+from backtest.toolkit.operation_utils import aggregate_results_one_strategy
 load_dotenv()
-
+# set OpenAI API key
+# print(os.environ.get("OPENAI_API_KEY"))
 
 class FinMemStrategy(BaseStrategyIso):
     def __init__(
@@ -23,7 +30,7 @@ class FinMemStrategy(BaseStrategyIso):
             training_period=2,  # 2 years of daily data for training
     ):
         super().__init__()
-        self.logger.info("Initialising FinMemStrategy.")
+        self.logger.info(f"Initialising FinMemStrategy for backtesting {symbol}.")
         self.config = toml.load(config_path)
         self.config["general"]["trading_symbol"] = symbol
         self.config["general"]["character_string"] = symbol
@@ -41,7 +48,21 @@ class FinMemStrategy(BaseStrategyIso):
             train_end_date = datetime.strptime(training_period[1], "%Y-%m-%d").date() if type(training_period[1]) == str else training_period[1]
         self.logger.info(f"Training period: {train_start_date} to {train_end_date}")
 
-        train_env_data_pkl = {k: v for k, v in env_data_pkl.items() if k >= train_start_date and k <= train_end_date}
+        train_env_data_pkl = {k: v for k, v in env_data_pkl.items() if k >= train_start_date and k <= train_end_date and symbol in v["price"]}
+
+        if len(train_env_data_pkl.keys()) == 0:
+            raise InsufficientTrainingDataException
+
+        # let train_start_date be the first available date in the env_data_pkl
+        first_avai_date = min(train_env_data_pkl.keys())
+
+        if first_avai_date.year > train_start_date.year:
+            raise InsufficientTrainingDataException
+
+        if train_start_date < first_avai_date:
+            self.logger.info(f"Training start date is earlier than the first available date in the data. Adjusting training start date to {first_avai_date}.")
+            train_start_date = first_avai_date
+
         self.train_enviroment = MarketEnvironment(
             symbol=self.config["general"]["trading_symbol"],
             env_data_pkl=train_env_data_pkl,
@@ -65,14 +86,17 @@ class FinMemStrategy(BaseStrategyIso):
     def on_data(
             self,
             date: datetime.date,
-            prices: dict[str, float],
+            today_data: dict[str, float],
             framework: BacktestFrameworkIso
     ):
-        # self.logger.info(f"Today's price for {self.config['general']['trading_symbol']}: {prices[self.config['general']['trading_symbol']]}")
+        prices = today_data["price"]
+
+        # self.logger.info(f"{date} price for {self.config['general']['trading_symbol']}: {prices[self.config['general']['trading_symbol']]}")
         market_info = self.test_enviroment.step()
-        if market_info[-1]:  # if done break
-            self.logger.info("Test environment completed.")
-            return
+
+        if market_info[-1] or self.test_enviroment.cur_date > self.test_enviroment.end_date:
+            self.logger.info(f"Test environment completed!")
+            return "done"
 
         if date != self.test_enviroment.cur_date:
             self.logger.warning(f"Date mismatch: {date} vs {self.test_enviroment.cur_date}")
@@ -108,15 +132,18 @@ class FinMemStrategy(BaseStrategyIso):
         run_mode_var = RunMode.Train
         self.logger.info("Starting training...")
         total_steps = self.train_enviroment.simulation_length
+        self.logger.info(f"Total training steps: {total_steps}")
 
         for step in range(total_steps):
             self.agent.counter += 1
+
             market_info = self.train_enviroment.step()
+
             if market_info[-1]:  # if done break
-                self.logger.info("Training environment completed.")
+                self.logger.info("Training environment completed, or symbol has been delisted.")
                 break
 
-            self.agent.step(market_info=market_info, run_mode=run_mode_var)  # type: ignore
+            self.agent.step(market_info=market_info, run_mode=run_mode_var)  # TODO Here occurs SIGSEGV in step 2
 
             # Log progress manually every 10% of completion
             if total_steps > 10:
@@ -138,26 +165,41 @@ if __name__ == "__main__":
     for f in glob.glob(os.path.join(log_dir, "*.log")):
         os.remove(f)
 
+    # trade_config = {
+    #     # "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
+    #     "tickers": ["MERQ", "MSFT"],
+    #     "silence": False,
+    #     "setup_name": "debug",
+    #     "date_from": "2006-11-01",
+    #     "date_to": "2007-01-01",
+    #     "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_sp500_2000_2014.pkl")
+    #     # "date_from": "2022-10-06",
+    #     # "date_to": "2023-04-10"
+    # }
+
     trade_config = {
-        # "tickers": ["COIN"],
-        "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", ],
-        "silence": False,
-        "selection_strategy": "selected_5",
-        "date_from": "2014-01-01",
+        "tickers": "all",
+        "silence": True,
+        "setup_name": "random_sp500_5",
+        "date_from": "2004-01-01",
         "date_to": "2024-01-01",
-        "all_data": "data/finmem_data/stock_data_cherrypick_2000_2024.pkl"
-        # "date_from": "2022-10-06",
-        # "date_to": "2023-04-10"
+        "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_sp500_2000_2024.pkl"),
+        "selection_strategy": RandomSP500Selector(
+            num_tickers=5,
+            random_seed_setting="year"
+        )
     }
+
+
     engine = BacktestingEngineIso(trade_config)
 
     strat_params = {
-        "config_path": "llm_traders/finmem/config/tsla_gpt_config.toml",
-        "market_data_info_path": "data/finmem_data/stock_data_cherrypick_2000_2024.pkl",
+        "config_path": "strats_configs/finmem_gpt_config.toml",
+        "market_data_info_path": "data/finmem_data/stock_data_sp500_2000_2024.pkl",
         "date_from": "$date_from", # auto calculate inside the backtest engine,
         "date_to": "$date_to", # auto calculate inside the backtest engine,
         "symbol": "$symbol",
-        # "training_period": ("2021-08-17", "2022-10-05")
+        # "training_period": ("2006-10-25", "2006-10-31")
         "training_period": 3
     }
 
@@ -165,5 +207,5 @@ if __name__ == "__main__":
     # print(ticker_metrics)
 
     ticker_metrics = engine.run_rolling_window(FinMemStrategy, strat_params=strat_params)
-    # from backtest.toolkit.operation_utils import aggregate_results_one_strategy
-    # aggregate_results_one_strategy("cherry_pick_both_finmem", "FinMemStrategy")
+    from backtest.toolkit.operation_utils import aggregate_results_one_strategy
+    aggregate_results_one_strategy("random_sp500_5", "FinMemStrategy")

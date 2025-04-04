@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field, asdict
 from typing import Union, List
 import os
+from backtest.strategy.selection import BaseSelector
 import sys
 
 @dataclass
@@ -14,11 +15,12 @@ class TradeConfig:
     silence: bool = False
     rolling_window_size: int = 2
     rolling_window_step: int = 1
-    selection_strategy: str = "random:10"
+    selection_strategy: BaseSelector = None
+    setup_name: str = None
     result_filename: str = None
     save_results: bool = True
     log_base_dir: str = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "output")
-    all_data: str or dict = None
+    data_loader: str = None
 
     def __post_init__(self):
         # Validate and manage the tickers field

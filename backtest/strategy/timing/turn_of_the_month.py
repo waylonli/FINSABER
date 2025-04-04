@@ -5,16 +5,18 @@ from backtest.strategy.timing.base_strategy import BaseStrategy
 import pandas as pd
 from dotenv import load_dotenv
 from backtest.backtest_engine import BacktestingEngine
+from backtest.toolkit.operation_utils import aggregate_results_one_strategy
 load_dotenv()
 
 class TurnOfTheMonthStrategy(BaseStrategy):
     params = (
+        ("prior_period", 252 * 3),
         ("before_end_of_month_days", 5),
         ("after_start_of_month_business_days", 3),
         ("total_days", 0),
     )
 
-    def __init__(self):
+    def __init__(self, strat_params=None):
         super().__init__()
         self.order = None
         self.days_held = 0
@@ -69,27 +71,28 @@ class TurnOfTheMonthStrategy(BaseStrategy):
 
 
 if __name__ == "__main__":
-    # trade_config = {
-    #     "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
-    #     "silence": False,
-    #     "selection_strategy": "selected_5",
-    # }
     trade_config = {
-        "tickers": "all",
-        "silence": True,
-        "selection_strategy": "random:50",
-    }
-    cherry_config = {
-        "date_from": "2022-10-06",
-        "date_to": "2023-04-10",
         "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
-        "selection_strategy": "cherry_pick_both"
+        "silence": True,
+        "setup_name": "selected_5",
     }
+    # trade_config = {
+    #     "tickers": "all",
+    #     "silence": True,
+    #     "setup_name": "random:50",
+    # }
+    # cherry_config = {
+    #     "date_from": "2022-10-06",
+    #     "date_to": "2023-04-10",
+    #     "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
+    #     "setup_name": "cherry_pick_both"
+    # }
 
-    # operator = BacktestingEngine(trade_config)
+    operator = BacktestingEngine(trade_config)
     # operator.execute_iter(TurnOfTheMonthStrategy, process=preprocess_df, total_days=cal_total_days)
-    # operator.run_rolling_window(TurnOfTheMonthStrategy)
+    operator.run_rolling_window(TurnOfTheMonthStrategy)
+    aggregate_results_one_strategy(trade_config["selection_strategy"], TurnOfTheMonthStrategy.__name__)
 
-    cherry_operator = BacktestingEngine(cherry_config)
-    cherry_operator.execute_iter(TurnOfTheMonthStrategy, test_config=cherry_config)
+    # cherry_operator = BacktestingEngine(cherry_config)
+    # cherry_operator.execute_iter(TurnOfTheMonthStrategy, test_config=cherry_config)
 

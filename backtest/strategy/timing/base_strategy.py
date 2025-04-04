@@ -77,6 +77,9 @@ class BaseStrategy(bt.Strategy):
         cash = self.broker.get_cash()
         price = self.data.close[0]
 
+        if price <= 1e-10:
+            return 0
+
         # Adjust the max_size based on commission constraints
         while max_size > 0:
             # Estimate the commission for the current size

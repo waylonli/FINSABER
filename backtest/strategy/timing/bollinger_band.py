@@ -1,5 +1,5 @@
 # File: preliminary/strategy/timing/bollinger_bands_strategy.py
-
+from backtest.toolkit.operation_utils import aggregate_results_one_strategy
 import backtrader as bt
 from backtest.strategy.timing.base_strategy import BaseStrategy
 from backtest.backtest_engine import BacktestingEngine
@@ -7,12 +7,13 @@ from backtest.backtest_engine import BacktestingEngine
 
 class BollingerBandsStrategy(BaseStrategy):
     params = (
+        ("prior_period", 252 * 3),
         ("period", 20),
         ("devfactor", 2.0),
         ("total_days", 0),
     )
 
-    def __init__(self):
+    def __init__(self, strat_params=None):
         super().__init__()
         self.bbands = {}
 
@@ -33,20 +34,21 @@ if __name__ == "__main__":
     # trade_config = {
     #     "tickers": "all",
     #     "silence": True,
-    #     "selection_strategy": "random:50",
-    # }
-    # trade_config = {
-    #     "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
-    #     "silence": False,
-    #     "selection_strategy": "selected_5",
+    #     "setup_name": "random:50",
     # }
     trade_config = {
-        "tickers": ["AAPL"],
-        "date_from": "2022-10-05",
-        "date_to": "2023-06-10",
-        "silence": False,
-        "selection_strategy": "cherry_pick_debug_AAPL",
+        "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
+        "silence": True,
+        "setup_name": "selected_5",
     }
+    # trade_config = {
+    #     "tickers": ["AAPL"],
+    #     "date_from": "2022-10-05",
+    #     "date_to": "2023-06-10",
+    #     "silence": False,
+    #     "setup_name": "cherry_pick_debug_AAPL",
+    # }
     operator = BacktestingEngine(trade_config)
-    # operator.run_rolling_window(BollingerBandsStrategy)
-    operator.execute_iter(BollingerBandsStrategy, test_config=trade_config)
+    operator.run_rolling_window(BollingerBandsStrategy)
+    aggregate_results_one_strategy(trade_config["selection_strategy"], BollingerBandsStrategy.__name__)
+    # operator.execute_iter(BollingerBandsStrategy, test_config=trade_config)

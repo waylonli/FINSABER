@@ -7,12 +7,13 @@ from backtest.backtest_engine import BacktestingEngine
 
 class ATRBandStrategy(BaseStrategy):
     params = (
+        ("prior_period", 252 * 3),  # Train on the past 3 years of daily data
         ("atr_period", 14),
         ("multiplier", 1.5),
         ("total_days", 0),
     )
 
-    def __init__(self):
+    def __init__(self, strat_params=None):
         super().__init__()
         self.atr = {}
         self.upper_band = {}
@@ -31,20 +32,24 @@ class ATRBandStrategy(BaseStrategy):
                 self.buy(data=d, size=self._adjust_size_for_commission(int(self.broker.cash / d.close[0])))
             elif d.high[0] >= self.upper_band[d][0] and d.high[-1] < self.upper_band[d][-1]:
                 self.sell(data=d, size=self.getposition(d).size)
+
         self.post_next_actions()
 
 if __name__ == "__main__":
-    trade_config = {
-        "tickers": "all",
-        "silence": True,
-        "selection_strategy": "random:50",
-    }
-
     # trade_config = {
-    #     "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
-    #     # "tickers": ["MSFT"],
-    #     "silence": False,
-    #     "selection_strategy": "selected_5",
+    #     "tickers": "all",
+    #     "silence": True,
+    #     "setup_name": "random:50",
     # }
-    operator = BacktestingEngine(trade_config)
-    operator.run_rolling_window(ATRBandStrategy)
+
+    trade_config = {
+        "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
+        # "tickers": ["MSFT"],
+        "silence": False,
+        "setup_name": "selected_5",
+        "silence": True,
+    }
+    # operator = BacktestingEngine(trade_config)
+    # operator.run_rolling_window(ATRBandStrategy)
+    from backtest.toolkit.operation_utils import aggregate_results_one_strategy
+    aggregate_results_one_strategy("selected_5", "ATRBandStrategy")

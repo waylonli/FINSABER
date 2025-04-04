@@ -2,3 +2,6 @@
 .env
 .idea
 llm_traders/
+/workdir
+/scripts
+/backtest/scripts

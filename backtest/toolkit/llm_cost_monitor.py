@@ -37,3 +37,23 @@ def add_openai_cost_from_response(openai_response):
 
     llm_cost += cost
     return cost
+
+
+def add_openai_cost_from_tokens_count(model, prompt_tokens, generated_tokens):
+    # first check if the global variable exists
+    try:
+        global llm_cost
+    except Exception as e:
+        raise ValueError("llm_cost is not defined. Please run reset_llm_cost() first.")
+
+    if "gpt-4o-mini" in model:
+        cost = (prompt_tokens * OPENAI_PRICE["gpt-4o-mini"]["input"] + generated_tokens * OPENAI_PRICE["gpt-4o-mini"][
+            "output"]) / 1000000
+    elif "gpt-4o" in model:
+        cost = (prompt_tokens * OPENAI_PRICE["gpt-4o"]["input"] + generated_tokens * OPENAI_PRICE["gpt-4o"][
+            "output"]) / 1000000
+    else:
+        cost = 0
+
+    llm_cost += cost
+    return cost

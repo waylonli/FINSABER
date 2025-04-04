@@ -12,7 +12,7 @@ class XGBoostPredictorStrategy(BaseStrategy):
         ("total_days", 0),
     )
 
-    def __init__(self, train_data=None):
+    def __init__(self, train_data=None, strat_params=None):
         super().__init__()
         self.model = {}
         self.train_data = train_data
@@ -54,22 +54,22 @@ class XGBoostPredictorStrategy(BaseStrategy):
 
 
 if __name__ == "__main__":
-    trade_config = {
-        "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
-        "silence": False,
-        "selection_strategy": "selected_5",
-    }
     # trade_config = {
-    #     "date_from": "2022-10-06",
-    #     "date_to": "2023-04-10",
     #     "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
-    #     "selection_strategy": "cherry_pick_both",
-    #
+    #     "silence": False,
+    #     "setup_name": "selected_5",
     # }
+    trade_config = {
+        "date_from": "2022-10-06",
+        "date_to": "2023-04-10",
+        "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
+        "setup_name": "cherry_pick_both_finmem",
+    }
     # trade_config = {
     #     "tickers": "all",
     #     "silence": True,
-    #     "selection_strategy": "random:50",
+    #     "setup_name": "random:50",
     # }
     operator = BacktestingEngine(trade_config)
-    operator.run_rolling_window(XGBoostPredictorStrategy)
+    operator.execute_iter(XGBoostPredictorStrategy)
+    # operator.run_rolling_window(XGBoostPredictorStrategy)

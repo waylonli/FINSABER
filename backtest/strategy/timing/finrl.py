@@ -23,8 +23,9 @@ class FinRLStrategy(BaseStrategy):
         # ("train_period", 252),  # Train on past 3 years of daily data
     )
 
-    def __init__(self, train_data: pd.DataFrame):
+    def __init__(self, train_data: pd.DataFrame, strat_params=None):
         super().__init__()
+        print(f"RL Strategy initialised with {self.params.algorithm} algorithm.")
         if train_data is None:
             raise ValueError("Train data must be provided.")
 
@@ -165,7 +166,6 @@ class FinRLStrategy(BaseStrategy):
             # drop columns that are not features
             today_features = today_features.drop(columns=["date", "tic", "day"])
 
-            import pdb; pdb.set_trace()
             state.append(today_features)
 
         return np.array(state)
@@ -205,13 +205,13 @@ if __name__ == "__main__":
     trade_config = {
         "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
         "silence": False,
-        "selection_strategy": "selected_5",
+        "setup_name": "selected_5",
     }
     # trade_config = {
     #     "date_from": "2022-10-06",
     #     "date_to": "2023-04-10",
     #     "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
-    #     "selection_strategy": "cherry_pick_both_finmem",
+    #     "setup_name": "cherry_pick_both_finmem",
     # }
     operator = BacktestingEngine(trade_config)
     # operator.execute_iter(FinRLStrategy)

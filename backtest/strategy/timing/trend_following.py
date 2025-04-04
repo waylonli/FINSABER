@@ -2,17 +2,18 @@ import backtrader as bt
 
 from backtest.strategy.timing.base_strategy import BaseStrategy
 from backtest.backtest_engine import BacktestingEngine
-
+from backtest.toolkit.operation_utils import aggregate_results_one_strategy
 
 class TrendFollowingStrategy(BaseStrategy):
     params = (
+        ("prior_period", 252 * 3),
         ("atr_period", 10),
         ("period", 252 * 1),  # Equivalent to 1 year of daily data
         ("leverage", 0.95),  # To avoid full investment
         ("total_days", 0),
     )
 
-    def __init__(self):
+    def __init__(self, strat_params=None):
         super().__init__()
         self.log_data = []  # Store portfolio values for logging
         self.order_list = []  # Store order details for logging
@@ -64,15 +65,16 @@ class TrendFollowingStrategy(BaseStrategy):
 
 
 if __name__ == "__main__":
-    # trade_config = {
-    #     "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
-    #     "silence": False,
-    #     "selection_strategy": "selected_5",
-    # }
     trade_config = {
-        "tickers": "all",
+        "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
         "silence": True,
-        "selection_strategy": "random:50",
+        "setup_name": "selected_5",
     }
+    # trade_config = {
+    #     "tickers": "all",
+    #     "silence": True,
+    #     "setup_name": "random:50",
+    # }
     operator = BacktestingEngine(trade_config)
     operator.run_rolling_window(TrendFollowingStrategy)
+    aggregate_results_one_strategy(trade_config["selection_strategy"], TrendFollowingStrategy.__name__)

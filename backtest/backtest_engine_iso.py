@@ -8,6 +8,8 @@ from tabulate import tabulate
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
+from backtest.strategy.selection import FinMemSelector
+from backtest.toolkit.custom_exceptions import InsufficientTrainingDataException
 from backtest.toolkit.trade_config import TradeConfig
 from backtest.toolkit.backtest_framework_iso import BacktestFrameworkIso
 from backtest.toolkit.operation_utils import aggregate_results_one_strategy
@@ -23,24 +25,8 @@ class BacktestingEngineIso:
             commission_per_share=self.trade_config.__dict__.get("commission", 0.0049),
             min_commission=self.trade_config.__dict__.get("min_commission", 0.99)
         )
-        self.all_data = None
-        self._load_data(self.trade_config.all_data)
-        self._setup_tickers()
+        self.data_loader = self.trade_config.data_loader
 
-    def _setup_tickers(self):
-        if self.trade_config.tickers == "all" and self.trade_config.selection_strategy.startswith("random"):
-            num_tickers = int(self.trade_config.selection_strategy.split(":")[1])
-            tickers_data = list(self.all_data[next(iter(self.all_data))]["price"].keys())
-
-            np.random.seed(42)
-            sampled_tickers = np.random.choice(tickers_data, num_tickers, replace=False)
-
-            output_dir = os.path.join(self.trade_config.log_base_dir, f"random_{num_tickers}")
-            os.makedirs(output_dir, exist_ok=True)
-            with open(os.path.join(output_dir, f"random_{num_tickers}_symbols.txt"), "w") as f:
-                f.write("\n".join(sampled_tickers))
-
-            self.trade_config.tickers = list(sampled_tickers)
 
     def run_rolling_window(self, strategy_class, rolling_window_size=None, rolling_window_step=None, strat_params=None):
         rolling_window_size = rolling_window_size or self.trade_config.rolling_window_size
@@ -61,20 +47,27 @@ class BacktestingEngineIso:
             end_date = f"{start_year + i + rolling_window_size}-01-01"
             rolling_windows.append((start_date, end_date))
 
-
         print(rolling_windows)
+
+        if self.trade_config.setup_name in ["selected_4", "selected_5", "cherry_pick_both_finmem"]:
+            stock_selector = FinMemSelector()
+        else:
+            # TODO: implement other selection strategies
+            stock_selector = self.trade_config.selection_strategy
+
+
         eval_metrics = {}
         for window in tqdm(rolling_windows):
             #
             # subset_data = {date: self.all_data[date] for date in window}
-
             strat_params["date_from"] = window[0]
             strat_params["date_to"] = window[-1]
-
+            self.trade_config.tickers = stock_selector.select(self.trade_config.data_loader, window[0], window[1])
+            print(f"Selected tickers for the period {window[0]} to {window[1]}: {self.trade_config.tickers}")
 
             self.trade_config.date_from = window[0]
             self.trade_config.date_to = window[-1]
-            # eval_metrics[ticker
+
             metrics = self.run_iterative_tickers(strategy_class, strat_params, tickers=self.trade_config.tickers)
 
             window_key = f"{window[0]}_{window[-1]}"
@@ -83,8 +76,8 @@ class BacktestingEngineIso:
         # Save results if required
         if self.trade_config.save_results:
             output_dir = os.path.join(self.trade_config.log_base_dir,
-                                      self.trade_config.selection_strategy.replace(":", "_"), strategy_class.__name__)
-            filename = f"{self.trade_config.date_from}_{self.trade_config.date_to}.pkl" if self.trade_config.result_filename is None else self.trade_config.result_filename
+                                      self.trade_config.setup_name.replace(":", "_"), strategy_class.__name__)
+            filename = f"{date_from}_{date_to}.pkl" if self.trade_config.result_filename is None else self.trade_config.result_filename
             os.makedirs(output_dir, exist_ok=True)
             with open(os.path.join(output_dir, filename), "wb") as f:
                 pickle.dump(eval_metrics, f)
@@ -124,7 +117,7 @@ class BacktestingEngineIso:
         reset_llm_cost()
         tickers = tickers or self.trade_config.tickers
         if isinstance(tickers, str) and tickers.lower() == "all":
-            tickers = list(self.all_data[next(iter(self.all_data))]["price"].keys())
+            tickers = self.data_loader.get_tickers_list()
 
         eval_metrics = {}
         with Progress() as progress:  # Use Progress
@@ -133,20 +126,28 @@ class BacktestingEngineIso:
                 progress.update(task,
                                 description=f"Backtesting {ticker} on {self.trade_config.date_from} to {self.trade_config.date_to}")
 
-                subset_data = {date: self.all_data[date] for date in self.all_data if date >= pd.to_datetime(self.trade_config.date_from).date() and date <= pd.to_datetime(self.trade_config.date_to).date()}
+                subset_data = self.data_loader.get_subset_by_time_range(self.trade_config.date_from, self.trade_config.date_to)
                 # check if the ticker is in the data
                 try:
-                    first_day = list(subset_data.keys())[0]
+                    first_day = subset_data.get_date_range()[0]
                 except:
                     print(f"No data found for the period {self.trade_config.date_from} to {self.trade_config.date_to}. Skipping...")
                     import pdb; pdb.set_trace()
-                if ticker not in subset_data[first_day]["price"]:
+                if ticker not in subset_data.get_tickers_list():
                     print(f"Ticker {ticker} not in the data for the period {self.trade_config.date_from} to {self.trade_config.date_to}. Skipping...")
                     continue
 
                 self.framework.reset()
-                self.framework.load_backtest_data(subset_data, start_date=self.trade_config.date_from,
-                                         end_date=self.trade_config.date_to)
+                success_or_not = self.framework.load_backtest_data_single_ticker(
+                    subset_data,
+                    ticker,
+                    start_date=self.trade_config.date_from,
+                    end_date=self.trade_config.date_to
+                )
+
+                if not success_or_not:
+                    print(f"Ticker {ticker} not in the data for the period {self.trade_config.date_from} to {self.trade_config.date_to}. Skipping...")
+                    continue
 
                 resolved_params = self.auto_resolve_params(
                     strat_params,
@@ -156,24 +157,31 @@ class BacktestingEngineIso:
                         "symbol": ticker
                     }
                 )
-                strategy = strategy_class(**resolved_params)
+
+                # check if there's valid data for the testing and training period
+                try:
+                    strategy = strategy_class(**resolved_params)
+                except InsufficientTrainingDataException as e:
+                    print(f"Insufficient training data for {ticker} in the period {self.trade_config.date_from} to {self.trade_config.date_to}. Skipping...")
+                    continue
 
                 # detect if it is because of the insufficient training data
                 try:
                     strategy.train() if hasattr(strategy, "train") else None
-                except KeyError as e:
-                    if ticker in str(e):
-                        continue
-                    else:
-                        raise e
-
+                except InsufficientTrainingDataException as e:
+                    print(f"Insufficient training data for {ticker} in the period {self.trade_config.date_from} to {self.trade_config.date_to}. Skipping...")
+                    continue
 
                 self.framework.run(strategy)
                 metrics = self.framework.evaluate(strategy)
-                equity_with_time = pd.DataFrame({
-                    "datetime": strategy.equity_date,
-                    "equity": strategy.equity
-                })
+                try:
+                    equity_with_time = pd.DataFrame({
+                        "datetime": strategy.equity_date,
+                        "equity": strategy.equity
+                    })
+                except:
+                    print(len(strategy.equity_date), len(strategy.equity))
+                    import pdb; pdb.set_trace()
                 metrics["equity_with_time"] = equity_with_time
                 eval_metrics[ticker] = metrics
 
@@ -183,13 +191,13 @@ class BacktestingEngineIso:
 
         if self.trade_config.save_results:
             eval_metrics = {f"{self.trade_config.date_from}_{self.trade_config.date_to}": eval_metrics}
-            output_dir = os.path.join(self.trade_config.log_base_dir, self.trade_config.selection_strategy.replace(":", "_"), strategy.__class__.__name__)
+            output_dir = os.path.join(self.trade_config.log_base_dir, self.trade_config.setup_name.replace(":", "_"), strategy.__class__.__name__)
             filename = f"{self.trade_config.date_from}_{self.trade_config.date_to}.pkl" if self.trade_config.result_filename is None else self.trade_config.result_filename
             os.makedirs(output_dir, exist_ok=True)
             with open(os.path.join(output_dir, filename), "wb") as f:
                 pickle.dump(eval_metrics, f)
 
-            aggregate_results_one_strategy(self.trade_config.selection_strategy.replace(":", "_"), strategy_class.__name__)
+            aggregate_results_one_strategy(self.trade_config.setup_name.replace(":", "_"), strategy_class.__name__)
 
         # print the estimated cost
         print(f"Finish backtesting period {self.trade_config.date_from} to {self.trade_config.date_to}. Estimated cost: ${get_llm_cost()}")
@@ -209,11 +217,4 @@ class BacktestingEngineIso:
 
         return resolved_params
 
-    def _load_data(self, data):
-        if isinstance(data, str):
-            with open(data, 'rb') as file:
-                self.all_data = pickle.load(file)
-        elif isinstance(data, dict):
-            self.all_data = data
-        else:
-            raise ValueError("Data format not supported.")
+

@@ -4,8 +4,8 @@ import pickle
 from datetime import datetime
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-
-from backtest.strategy.timing_iso.base_strategy_iso import BaseStrategyIso
+# from backtest.data_util import BacktestDataset
+# from backtest.strategy.timing_iso.base_strategy_iso import BaseStrategyIso
 
 class BacktestFrameworkIso:
     def __init__(self, initial_cash=100000, risk_free_rate=0.0, commission_per_share=0.0049, min_commission=0.99):
@@ -16,19 +16,34 @@ class BacktestFrameworkIso:
         self.risk_free_rate = risk_free_rate
         self.commission_per_share = commission_per_share
         self.min_commission = min_commission
-        self.data = None
+        self.data_loader = None
 
-    def load_backtest_data(self, data: dict or str, start_date: datetime = None, end_date: datetime = None):
-        if isinstance(data, str):
-            with open(data, 'rb') as file:
-                self.data = pickle.load(file)
-        elif isinstance(data, dict):
-            self.data = data
-        else:
-            raise ValueError("Data format not supported.")
-
+    def load_backtest_data(
+            self,
+            data,
+            start_date: datetime = None,
+            end_date: datetime = None
+    ):
         if start_date is not None and end_date is not None:
-            self.data = {d: data[d] for d in data if pd.to_datetime(start_date).date() <= d <= pd.to_datetime(end_date).date()}
+            self.data_loader = data.get_subset_by_time_range(start_date, end_date)
+        else:
+            self.data_loader = data
+
+        return True if self.data_loader is not None else False
+
+    def load_backtest_data_single_ticker(
+            self,
+            data,
+            ticker: str,
+            start_date: datetime = None,
+            end_date: datetime = None,
+    ):
+        if start_date is not None and end_date is not None:
+            self.data_loader = data.get_ticker_subset_by_time_range(ticker, start_date, end_date)
+        else:
+            self.data_loader = data
+
+        return True if self.data_loader is not None else False
 
 
     def calculate_commission(self, quantity):
@@ -71,25 +86,39 @@ class BacktestFrameworkIso:
         else:
             print(f"Insufficient holdings to sell {quantity} of {ticker} on {date}")
 
-    def run(self, strategy: BaseStrategyIso):
-        for date, data in self.data.items():
-            prices = data['price']
-            strategy.on_data(date, prices, self)
-            strategy.update_info(date, prices, self)
+    def run(self, strategy):
+        date_range = self.data_loader.get_date_range()
+        last_data_date = date_range[-1]
+        end_date_year = last_data_date.year
+        all_expected_trading_days = pd.bdate_range(start=f"{end_date_year}-01-01", end=f"{end_date_year}-12-31")
+        last_expected_date = all_expected_trading_days[-1].date()
+        print(f"Last expected date: {last_expected_date}")
+
+        for date in date_range:
+            status = strategy.on_data(date, self.data_loader.get_data_by_date(date), self)
+            strategy.update_info(date, self.data_loader, self)
+
+            if status == "done":
+                break
             # import pdb; pdb.set_trace()
         # if there are any remaining holdings, sell them all at the last date
         try:
-            last_date = list(self.data.keys())[-1]
+            last_date = list(self.data_loader.get_date_range())[-1]
         except:
             import pdb; pdb.set_trace()
+
         for ticker in list(self.portfolio.keys()):
-            price = self.data[last_date]['price'][ticker]
+            if last_date < last_expected_date:
+                print(f"{ticker} appears to be delisted on {last_date}, applying complete loss.")
+                price = 1e-10
+            else:
+                price = self.data_loader.get_ticker_price_by_date(ticker, last_date)
             quantity = self.portfolio[ticker]['quantity']
             self.sell(last_date, ticker, price, quantity)
 
-    def evaluate(self, strategy: BaseStrategyIso):
+    def evaluate(self, strategy):
         final_value = self.cash + sum(
-            [self.portfolio[ticker]['quantity'] * self.data[list(self.data.keys())[-1]]['price'][ticker]
+            [self.portfolio[ticker]['quantity'] * self.data_loader.get_ticker_price_by_date(ticker, self.data_loader.get_date_range()[-1])
              for ticker in self.portfolio])
 
         assert len(strategy.equity) > 1, "Equity data is missing."
@@ -97,7 +126,7 @@ class BacktestFrameworkIso:
                                    for i in range(1, len(strategy.equity))])
 
         total_return = (final_value / self.initial_cash) - 1
-        annual_return = (1 + total_return) ** (252 / len(self.data)) - 1
+        annual_return = (1 + total_return) ** (252 / len(self.data_loader.get_date_range())) - 1
         annual_volatility = daily_returns.std() * np.sqrt(252)
         downside_returns = daily_returns[daily_returns < 0]
         downside_deviation = downside_returns.std() * np.sqrt(252) if len(downside_returns) > 1 else 0
@@ -148,7 +177,7 @@ class BacktestFrameworkIso:
         self.cash = self.initial_cash
         self.portfolio = {}
         self.history = []
-        self.data = None
+        self.data_loader = None
 
 # class SampleStrategy(BaseStrategyIso):
 #     def on_data(self, date, prices, framework):

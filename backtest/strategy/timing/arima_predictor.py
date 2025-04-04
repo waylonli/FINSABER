@@ -12,7 +12,7 @@ class ARIMAPredictorStrategy(BaseStrategy):
         ("total_days", 0),
     )
 
-    def __init__(self, train_data=None):
+    def __init__(self, train_data=None, strat_params=None):
         super().__init__()
         self.models = {}  # Store trained ARIMA models per symbol
         self.train_data = train_data
@@ -46,6 +46,10 @@ class ARIMAPredictorStrategy(BaseStrategy):
             if sym not in self.models:
                 continue  # Skip if model is missing
 
+            # if delisted, skip
+            if d.close[0] <= 1e-10:
+                continue
+
             # add today's price to the training data, we only care about the close price in ARIMA
             self.train_data.loc[today_date, (slice(None), sym)] = d.close[0]
             df = self.train_data.xs(sym, axis=1, level=1, drop_level=True)['close']
@@ -76,13 +80,13 @@ if __name__ == "__main__":
     # trade_config = {
     #     "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
     #     "silence": False,
-    #     "selection_strategy": "selected_5",
+    #     "setup_name": "selected_5",
     # }
     trade_config = {
         "date_from": "2022-10-06",
         "date_to": "2023-04-10",
         "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
-        "selection_strategy": "cherry_pick_both_finmem",
+        "setup_name": "cherry_pick_both_finmem",
     }
     operator = BacktestingEngine(trade_config)
     # operator.run_rolling_window(ARIMAPredictorStrategy)
