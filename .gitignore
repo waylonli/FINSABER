@@ -12,3 +12,4 @@ llm_traders/
 /backtest/.DS_Store
 seekalpha invoice.pdf
 /backup
+*.ipynb
