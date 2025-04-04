@@ -1,0 +1,57 @@
+[tool.poetry]
+name = "finrl"
+version = "0.3.6"
+
+description = "FinRL: Financial Reinforcement Learning Framework. Version 0.3.5 notes: stable version, code refactoring, more tutorials, clear documentation"
+authors = ["Hongyang Yang, Xiaoyang Liu"]
+license = "MIT"
+
+readme = "README.md"
+classifiers=[
+        # Trove classifiers
+        # Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: Implementation :: CPython",
+        "Programming Language :: Python :: Implementation :: PyPy",
+    ]
+keywords=["Reinforcement Learning", "Finance"]
+[tool.poetry.urls]
+github = "https://github.com/finrl/finrl-library"
+
+[tool.poetry.dependencies]
+python = "~3.10"
+elegantrl = {git="https://github.com/AI4Finance-Foundation/ElegantRL.git#egg=elegantrl"}
+alpaca-trade-api = "^3"
+ccxt = "^3"
+exchange-calendars = "^4"
+jqdatasdk = "^1"
+pyfolio = "^0.9"
+pyportfolioopt = "^1"
+ray = {extras=["default", "tune"], version = "^2"}
+scikit-learn = "^1"
+stable-baselines3 = {version = ">=2.0.0a5", extras = ["extra"]}
+stockstats = "^0.5"
+wrds = "^3"
+yfinance = "^0.2"
+alpaca-py = "^0.37"
+webdriver-manager = "^4"
+selenium = "^4"
+
+
+[tool.poetry.group.dev.dependencies]
+black = "^24"
+isort = "^5"
+jupyter = "^1"
+mypy = "^1"
+pandas-stubs = "^2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

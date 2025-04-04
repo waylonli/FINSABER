@@ -1,0 +1,6 @@
+Period,ticker,total_return (%),annual_return (%),annual_volatility (%),sharpe_ratio,sortino_ratio,max_drawdown
+2006-11-01_2007-01-01,MERQ,-99.984,-100.000,1.303,0.680,0.000,-0.058
+Average,MERQ,-99.984,-100.000,1.303,0.680,0.000,-0.058
+2006-11-01_2007-01-01,MSFT,3.609,24.351,11.806,1.714,4.174,-3.576
+Average,MSFT,3.609,24.351,11.806,1.714,4.174,-3.576
+Average,All,-48.187,-37.824,6.554,1.197,2.087,-1.817

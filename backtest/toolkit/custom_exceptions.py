@@ -1,0 +1,2 @@
+class InsufficientTrainingDataException(Exception):
+    pass
