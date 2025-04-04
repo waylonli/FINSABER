@@ -11,3 +11,4 @@ llm_traders/
 /backtest/__pycache__/
 /backtest/.DS_Store
 seekalpha invoice.pdf
+/backup
