@@ -8,7 +8,7 @@ from backtest.backtest_engine import BacktestingEngine
 class XGBoostPredictorStrategy(BaseStrategy):
     params = (
         ("model_params", None),
-        ("train_period", 252 * 3),  # 3 years of daily data for training #TODO fix 检查用测试前的数据进行训练，而不是永远用头三年
+        ("train_period", 252 * 2),  # 3 years of daily data for training #TODO fix 检查用测试前的数据进行训练，而不是永远用头三年
         ("total_days", 0),
     )
 

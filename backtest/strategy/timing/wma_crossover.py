@@ -6,9 +6,9 @@ from backtest.toolkit.operation_utils import aggregate_results_one_strategy
 
 class WMAStrategy(BaseStrategy):
     params = (
-        ("prior_period", 252 * 3),
-        ('short_window', 20),
-        ('long_window', 100),
+        ("prior_period", 252 * 2),
+        ('short_window', 15),
+        ('long_window', 30),
         ('trade_size', 0.95),
         ("total_days", 0),
     )

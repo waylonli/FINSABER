@@ -15,17 +15,17 @@ from rl_traders.finrl.finrl.meta.preprocessor.preprocessors import FeatureEngine
 
 class FinRLStrategy(BaseStrategy):
     params = (
-        ("algorithm", "sac"),           # Options: A2C, DDPG, PPO, SAC, TD3
+        ("algorithm", "td3"),           # Options: A2C, DDPG, PPO, SAC, TD3
         ("total_timesteps", 50000),
         ("initial_amount", 100000),
         ("total_days", 0),
-        ("train_period", 252 * 3),  # Train on past 3 years of daily data
+        ("train_period", 252 * 2),  # Train on past 3 years of daily data
         # ("train_period", 252),  # Train on past 3 years of daily data
     )
 
     def __init__(self, train_data: pd.DataFrame, strat_params=None):
         super().__init__()
-        print(f"RL Strategy initialised with {self.params.algorithm} algorithm.")
+        # print(f"RL Strategy initialised with {self.params.algorithm} algorithm.")
         if train_data is None:
             raise ValueError("Train data must be provided.")
 
@@ -111,6 +111,7 @@ class FinRLStrategy(BaseStrategy):
         """
         Train a DRL agent using FinRL.
         """
+        # print("Training a DRL agent...")
         df_env = self.train_data.copy()
         stock_dim = len(df_env["tic"].unique())
         state_space = 1 + 2 * stock_dim + len(INDICATORS) * stock_dim
@@ -178,6 +179,9 @@ class FinRLStrategy(BaseStrategy):
 
         for d, actions in zip(self.datas, self.df_actions):
             today = d.datetime.date(0)
+
+            if today > actions['date'].tolist()[-1]:
+                return
 
             try:
                 act = int(actions[actions["date"] == today]["actions"].values[0])

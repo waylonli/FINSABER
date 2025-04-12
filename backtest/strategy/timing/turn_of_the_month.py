@@ -10,7 +10,7 @@ load_dotenv()
 
 class TurnOfTheMonthStrategy(BaseStrategy):
     params = (
-        ("prior_period", 252 * 3),
+        ("prior_period", 252 * 2),
         ("before_end_of_month_days", 5),
         ("after_start_of_month_business_days", 3),
         ("total_days", 0),

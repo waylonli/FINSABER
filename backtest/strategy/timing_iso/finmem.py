@@ -16,8 +16,7 @@ from backtest.toolkit.llm_cost_monitor import get_llm_cost
 from backtest.data_util import FinMemDataset
 from backtest.toolkit.operation_utils import aggregate_results_one_strategy
 load_dotenv()
-# set OpenAI API key
-# print(os.environ.get("OPENAI_API_KEY"))
+
 
 class FinMemStrategy(BaseStrategyIso):
     def __init__(
@@ -136,14 +135,19 @@ class FinMemStrategy(BaseStrategyIso):
 
         for step in range(total_steps):
             self.agent.counter += 1
+            # self.logger.info(f"Step {step} / {self.train_enviroment.cur_date}")
 
             market_info = self.train_enviroment.step()
+
+            # self.logger.info(f"Market info step forward done!")
 
             if market_info[-1]:  # if done break
                 self.logger.info("Training environment completed, or symbol has been delisted.")
                 break
 
             self.agent.step(market_info=market_info, run_mode=run_mode_var)  # TODO Here occurs SIGSEGV in step 2
+
+            # self.logger.info(f"Agent step forward done!")
 
             # Log progress manually every 10% of completion
             if total_steps > 10:
@@ -170,7 +174,7 @@ if __name__ == "__main__":
     #     "tickers": ["MERQ", "MSFT"],
     #     "silence": False,
     #     "setup_name": "debug",
-    #     "date_from": "2006-11-01",
+    #     "date_from": "2006-10-28",
     #     "date_to": "2007-01-01",
     #     "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_sp500_2000_2014.pkl")
     #     # "date_from": "2022-10-06",
@@ -181,7 +185,7 @@ if __name__ == "__main__":
         "tickers": "all",
         "silence": True,
         "setup_name": "random_sp500_5",
-        "date_from": "2004-01-01",
+        "date_from": "2016-01-01",
         "date_to": "2024-01-01",
         "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_sp500_2000_2024.pkl"),
         "selection_strategy": RandomSP500Selector(
@@ -199,7 +203,7 @@ if __name__ == "__main__":
         "date_from": "$date_from", # auto calculate inside the backtest engine,
         "date_to": "$date_to", # auto calculate inside the backtest engine,
         "symbol": "$symbol",
-        # "training_period": ("2006-10-25", "2006-10-31")
+        # "training_period": ("2006-10-20", "2006-10-28")
         "training_period": 3
     }
 

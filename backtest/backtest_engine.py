@@ -52,28 +52,6 @@ class BacktestingEngine:
             # TODO: implement other selection strategies
             stock_selector = self.trade_config.selection_strategy
 
-        # elif self.trade_config.tickers == "all" and self.trade_config.setup_name.startswith("random"):
-        #     num_tickers = int(self.trade_config.setup_name.split(":")[1])
-        #     tickers_data = get_tickers_price("all", return_original=True)
-        #     # select tickers that have data for the entire period
-        #     # excluding weekends and holidays
-        #     total_years = (date_to - date_from).days // 365
-        #     tickers_data = tickers_data.groupby("symbol").filter(lambda x: x.shape[0] >= total_years * 252)
-        #     print(f"Number of tickers with data for the entire period: {tickers_data['symbol'].nunique()}")
-        #     # set random seed
-        #     if os.path.exists(os.path.join(self.trade_config.log_base_dir, f"random_{num_tickers}", f"random_{num_tickers}_symbols.txt")):
-        #         with open(os.path.join(self.trade_config.log_base_dir, f"random_{num_tickers}", f"random_{num_tickers}_symbols.txt"), "r") as f:
-        #             tickers = f.read().splitlines()
-        #     else:
-        #         np.random.seed(42)
-        #         tickers = list(np.random.choice(tickers_data["symbol"].unique(), num_tickers, replace=False))
-        #         os.makedirs(os.path.join(self.trade_config.log_base_dir, f"random_{num_tickers}"), exist_ok=True)
-        #         with open(os.path.join(self.trade_config.log_base_dir, f"random_{num_tickers}", f"random_{num_tickers}_symbols.txt"), "w") as f:
-        #             f.write("\n".join(tickers))
-        #
-        #     # print(f"Selected tickers: {tickers}")
-        #     self.trade_config.tickers = tickers
-
         rolling_windows = []
         while date_from + pd.DateOffset(years=rolling_window_size) <= date_to:
             rolling_windows.append((date_from, date_from + pd.DateOffset(years=rolling_window_size)))
@@ -84,8 +62,14 @@ class BacktestingEngine:
 
         for window in windows_loop:
             windows_loop.set_description(f"Processing window {window[0].strftime('%Y')} to {window[1].strftime('%Y')}")
-            self.trade_config.tickers = stock_selector.select(self.trade_config.data_loader, window[0], window[1])
+
+            self.trade_config.tickers = stock_selector.select(
+                self.trade_config.data_loader,
+                window[0].strftime("%Y-%m-%d"),
+                window[1].strftime("%Y-%m-%d")
+            )
             print(f"Selected tickers for the period {window[0].strftime('%Y')} to {window[1].strftime('%Y')}: {self.trade_config.tickers}")
+
             test_config = self.trade_config.to_dict()
             test_config["date_from"] = window[0].strftime("%Y-%m-%d")
             test_config["date_to"] = window[1].strftime("%Y-%m-%d")
@@ -123,7 +107,6 @@ class BacktestingEngine:
         tickers_loop = test_config.tickers if test_config.tickers != "all" else get_tickers_price("all")["symbol"].unique()
 
         for ticker in tickers_loop:
-            # print(f"Executing ticker: {ticker}")
 
             cerebro = bt.Cerebro()
 
@@ -188,23 +171,10 @@ class BacktestingEngine:
 
             if last_data_date < last_expected_date:
                 print(
-                    f"{ticker} appears to be delisted before {end_date.strftime('%Y-%m-%d')}, applying complete loss after {last_data_date.strftime('%Y-%m-%d')}")
+                    f"{ticker} appears to be delisted on {last_data_date.strftime('%Y-%m-%d')}, applying 7 days delisting announcement period.")
 
-                missing_dates = all_expected_trading_days[all_expected_trading_days > last_data_date]
-                # sort the missing dates
-                missing_dates = missing_dates.sort_values()
-
-                # Create 0-price rows for the missing dates
-                zero_data = pd.DataFrame(index=missing_dates[:1], columns=pd_data.columns)
-                for col in pd_data.columns:
-                    if col[0] in ["open", "high", "low", "close", "volume"]:
-                        zero_data[col] = 1e-10
-                    else:
-                        zero_data[col] = pd_data[col].iloc[-1]  # forward-fill other fields like 'symbol'
-
-                # Concatenate and sort
-                pd_data = pd.concat([pd_data, zero_data])
-                pd_data = pd_data[~pd_data.index.duplicated(keep='first')].sort_index()
+                # remove the last 7 days of data
+                pd_data = pd_data[pd_data.index <= last_data_date - pd.DateOffset(days=7)]
 
             add_tickers_data(cerebro, pd_data)
 
@@ -365,7 +335,7 @@ class BacktestingEngine:
 
             total_return = (final_value / test_config.cash) - 1
             total_periods = len(daily_returns)
-            annual_return = (1 + total_return) ** (252 / total_periods) - 1
+            annual_return = (1 + total_return) ** (252 / total_periods) - 1 if total_periods >= 252 else total_return
             # check if annual return is float
             try:
                 assert isinstance(annual_return, float), f"Annual return is not float: {annual_return}"
@@ -406,8 +376,11 @@ class USStockCommission(bt.CommInfoBase):
     )
 
     def _getcommission(self, size, price, pseudoexec):
-        # Calculate commission based on shares
+        # Raw commission per share
         commission = abs(size) * self.p.commission_per_share
 
-        # Ensure the commission is at least the minimum order commission
-        return max(commission, self.p.min_commission)
+        # Transaction amount in $
+        txn_amount = abs(size * price)
+
+        # Apply both minimum and maximum constraints
+        return min(max(commission, self.p.min_commission), 0.01 * txn_amount)

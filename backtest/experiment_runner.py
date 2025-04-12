@@ -4,7 +4,7 @@ import os
 
 from backtest.strategy.timing.base_strategy import BaseStrategy
 from backtest.strategy.timing_iso.base_strategy_iso import BaseStrategyIso
-from backtest.strategy.selection import RandomSP500Selector
+from backtest.strategy.selection import RandomSP500Selector, MomentumSP500Selector
 from backtest.backtest_engine import BacktestingEngine
 from backtest.backtest_engine_iso import BacktestingEngineIso
 from backtest.toolkit.operation_utils import aggregate_results_one_strategy
@@ -18,7 +18,7 @@ class ExperimentRunner:
             self,
             setup_name: str,
             strategy_class: BaseStrategy | BaseStrategyIso,
-            trade_config: dict = None,
+            custom_trade_config: dict = None,
             strat_config_path: str = None
     ):
         """
@@ -73,13 +73,28 @@ class ExperimentRunner:
                 )
             }
             self.mode = "rolling_window"
+        elif setup_name.startswith("momentum_sp500_"):
+            default_config = {
+                "date_from": "2004-01-01",
+                "date_to": "2024-01-01",
+                "tickers": "all",
+                "silence": True,
+                "setup_name": setup_name,
+                "selection_strategy": MomentumSP500Selector(
+                    num_tickers=int(setup_name.split("_")[-1]),
+                    momentum_period=100,
+                    skip_period=21,
+                    training_period=2
+                )
+            }
+            self.mode = "rolling_window"
         else:
             raise NotImplementedError(f"setup_name {setup_name} is not implemented")
 
-        if trade_config is None:
-            trade_config = default_config
-        else:
-            trade_config.update(default_config)
+        if custom_trade_config is not None:
+            default_config.update(custom_trade_config)
+
+        trade_config = default_config
 
         strat_config = json.load(open(strat_config_path)) if strat_config_path else None
 

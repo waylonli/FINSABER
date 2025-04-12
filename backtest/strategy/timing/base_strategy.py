@@ -77,9 +77,11 @@ class BaseStrategy(bt.Strategy):
         cash = self.broker.get_cash()
         price = self.data.close[0]
 
-        if price <= 1e-10:
+        if price <= 1e-8:
             return 0
 
+        MAX_RETRIES = 100
+        retries = 0
         # Adjust the max_size based on commission constraints
         while max_size > 0:
             # Estimate the commission for the current size
@@ -88,7 +90,9 @@ class BaseStrategy(bt.Strategy):
             # Check if the cash can cover both stock purchase and commission cost
             if cash >= (max_size * price + commission_cost):
                 return max_size
-            max_size -= 1
+
+            max_size = int((cash - commission_cost) / price)
+
 
         # Return 0 if cash cannot cover even the smallest possible order with commission
         return 0

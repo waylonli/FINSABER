@@ -7,7 +7,7 @@ from backtest.backtest_engine import BacktestingEngine
 
 class ATRBandStrategy(BaseStrategy):
     params = (
-        ("prior_period", 252 * 3),  # Train on the past 3 years of daily data
+        ("prior_period", 252 * 2),  # Train on the past 3 years of daily data
         ("atr_period", 14),
         ("multiplier", 1.5),
         ("total_days", 0),

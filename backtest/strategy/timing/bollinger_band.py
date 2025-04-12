@@ -7,7 +7,7 @@ from backtest.backtest_engine import BacktestingEngine
 
 class BollingerBandsStrategy(BaseStrategy):
     params = (
-        ("prior_period", 252 * 3),
+        ("prior_period", 252 * 2),
         ("period", 20),
         ("devfactor", 2.0),
         ("total_days", 0),

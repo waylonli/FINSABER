@@ -296,7 +296,7 @@ class FeatureEngineer:
         unique_date = df.date.unique()
         # start after a year
         start = 252
-        turbulence_index = [0] * start
+        turbulence_index = [0] * min(start, len(unique_date))
         # turbulence_index = [0]
         count = 0
         for i in range(start, len(unique_date)):
@@ -332,9 +332,7 @@ class FeatureEngineer:
                 turbulence_temp = 0
             turbulence_index.append(turbulence_temp)
         try:
-            turbulence_index = pd.DataFrame(
-                {"date": df_price_pivot.index, "turbulence": turbulence_index}
-            )
-        except ValueError:
-            raise Exception("Turbulence information could not be added.")
+            turbulence_index = pd.DataFrame({"date": df_price_pivot.index, "turbulence": turbulence_index})
+        except ValueError as e:
+            raise Exception(f"Turbulence information could not be added: {e}")
         return turbulence_index

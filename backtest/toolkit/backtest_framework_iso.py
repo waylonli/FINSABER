@@ -8,7 +8,7 @@ from tqdm import tqdm
 # from backtest.strategy.timing_iso.base_strategy_iso import BaseStrategyIso
 
 class BacktestFrameworkIso:
-    def __init__(self, initial_cash=100000, risk_free_rate=0.0, commission_per_share=0.0049, min_commission=0.99):
+    def __init__(self, initial_cash=100000, risk_free_rate=0.0, commission_per_share=0.0049, min_commission=0.99, max_commission_rate=0.01):
         self.initial_cash = initial_cash
         self.cash = initial_cash
         self.portfolio = {}
@@ -16,6 +16,7 @@ class BacktestFrameworkIso:
         self.risk_free_rate = risk_free_rate
         self.commission_per_share = commission_per_share
         self.min_commission = min_commission
+        self.max_commission_rate = max_commission_rate
         self.data_loader = None
 
     def load_backtest_data(
@@ -46,19 +47,20 @@ class BacktestFrameworkIso:
         return True if self.data_loader is not None else False
 
 
-    def calculate_commission(self, quantity):
+    def calculate_commission(self, quantity, price):
         commission = abs(quantity) * self.commission_per_share
-        return max(commission, self.min_commission)
+        txn_amount = abs(quantity * price)
+        return max(self.min_commission, min(commission, txn_amount * self.max_commission_rate))
 
     def buy(self, date, ticker, price, quantity):
         if quantity >= 0:
             cost = price * quantity
-            commission = self.calculate_commission(quantity)
+            commission = self.calculate_commission(quantity, price)
             total_cost = cost + commission
         elif quantity == -1:
             # Buy all available cash, taking into account commission
             total_cost = self.cash
-            commission = self.calculate_commission(int(total_cost / price))
+            commission = self.calculate_commission(int(total_cost / price), price)
             total_cost -= commission
             quantity = int(total_cost / price)
             total_cost = price * quantity + commission
@@ -76,7 +78,7 @@ class BacktestFrameworkIso:
     def sell(self, date, ticker, price, quantity):
         if ticker in self.portfolio and self.portfolio[ticker]['quantity'] >= quantity:
             revenue = price * quantity
-            commission = self.calculate_commission(quantity)
+            commission = self.calculate_commission(quantity, price)
             net_revenue = revenue - commission
             self.cash += net_revenue
             self.portfolio[ticker]['quantity'] -= quantity
@@ -93,6 +95,9 @@ class BacktestFrameworkIso:
         all_expected_trading_days = pd.bdate_range(start=f"{end_date_year}-01-01", end=f"{end_date_year}-12-31")
         last_expected_date = all_expected_trading_days[-1].date()
         print(f"Last expected date: {last_expected_date}")
+        if last_data_date < last_expected_date:
+            print(f"Current symbol appears to be delisted on {last_data_date}, adjust the end date for 7 days ahead announcement.")
+            date_range = [d for d in date_range if d <= (last_data_date - pd.Timedelta(days=7))] # remove the last 7 days for delisting announcement
 
         for date in date_range:
             status = strategy.on_data(date, self.data_loader.get_data_by_date(date), self)
@@ -100,21 +105,12 @@ class BacktestFrameworkIso:
 
             if status == "done":
                 break
-            # import pdb; pdb.set_trace()
-        # if there are any remaining holdings, sell them all at the last date
-        try:
-            last_date = list(self.data_loader.get_date_range())[-1]
-        except:
-            import pdb; pdb.set_trace()
 
+        # if there are any remaining holdings, sell them all at the last date
         for ticker in list(self.portfolio.keys()):
-            if last_date < last_expected_date:
-                print(f"{ticker} appears to be delisted on {last_date}, applying complete loss.")
-                price = 1e-10
-            else:
-                price = self.data_loader.get_ticker_price_by_date(ticker, last_date)
+            price = self.data_loader.get_ticker_price_by_date(ticker, date_range[-1])
             quantity = self.portfolio[ticker]['quantity']
-            self.sell(last_date, ticker, price, quantity)
+            self.sell(date_range[-1], ticker, price, quantity)
 
     def evaluate(self, strategy):
         final_value = self.cash + sum(

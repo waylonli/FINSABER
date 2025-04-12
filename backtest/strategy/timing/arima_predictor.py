@@ -7,7 +7,7 @@ from backtest.toolkit.operation_utils import aggregate_results_one_strategy
 
 class ARIMAPredictorStrategy(BaseStrategy):
     params = (
-        ("train_period", 252 * 3),  # Train on the past 3 years of daily data
+        ("train_period", 252 * 2),  # Train on the past 3 years of daily data
         ("order", (5, 1, 0)),  # Default ARIMA order (p, d, q)
         ("total_days", 0),
     )
@@ -45,10 +45,6 @@ class ARIMAPredictorStrategy(BaseStrategy):
 
             if sym not in self.models:
                 continue  # Skip if model is missing
-
-            # if delisted, skip
-            if d.close[0] <= 1e-10:
-                continue
 
             # add today's price to the training data, we only care about the close price in ARIMA
             self.train_data.loc[today_date, (slice(None), sym)] = d.close[0]

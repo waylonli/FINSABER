@@ -7,7 +7,7 @@ from backtest.strategy.selection import *
 # Create a Strategy
 class BuyAndHoldStrategy(BaseStrategy):
     params = (
-        ("prior_period", 252 * 3),
+        ("prior_period", 252 * 2),
         ("total_days", 0),
     )
 

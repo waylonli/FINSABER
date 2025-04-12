@@ -6,9 +6,9 @@ from backtest.toolkit.operation_utils import aggregate_results_one_strategy
 
 class TrendFollowingStrategy(BaseStrategy):
     params = (
-        ("prior_period", 252 * 3),
+        ("prior_period", 252 * 2),
         ("atr_period", 10),
-        ("period", 252 * 1),  # Equivalent to 1 year of daily data
+        ("period", 30),
         ("leverage", 0.95),  # To avoid full investment
         ("total_days", 0),
     )
