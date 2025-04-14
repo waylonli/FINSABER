@@ -1,0 +1,8 @@
+{
+    "config_path": "llm_traders/finmem/config/tsla_gpt_config.toml",
+    "market_data_info_path": "data/finmem_data/stock_data_sp500_2000_2024.pkl",
+    "date_from": "$date_from",
+    "date_to": "$date_to",
+    "symbol": "$symbol",
+    "training_period": 2
+}
