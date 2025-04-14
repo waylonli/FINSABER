@@ -1,0 +1,6 @@
+{
+	"key_var" : "OA_OPENAI_KEY",
+	"emb_model": "text-embedding-3-small",
+	"comp_model": "gpt-4o-mini",
+	"is_azure": false
+}

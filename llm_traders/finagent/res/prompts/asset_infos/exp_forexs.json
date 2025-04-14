@@ -1,0 +1,10 @@
+{
+    "EURUSD": {
+        "symbol": "EURUSD",
+        "companyName": "Forex pair EUR/USD",
+        "exchange": "CCY",
+        "industry": "Currency Trading Services",
+        "description": "The Forex pair EUR/USD represents the exchange rate between the Euro (EUR) and the United States Dollar (USD). It is one of the most traded currency pairs in the world. In this pair, the Euro is the base currency, and the US Dollar is the quote currency. The value of EUR/USD indicates how many US dollars are needed to purchase one Euro. For example, if the EUR/USD exchange rate is 1.20, it means that 1 Euro is equivalent to 1.20 US dollars. The price of this currency pair is influenced by various factors including economic policies, geopolitical events, central bank decisions from the European Central Bank and the Federal Reserve (Fed), and economic data releases from both the Eurozone and the United States. Traders and investors watch this currency pair closely as it can be a gauge for global economic health, and changes in the rate can have significant implications for international trade, investments, and economic policies.",
+        "sector": "Financial Services"
+    }
+}

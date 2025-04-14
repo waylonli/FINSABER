@@ -1,0 +1,10 @@
+{
+    "ETHUSD": {
+        "symbol": "ETHUSD",
+        "companyName": "Crypto pair ETH/USD",
+        "exchange": "CCC",
+        "industry": "Currency Trading Services",
+        "description": "ETH/USD refers to the exchange rate between Ethereum (ETH) and the United States Dollar (USD). Ethereum is a prominent cryptocurrency, known for its versatile blockchain platform that enables smart contracts and decentralized applications (DApps). In the pair ETH/USD, Ethereum is the base currency, and the US Dollar is the quote currency. The value of ETH/USD indicates how many US dollars are needed to purchase one Ethereum. This exchange rate fluctuates constantly, driven by factors such as supply and demand dynamics in cryptocurrency markets, technological developments within the Ethereum network, regulatory news, and broader economic factors that influence the value of the US dollar. Traders and investors in the cryptocurrency market closely watch this pair, as it provides insights into the strength and valuation of Ethereum relative to a stable and widely accepted fiat currency like the US dollar. The volatility of ETH/USD can be significant, reflecting the often rapid changes in sentiment and valuation in the crypto market.",
+        "sector": "Financial Services"
+    }
+}
