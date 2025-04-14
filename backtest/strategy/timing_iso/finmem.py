@@ -138,7 +138,6 @@ class FinMemStrategy(BaseStrategyIso):
             # self.logger.info(f"Step {step} / {self.train_enviroment.cur_date}")
 
             market_info = self.train_enviroment.step()
-
             # self.logger.info(f"Market info step forward done!")
 
             if market_info[-1]:  # if done break
@@ -210,6 +209,6 @@ if __name__ == "__main__":
     # ticker_metrics = engine.run_iterative_tickers(FinMemStrategy, strat_params=strat_params)
     # print(ticker_metrics)
 
-    ticker_metrics = engine.run_rolling_window(FinMemStrategy, strat_params=strat_params)
-    from backtest.toolkit.operation_utils import aggregate_results_one_strategy
-    aggregate_results_one_strategy("random_sp500_5", "FinMemStrategy")
+    # ticker_metrics = engine.run_rolling_window(FinMemStrategy, strat_params=strat_params)
+    # from backtest.toolkit.operation_utils import aggregate_results_one_strategy
+    # aggregate_results_one_strategy("random_sp500_5", "FinMemStrategy")

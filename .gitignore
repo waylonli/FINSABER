@@ -1,7 +1,10 @@
 /data/
 .env
 .idea
-llm_traders/
+llm_traders/finagent/data
+llm_traders/finagent/workdir
+/llm_traders/finmem/.env
+/llm_traders/finmem/data
 /workdir
 /scripts
 /backtest/scripts

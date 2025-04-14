@@ -77,7 +77,7 @@ class BacktestingEngineIso:
         if self.trade_config.save_results:
             output_dir = os.path.join(self.trade_config.log_base_dir,
                                       self.trade_config.setup_name.replace(":", "_"), strategy_class.__name__)
-            filename = f"{date_from}_{date_to}.pkl" if self.trade_config.result_filename is None else self.trade_config.result_filename
+            filename = f"{date_from.date()}_{date_to.date()}.pkl" if self.trade_config.result_filename is None else self.trade_config.result_filename
             os.makedirs(output_dir, exist_ok=True)
             with open(os.path.join(output_dir, filename), "wb") as f:
                 pickle.dump(eval_metrics, f)
