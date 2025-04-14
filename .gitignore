@@ -16,3 +16,7 @@ llm_traders/finagent/workdir
 seekalpha invoice.pdf
 /backup
 *.ipynb
+backtest/output/.DS_Store
+/backtest/__pycache__
+/backtest/__pycache__
+*.pyc
