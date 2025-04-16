@@ -194,7 +194,7 @@ if __name__ == "__main__":
     }
 
 
-    engine = BacktestingEngineIso(trade_config)
+    # engine = BacktestingEngineIso(trade_config)
 
     strat_params = {
         "config_path": "strats_configs/finmem_gpt_config.toml",
@@ -210,5 +210,5 @@ if __name__ == "__main__":
     # print(ticker_metrics)
 
     # ticker_metrics = engine.run_rolling_window(FinMemStrategy, strat_params=strat_params)
-    # from backtest.toolkit.operation_utils import aggregate_results_one_strategy
-    # aggregate_results_one_strategy("random_sp500_5", "FinMemStrategy")
+    from backtest.toolkit.operation_utils import aggregate_results_one_strategy
+    aggregate_results_one_strategy("momentum_sp500_5", "FinAgentStrategy")
