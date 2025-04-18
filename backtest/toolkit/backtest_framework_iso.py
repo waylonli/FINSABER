@@ -99,6 +99,10 @@ class BacktestFrameworkIso:
             print(f"Current symbol appears to be delisted on {last_data_date}, adjust the end date for 7 days ahead announcement.")
             date_range = [d for d in date_range if d <= (last_data_date - pd.Timedelta(days=7))] # remove the last 7 days for delisting announcement
 
+        if len(date_range) < 21:
+            print(f"Not enough data for backtesting. Only {len(date_range)} days available.")
+            return False
+
         for date in date_range:
             status = strategy.on_data(date, self.data_loader.get_data_by_date(date), self)
             strategy.update_info(date, self.data_loader, self)
@@ -111,6 +115,8 @@ class BacktestFrameworkIso:
             price = self.data_loader.get_ticker_price_by_date(ticker, date_range[-1])
             quantity = self.portfolio[ticker]['quantity']
             self.sell(date_range[-1], ticker, price, quantity)
+
+        return True
 
     def evaluate(self, strategy):
         final_value = self.cash + sum(

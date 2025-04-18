@@ -7,7 +7,7 @@ class SMACrossStrategy(BaseStrategy):
     params = (
         ("prior_period", 252 * 2),
         ('short_window', 10),
-        ('long_window', 30),
+        ('long_window', 20),
         ('trade_size', 0.95),
         ("total_days", 0),
     )

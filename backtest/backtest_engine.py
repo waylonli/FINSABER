@@ -108,6 +108,8 @@ class BacktestingEngine:
 
         for ticker in tickers_loop:
 
+            # print(f"Processing ticker {ticker}...")
+
             cerebro = bt.Cerebro()
 
             pd_data = get_tickers_price(ticker, date_from=test_config.date_from, date_to=test_config.date_to)
@@ -152,7 +154,7 @@ class BacktestingEngine:
                 kwargs["train_data"] = train_data
 
             # skip if no data or data is not start from January
-            if (pd_data is None or pd_data.index.min().month != 1) and ("cherry_pick" not in test_config.setup_name):
+            if (pd_data is None or pd_data.index.min().month != 1 or len(pd_data) < 21) and ("cherry_pick" not in test_config.setup_name):
                 # print(f"No data in the period {test_config.date_from} to {test_config.date_to} for {ticker}")
                 continue
 
@@ -175,6 +177,12 @@ class BacktestingEngine:
 
                 # remove the last 7 days of data
                 pd_data = pd_data[pd_data.index <= last_data_date - pd.DateOffset(days=7)]
+
+            # check again
+            if ((pd_data is None or pd_data.index.min().month != 1 or len(pd_data) < 21) and (
+                    "cherry_pick" not in test_config.setup_name)):
+                print(f"Not enough data in the period {test_config.date_from} to {test_config.date_to} for {ticker}")
+                continue
 
             add_tickers_data(cerebro, pd_data)
 

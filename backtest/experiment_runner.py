@@ -4,7 +4,7 @@ import os
 
 from backtest.strategy.timing.base_strategy import BaseStrategy
 from backtest.strategy.timing_iso.base_strategy_iso import BaseStrategyIso
-from backtest.strategy.selection import RandomSP500Selector, MomentumSP500Selector
+from backtest.strategy.selection import RandomSP500Selector, MomentumSP500Selector, LowVolatilitySP500Selector
 from backtest.backtest_engine import BacktestingEngine
 from backtest.backtest_engine_iso import BacktestingEngineIso
 from backtest.toolkit.operation_utils import aggregate_results_one_strategy
@@ -84,6 +84,20 @@ class ExperimentRunner:
                     num_tickers=int(setup_name.split("_")[-1]),
                     momentum_period=100,
                     skip_period=21,
+                    training_period=2
+                )
+            }
+            self.mode = "rolling_window"
+        elif setup_name.startswith("lowvol_sp500_"):
+            default_config = {
+                "date_from": "2004-01-01",
+                "date_to": "2024-01-01",
+                "tickers": "all",
+                "silence": True,
+                "setup_name": setup_name,
+                "selection_strategy": LowVolatilitySP500Selector(
+                    num_tickers=int(setup_name.split("_")[-1]),
+                    lookback_period=21,
                     training_period=2
                 )
             }

@@ -211,4 +211,4 @@ if __name__ == "__main__":
 
     # ticker_metrics = engine.run_rolling_window(FinMemStrategy, strat_params=strat_params)
     from backtest.toolkit.operation_utils import aggregate_results_one_strategy
-    aggregate_results_one_strategy("momentum_sp500_5", "FinAgentStrategy")
+    aggregate_results_one_strategy("random_sp500_5", "FinAgentStrategy")

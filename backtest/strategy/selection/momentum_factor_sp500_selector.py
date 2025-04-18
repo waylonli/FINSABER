@@ -48,7 +48,7 @@ class MomentumSP500Selector(BaseSelector):
 
         if len(perf) < self.num_tickers:
             print("Not enough stocks to select from.")
-            return {}
+            return []
 
         # Sort tickers by momentum score in descending order.
         sorted_tickers = sorted(perf, key=perf.get, reverse=True)
@@ -56,7 +56,7 @@ class MomentumSP500Selector(BaseSelector):
         long_tickers = sorted_tickers[:self.num_tickers]
 
         if len(long_tickers) == 0:
-            return {}
+            return []
 
         return long_tickers
 

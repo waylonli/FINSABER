@@ -172,7 +172,12 @@ class BacktestingEngineIso:
                     print(f"Insufficient training data for {ticker} in the period {self.trade_config.date_from} to {self.trade_config.date_to}. Skipping...")
                     continue
 
-                self.framework.run(strategy)
+                status = self.framework.run(strategy)
+
+                if not status:
+                    print(f"Skipping {ticker}...")
+                    continue
+
                 metrics = self.framework.evaluate(strategy)
                 try:
                     equity_with_time = pd.DataFrame({
