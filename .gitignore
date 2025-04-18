@@ -51,3 +51,4 @@ llm_traders/finmem/data-pipeline/Fake-Sample-Data.zip
 backtest/output/.DS_Store
 backtest/output/.DS_Store
 *.pyc
+*__pycache__*
