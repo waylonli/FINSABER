@@ -168,33 +168,33 @@ if __name__ == "__main__":
     for f in glob.glob(os.path.join(log_dir, "*.log")):
         os.remove(f)
 
-    # trade_config = {
-    #     # "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
-    #     "tickers": ["MERQ", "MSFT"],
-    #     "silence": False,
-    #     "setup_name": "debug",
-    #     "date_from": "2006-10-28",
-    #     "date_to": "2007-01-01",
-    #     "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_sp500_2000_2014.pkl")
-    #     # "date_from": "2022-10-06",
-    #     # "date_to": "2023-04-10"
-    # }
-
     trade_config = {
-        "tickers": "all",
-        "silence": True,
-        "setup_name": "random_sp500_5",
-        "date_from": "2016-01-01",
-        "date_to": "2024-01-01",
-        "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_sp500_2000_2024.pkl"),
-        "selection_strategy": RandomSP500Selector(
-            num_tickers=5,
-            random_seed_setting="year"
-        )
+        # "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
+        "tickers": ["MDLZ"],
+        "silence": False,
+        "setup_name": "debug",
+        "date_from": "2010-01-01",
+        "date_to": "2011-01-01",
+        "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_sp500_2000_2014.pkl")
+        # "date_from": "2022-10-06",
+        # "date_to": "2023-04-10"
     }
 
+    # trade_config = {
+    #     "tickers": "all",
+    #     "silence": True,
+    #     "setup_name": "random_sp500_5",
+    #     "date_from": "2016-01-01",
+    #     "date_to": "2024-01-01",
+    #     "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_sp500_2000_2024.pkl"),
+    #     "selection_strategy": RandomSP500Selector(
+    #         num_tickers=5,
+    #         random_seed_setting="year"
+    #     )
+    # }
 
-    # engine = BacktestingEngineIso(trade_config)
+
+    engine = BacktestingEngineIso(trade_config)
 
     strat_params = {
         "config_path": "strats_configs/finmem_gpt_config.toml",
@@ -203,12 +203,13 @@ if __name__ == "__main__":
         "date_to": "$date_to", # auto calculate inside the backtest engine,
         "symbol": "$symbol",
         # "training_period": ("2006-10-20", "2006-10-28")
-        "training_period": 3
+        "training_period": 2
     }
 
-    # ticker_metrics = engine.run_iterative_tickers(FinMemStrategy, strat_params=strat_params)
-    # print(ticker_metrics)
+    ticker_metrics = engine.run_iterative_tickers(FinMemStrategy, strat_params=strat_params)
+    print(ticker_metrics)
+    import pdb; pdb.set_trace()
 
     # ticker_metrics = engine.run_rolling_window(FinMemStrategy, strat_params=strat_params)
-    from backtest.toolkit.operation_utils import aggregate_results_one_strategy
-    aggregate_results_one_strategy("random_sp500_5", "FinAgentStrategy")
+    # from backtest.toolkit.operation_utils import aggregate_results_one_strategy
+    # aggregate_results_one_strategy("random_sp500_5", "FinAgentStrategy")

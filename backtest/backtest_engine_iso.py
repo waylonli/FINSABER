@@ -70,8 +70,8 @@ class BacktestingEngineIso:
 
             metrics = self.run_iterative_tickers(strategy_class, strat_params, tickers=self.trade_config.tickers)
 
-            window_key = f"{window[0]}_{window[-1]}"
-            eval_metrics[window_key] = metrics
+            # window_key = f"{window[0]}_{window[-1]}"
+            eval_metrics.update(metrics)
 
         # Save results if required
         if self.trade_config.save_results:

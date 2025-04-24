@@ -15,7 +15,7 @@ from rl_traders.finrl.finrl.meta.preprocessor.preprocessors import FeatureEngine
 
 class FinRLStrategy(BaseStrategy):
     params = (
-        ("algorithm", "td3"),           # Options: A2C, DDPG, PPO, SAC, TD3
+        ("algorithm", "a2c"),           # Options: A2C, DDPG, PPO, SAC, TD3
         ("total_timesteps", 50000),
         ("initial_amount", 100000),
         ("total_days", 0),

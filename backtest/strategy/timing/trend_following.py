@@ -8,7 +8,7 @@ class TrendFollowingStrategy(BaseStrategy):
     params = (
         ("prior_period", 252 * 2),
         ("atr_period", 10),
-        ("period", 30),
+        ("period", 20),
         ("leverage", 0.95),  # To avoid full investment
         ("total_days", 0),
     )
