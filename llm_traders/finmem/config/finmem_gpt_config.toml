@@ -8,7 +8,7 @@ system_message = "You are a helpful assistant."
 top_k = 3
 agent_name = "agent_1"
 look_back_window_size = 7
-trading_symbol = "TSLA"
+trading_symbol = ""
 character_string = ""
 
 
