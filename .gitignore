@@ -52,3 +52,4 @@ backtest/output/.DS_Store
 backtest/output/.DS_Store
 *.pyc
 *__pycache__*
+*.DS_Store
