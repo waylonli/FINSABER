@@ -38,10 +38,10 @@ backtest/strategy/timing/__pycache__/trend_following.cpython-310.pyc
 backtest/strategy/timing/__pycache__/turn_of_the_month.cpython-310.pyc
 backtest/strategy/timing/__pycache__/wma_crossover.cpython-310.pyc
 backtest/strategy/timing/__pycache__/xgboost_predictor.cpython-310.pyc
-backtest/strategy/timing_iso/__pycache__/__init__.cpython-310.pyc
-backtest/strategy/timing_iso/__pycache__/base_strategy_iso.cpython-310.pyc
-backtest/strategy/timing_iso/__pycache__/finagent.cpython-310.pyc
-backtest/strategy/timing_iso/__pycache__/finmem.cpython-310.pyc
+backtest/strategy/timing_llm/__pycache__/__init__.cpython-310.pyc
+backtest/strategy/timing_llm/__pycache__/base_strategy_iso.cpython-310.pyc
+backtest/strategy/timing_llm/__pycache__/finagent.cpython-310.pyc
+backtest/strategy/timing_llm/__pycache__/finmem.cpython-310.pyc
 backtest/toolkit/__pycache__/backtest_framework_iso.cpython-310.pyc
 *.html
 *.csv

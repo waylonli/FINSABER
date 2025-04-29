@@ -3,7 +3,7 @@ import backtrader as bt
 import pandas as pd
 from tqdm import tqdm
 from backtest.strategy.timing.base_strategy import BaseStrategy
-from backtest.backtest_engine import BacktestingEngine
+from backtest.finsaber_bt import FINSABERBt
 
 class MomentumFactorEffectinStocks(BaseStrategy):
     params = (
@@ -114,6 +114,6 @@ if __name__ == "__main__":
         "tickers": "all",
         "strategy_type": "selection",
     }
-    operator = BacktestingEngine(trade_config)
+    operator = FINSABERBt(trade_config)
     # operator.execute_all(MomentumFactorEffectinStocks, process=preprocess_df)
     operator.run_rolling_window(MomentumFactorEffectinStocks, process=preprocess_df)

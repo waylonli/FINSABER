@@ -5,9 +5,9 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 # from backtest.data_util import BacktestDataset
-# from backtest.strategy.timing_iso.base_strategy_iso import BaseStrategyIso
+# from backtest.strategy.timing_llm.base_strategy_iso import BaseStrategyIso
 
-class BacktestFrameworkIso:
+class FINSABERFrameworkHelper:
     def __init__(self, initial_cash=100000, risk_free_rate=0.0, commission_per_share=0.0049, min_commission=0.99, max_commission_rate=0.01):
         self.initial_cash = initial_cash
         self.cash = initial_cash
@@ -191,7 +191,7 @@ class BacktestFrameworkIso:
 #
 # # Example usage:
 # data = pickle.load(open("data/finmem_data/03_model_input/synthetic_dataset.pkl", "rb"))
-# framework = BacktestFramework()
+# framework = FINSABERBtFrameworkHelper()
 # framework.load_data(data)
 # strategy = SampleStrategy()
 # framework.run(strategy)

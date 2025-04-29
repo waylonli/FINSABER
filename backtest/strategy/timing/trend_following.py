@@ -1,7 +1,7 @@
 import backtrader as bt
 
 from backtest.strategy.timing.base_strategy import BaseStrategy
-from backtest.backtest_engine import BacktestingEngine
+from backtest.finsaber_bt import FINSABERBt
 from backtest.toolkit.operation_utils import aggregate_results_one_strategy
 
 class TrendFollowingStrategy(BaseStrategy):
@@ -75,6 +75,6 @@ if __name__ == "__main__":
     #     "silence": True,
     #     "setup_name": "random:50",
     # }
-    operator = BacktestingEngine(trade_config)
+    operator = FINSABERBt(trade_config)
     operator.run_rolling_window(TrendFollowingStrategy)
     aggregate_results_one_strategy(trade_config["selection_strategy"], TrendFollowingStrategy.__name__)

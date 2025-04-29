@@ -17,8 +17,8 @@ from llm_traders.finagent.prompt import (prepare_latest_market_intelligence_para
                                          prepare_high_level_reflection_params,
                                          prepared_tools_params)
 from llm_traders.finagent.tools import StrategyAgents
-from backtest.strategy.timing_iso.base_strategy_iso import BaseStrategyIso
-from backtest.toolkit.backtest_framework_iso import BacktestFrameworkIso
+from backtest.strategy.timing_llm.base_strategy_iso import BaseStrategyIso
+from backtest.toolkit.backtest_framework_iso import FINSABERFrameworkHelper
 from dotenv import load_dotenv
 
 warnings.filterwarnings("ignore")
@@ -363,7 +363,7 @@ class FinAgentStrategy(BaseStrategyIso):
 
         return decision_res["response_dict"]["action"]
 
-    def on_data(self, date: datetime.date, today_data: dict[str, float], framework: BacktestFrameworkIso):
+    def on_data(self, date: datetime.date, today_data: dict[str, float], framework: FINSABERFrameworkHelper):
         state = self.test_env.get_state()
         info = self.test_env.get_info()
 
@@ -405,7 +405,7 @@ class FinAgentStrategy(BaseStrategyIso):
 
 if __name__ == "__main__":
     from backtest.data_util import FinMemDataset
-    from backtest.backtest_engine_iso import BacktestingEngineIso
+    from backtest.finsaber import FINSABER
 
     # trade_config = {
     #     "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
@@ -435,7 +435,7 @@ if __name__ == "__main__":
             random_seed_setting="year"
         )
     }
-    engine = BacktestingEngineIso(trade_config)
+    engine = FINSABER(trade_config)
     strat_params = {
         "market_data_info_path": "data/finmem_data/stock_data_sp500_2000_2024.pkl",
         "date_from": "$date_from",  # auto calculate inside the backtest engine,

@@ -4,7 +4,7 @@ import sys
 
 from backtest.data_util import FinMemDataset
 from backtest.experiment_runner import ExperimentRunner
-from backtest.strategy.timing_iso import *
+from backtest.strategy.timing_llm import *
 
 def run_llm_strategies(args):
     runner = ExperimentRunner(output_dir=args.output_dir)

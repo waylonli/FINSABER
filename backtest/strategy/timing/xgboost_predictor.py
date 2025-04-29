@@ -2,7 +2,7 @@ import xgboost as xgb
 import pandas as pd
 
 from backtest.strategy.timing.base_strategy import BaseStrategy
-from backtest.backtest_engine import BacktestingEngine
+from backtest.finsaber_bt import FINSABERBt
 
 
 class XGBoostPredictorStrategy(BaseStrategy):
@@ -70,6 +70,6 @@ if __name__ == "__main__":
     #     "silence": True,
     #     "setup_name": "random:50",
     # }
-    operator = BacktestingEngine(trade_config)
+    operator = FINSABERBt(trade_config)
     operator.execute_iter(XGBoostPredictorStrategy)
     # operator.run_rolling_window(XGBoostPredictorStrategy)

@@ -34,7 +34,7 @@ class BaseStrategyIso:
         This method should be implemented by subclasses.
         :param date: Current date of the backtest
         :param data_loader: Instance of the BacktestDataset
-        :param framework: Instance of the BacktestFramework
+        :param framework: Instance of the FINSABERBtFrameworkHelper
         """
         raise NotImplementedError("The on_data method must be implemented by the strategy.")
 

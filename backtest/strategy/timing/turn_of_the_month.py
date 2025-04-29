@@ -4,7 +4,7 @@ import backtrader as bt
 from backtest.strategy.timing.base_strategy import BaseStrategy
 import pandas as pd
 from dotenv import load_dotenv
-from backtest.backtest_engine import BacktestingEngine
+from backtest.finsaber_bt import FINSABERBt
 from backtest.toolkit.operation_utils import aggregate_results_one_strategy
 load_dotenv()
 
@@ -88,11 +88,11 @@ if __name__ == "__main__":
     #     "setup_name": "cherry_pick_both"
     # }
 
-    operator = BacktestingEngine(trade_config)
+    operator = FINSABERBt(trade_config)
     # operator.execute_iter(TurnOfTheMonthStrategy, process=preprocess_df, total_days=cal_total_days)
     operator.run_rolling_window(TurnOfTheMonthStrategy)
     aggregate_results_one_strategy(trade_config["selection_strategy"], TurnOfTheMonthStrategy.__name__)
 
-    # cherry_operator = BacktestingEngine(cherry_config)
+    # cherry_operator = FINSABERBt(cherry_config)
     # cherry_operator.execute_iter(TurnOfTheMonthStrategy, test_config=cherry_config)
 

@@ -7,7 +7,7 @@ import pandas as pd
 import datasets as ds
 from tqdm import tqdm
 from backtest.strategy.timing.base_strategy import BaseStrategy
-from backtest.backtest_engine import BacktestingEngine
+from backtest.finsaber_bt import FINSABERBt
 
 
 class PairsTradingStrategy(BaseStrategy):
@@ -262,6 +262,6 @@ if __name__ == "__main__":
         "strategy_type": "selection",
     }
 
-    backtest_engine = BacktestingEngine(trade_config)
+    backtest_engine = FINSABERBt(trade_config)
     # backtest_engine.execute_all(PairsTradingStrategy, process=preprocess_df)
     backtest_engine.run_rolling_window(PairsTradingStrategy, process=preprocess_df)

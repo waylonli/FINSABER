@@ -1,6 +1,6 @@
 import backtrader as bt
 from backtest.strategy.timing.base_strategy import BaseStrategy
-from backtest.backtest_engine import BacktestingEngine
+from backtest.finsaber_bt import FINSABERBt
 from backtest.toolkit.operation_utils import aggregate_results_one_strategy
 
 class SMACrossStrategy(BaseStrategy):
@@ -56,9 +56,9 @@ if __name__ == "__main__":
     #     "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
     #     "setup_name": "cherry_pick_both"
     # }
-    operator = BacktestingEngine(trade_config)
+    operator = FINSABERBt(trade_config)
     operator.run_rolling_window(SMACrossStrategy)
     aggregate_results_one_strategy(trade_config["selection_strategy"], SMACrossStrategy.__name__)
 
-    # cherry_operator = BacktestingEngine(cherry_config)
+    # cherry_operator = FINSABERBt(cherry_config)
     # cherry_operator.execute_iter(SMACrossStrategy, test_config=cherry_config)

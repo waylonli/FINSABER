@@ -1,7 +1,7 @@
-from backtest.backtest_engine_iso import BacktestingEngineIso
+from backtest.finsaber import FINSABER
 from backtest.strategy.selection import RandomSP500Selector
-from backtest.strategy.timing_iso.base_strategy_iso import BaseStrategyIso
-from backtest.toolkit.backtest_framework_iso import BacktestFrameworkIso
+from backtest.strategy.timing_llm.base_strategy_iso import BaseStrategyIso
+from backtest.toolkit.backtest_framework_iso import FINSABERFrameworkHelper
 import toml
 import pickle
 import warnings
@@ -86,7 +86,7 @@ class FinMemStrategy(BaseStrategyIso):
             self,
             date: datetime.date,
             today_data: dict[str, float],
-            framework: BacktestFrameworkIso
+            framework: FINSABERFrameworkHelper
     ):
         prices = today_data["price"]
 
@@ -194,7 +194,7 @@ if __name__ == "__main__":
     # }
 
 
-    engine = BacktestingEngineIso(trade_config)
+    engine = FINSABER(trade_config)
 
     strat_params = {
         "config_path": "strats_configs/finmem_gpt_config.toml",

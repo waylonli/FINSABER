@@ -2,7 +2,7 @@
 from backtest.toolkit.operation_utils import aggregate_results_one_strategy
 import backtrader as bt
 from backtest.strategy.timing.base_strategy import BaseStrategy
-from backtest.backtest_engine import BacktestingEngine
+from backtest.finsaber_bt import FINSABERBt
 
 
 class BollingerBandsStrategy(BaseStrategy):
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     #     "silence": False,
     #     "setup_name": "cherry_pick_debug_AAPL",
     # }
-    operator = BacktestingEngine(trade_config)
+    operator = FINSABERBt(trade_config)
     operator.run_rolling_window(BollingerBandsStrategy)
     aggregate_results_one_strategy(trade_config["selection_strategy"], BollingerBandsStrategy.__name__)
     # operator.execute_iter(BollingerBandsStrategy, test_config=trade_config)

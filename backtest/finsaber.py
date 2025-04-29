@@ -11,15 +11,15 @@ from tqdm import tqdm
 from backtest.strategy.selection import FinMemSelector
 from backtest.toolkit.custom_exceptions import InsufficientTrainingDataException
 from backtest.toolkit.trade_config import TradeConfig
-from backtest.toolkit.backtest_framework_iso import BacktestFrameworkIso
+from backtest.toolkit.backtest_framework_iso import FINSABERFrameworkHelper
 from backtest.toolkit.operation_utils import aggregate_results_one_strategy
 from backtest.toolkit.llm_cost_monitor import reset_llm_cost, get_llm_cost
 
 
-class BacktestingEngineIso:
+class FINSABER:
     def __init__(self, trade_config: dict):
         self.trade_config = TradeConfig.from_dict(trade_config)
-        self.framework = BacktestFrameworkIso(
+        self.framework = FINSABERFrameworkHelper(
             initial_cash=self.trade_config.cash,
             risk_free_rate=self.trade_config.risk_free_rate,
             commission_per_share=self.trade_config.__dict__.get("commission", 0.0049),

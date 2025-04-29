@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 from backtest.strategy.timing.base_strategy import BaseStrategy
-from backtest.backtest_engine import BacktestingEngine
+from backtest.finsaber_bt import FINSABERBt
 
 # Define the strategy
 class BettingAgainstBetaStrategy(BaseStrategy):
@@ -211,6 +211,6 @@ if __name__ == "__main__":
         "strategy_type": "selection",
         "silence": True,
     }
-    operator = BacktestingEngine(trade_config)
+    operator = FINSABERBt(trade_config)
     # operator.execute_all(BettingAgainstBetaStrategy, process=preprocess_df)
     operator.run_rolling_window(BettingAgainstBetaStrategy, process=preprocess_df)

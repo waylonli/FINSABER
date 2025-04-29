@@ -6,9 +6,9 @@ import numpy as np
 import datasets as ds
 from tqdm import tqdm
 from backtest.strategy.timing.base_strategy import BaseStrategy
-from backtest.backtest_engine import BacktestingEngine
+from backtest.finsaber_bt import FINSABERBt
 from backtest.strategy.timing.base_strategy import BaseStrategy
-from backtest.backtest_engine import BacktestingEngine
+from backtest.finsaber_bt import FINSABERBt
 
 
 class LowVolatilityStrategy(BaseStrategy):
@@ -135,6 +135,6 @@ if __name__ == "__main__":
         "tickers": "all",
         "strategy_type": "selection",
     }
-    operator = BacktestingEngine(trade_config)
+    operator = FINSABERBt(trade_config)
     # operator.execute_all(LowVolatilityStrategy, process=preprocess_df)
     operator.run_rolling_window(LowVolatilityStrategy, process=preprocess_df)

@@ -3,10 +3,10 @@ import json
 import os
 
 from backtest.strategy.timing.base_strategy import BaseStrategy
-from backtest.strategy.timing_iso.base_strategy_iso import BaseStrategyIso
+from backtest.strategy.timing_llm.base_strategy_iso import BaseStrategyIso
 from backtest.strategy.selection import RandomSP500Selector, MomentumSP500Selector, LowVolatilitySP500Selector
-from backtest.backtest_engine import BacktestingEngine
-from backtest.backtest_engine_iso import BacktestingEngineIso
+from backtest.finsaber_bt import FINSABERBt
+from backtest.finsaber import FINSABER
 from backtest.toolkit.operation_utils import aggregate_results_one_strategy
 
 class ExperimentRunner:
@@ -116,9 +116,9 @@ class ExperimentRunner:
 
     def _run_backtest(self, strategy_class, trade_config, strat_config):
         if strat_config:
-            operator = BacktestingEngineIso(trade_config)
+            operator = FINSABER(trade_config)
         else:
-            operator = BacktestingEngine(trade_config)
+            operator = FINSABERBt(trade_config)
 
         if self.mode == "rolling_window":
             operator.run_rolling_window(strategy_class, strat_params=strat_config)

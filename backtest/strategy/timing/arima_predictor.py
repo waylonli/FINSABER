@@ -1,7 +1,7 @@
 import pandas as pd
 import statsmodels.api as sm
 from backtest.strategy.timing.base_strategy import BaseStrategy
-from backtest.backtest_engine import BacktestingEngine
+from backtest.finsaber_bt import FINSABERBt
 from backtest.toolkit.operation_utils import aggregate_results_one_strategy
 
 
@@ -84,7 +84,7 @@ if __name__ == "__main__":
         "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
         "setup_name": "cherry_pick_both_finmem",
     }
-    operator = BacktestingEngine(trade_config)
+    operator = FINSABERBt(trade_config)
     # operator.run_rolling_window(ARIMAPredictorStrategy)
     operator.execute_iter(ARIMAPredictorStrategy)
     aggregate_results_one_strategy(trade_config["selection_strategy"], ARIMAPredictorStrategy.__name__)

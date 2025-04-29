@@ -17,7 +17,7 @@ warnings.filterwarnings("ignore")
 # TODO wandb support
 # TODO rolling window backtesting
 
-class BacktestingEngine:
+class FINSABERBt:
     def __init__(
             self,
             config: dict,

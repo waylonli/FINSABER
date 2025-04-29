@@ -1,6 +1,6 @@
 from backtest.strategy.selection import RandomSP500Selector
 from backtest.strategy.timing.base_strategy import BaseStrategy
-from backtest.backtest_engine import BacktestingEngine
+from backtest.finsaber_bt import FINSABERBt
 from backtest.toolkit.operation_utils import aggregate_results_one_strategy
 from backtest.strategy.selection import *
 
@@ -32,10 +32,10 @@ if __name__ == '__main__':
     trade_config = {
         "tickers": "all",
         "silence": True,
-        "setup_name": "random_sp500_10",
+        "setup_name": "debug",
         "selection_strategy": RandomSP500Selector(num_tickers=10, random_seed_setting="year"),
     }
-    operator = BacktestingEngine(trade_config)
+    operator = FINSABERBt(trade_config)
     # operator.execute_iter(BuyAndHoldStrategy)
     operator.run_rolling_window(BuyAndHoldStrategy)
     aggregate_results_one_strategy(trade_config["setup_name"], BuyAndHoldStrategy.__name__)

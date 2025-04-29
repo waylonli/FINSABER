@@ -4,7 +4,7 @@ import sys
 
 from backtest.experiment_runner import ExperimentRunner
 from backtest.toolkit.operation_utils import aggregate_results
-from backtest.backtest_engine import BacktestingEngine
+from backtest.finsaber_bt import FINSABERBt
 
 def run_timing_strategies(args):
     exclude_strats = args.exclude.split(",") if args.exclude else []

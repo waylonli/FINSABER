@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import itertools
 from backtest.strategy.timing.base_strategy import BaseStrategy
-from backtest.backtest_engine import BacktestingEngine
+from backtest.finsaber_bt import FINSABERBt
 from backtest.toolkit.operation_utils import aggregate_results_one_strategy
 
 # FinRL imports
@@ -217,7 +217,7 @@ if __name__ == "__main__":
     #     "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
     #     "setup_name": "cherry_pick_both_finmem",
     # }
-    operator = BacktestingEngine(trade_config)
+    operator = FINSABERBt(trade_config)
     # operator.execute_iter(FinRLStrategy)
     operator.run_rolling_window(FinRLStrategy)
 
