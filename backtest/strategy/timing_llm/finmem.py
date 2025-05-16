@@ -169,15 +169,15 @@ if __name__ == "__main__":
         os.remove(f)
 
     trade_config = {
-        # "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
-        "tickers": ["MDLZ"],
+        "tickers": ["COIN","TSLA", "NFLX", "AMZN", "MSFT",],
+        # "tickers": ["MDLZ"],
         "silence": False,
-        "setup_name": "debug",
-        "date_from": "2010-01-01",
-        "date_to": "2011-01-01",
-        "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_sp500_2000_2014.pkl")
-        # "date_from": "2022-10-06",
-        # "date_to": "2023-04-10"
+        "setup_name": "cherry_pick_both_finmem",
+        # "date_from": "2010-01-01",
+        # "date_to": "2011-01-01",
+        "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_cherrypick_2000_2024.pkl"),
+        "date_from": "2022-10-06",
+        "date_to": "2023-04-10"
     }
 
     # trade_config = {
@@ -198,18 +198,18 @@ if __name__ == "__main__":
 
     strat_params = {
         "config_path": "strats_configs/finmem_gpt_config.toml",
-        "market_data_info_path": "data/finmem_data/stock_data_sp500_2000_2024.pkl",
+        "market_data_info_path": "data/finmem_data/stock_data_cherrypick_2000_2024.pkl",
         "date_from": "$date_from", # auto calculate inside the backtest engine,
         "date_to": "$date_to", # auto calculate inside the backtest engine,
         "symbol": "$symbol",
-        # "training_period": ("2006-10-20", "2006-10-28")
-        "training_period": 2
+        "training_period": ("2021-08-17", "2022-10-05")
+        # "training_period": 2
     }
 
     ticker_metrics = engine.run_iterative_tickers(FinMemStrategy, strat_params=strat_params)
     print(ticker_metrics)
-    import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
 
     # ticker_metrics = engine.run_rolling_window(FinMemStrategy, strat_params=strat_params)
     # from backtest.toolkit.operation_utils import aggregate_results_one_strategy
-    # aggregate_results_one_strategy("random_sp500_5", "FinAgentStrategy")
+    aggregate_results_one_strategy("cherry_pick_both_finmem", "FinMemStrategy")

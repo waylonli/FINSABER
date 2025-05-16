@@ -68,7 +68,7 @@ class FINSABER:
             self.trade_config.date_from = window[0]
             self.trade_config.date_to = window[-1]
 
-            metrics = self.run_iterative_tickers(strategy_class, strat_params, tickers=self.trade_config.tickers)
+            metrics = self.run_iterative_tickers(strategy_class, strat_params, tickers=self.trade_config.tickers, delist_check=True)
 
             # window_key = f"{window[0]}_{window[-1]}"
             eval_metrics.update(metrics)
@@ -113,7 +113,7 @@ class FINSABER:
         plt.legend()
         plt.show()
 
-    def run_iterative_tickers(self, strategy_class, strat_params=None, tickers=None):
+    def run_iterative_tickers(self, strategy_class, strat_params=None, tickers=None, delist_check=False):
         reset_llm_cost()
         tickers = tickers or self.trade_config.tickers
         if isinstance(tickers, str) and tickers.lower() == "all":
@@ -172,7 +172,7 @@ class FINSABER:
                     print(f"Insufficient training data for {ticker} in the period {self.trade_config.date_from} to {self.trade_config.date_to}. Skipping...")
                     continue
 
-                status = self.framework.run(strategy)
+                status = self.framework.run(strategy, delist_check=delist_check)
 
                 if not status:
                     print(f"Skipping {ticker}...")

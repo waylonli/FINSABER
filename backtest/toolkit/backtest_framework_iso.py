@@ -88,16 +88,17 @@ class FINSABERFrameworkHelper:
         else:
             print(f"Insufficient holdings to sell {quantity} of {ticker} on {date}")
 
-    def run(self, strategy):
+    def run(self, strategy, delist_check=True):
         date_range = self.data_loader.get_date_range()
         last_data_date = date_range[-1]
-        end_date_year = last_data_date.year
-        all_expected_trading_days = pd.bdate_range(start=f"{end_date_year}-01-01", end=f"{end_date_year}-12-31")
-        last_expected_date = all_expected_trading_days[-1].date()
-        print(f"Last expected date: {last_expected_date}")
-        if last_data_date < last_expected_date:
-            print(f"Current symbol appears to be delisted on {last_data_date}, adjust the end date for 7 days ahead announcement.")
-            date_range = [d for d in date_range if d <= (last_data_date - pd.Timedelta(days=7))] # remove the last 7 days for delisting announcement
+        if delist_check:
+            end_date_year = last_data_date.year
+            all_expected_trading_days = pd.bdate_range(start=f"{end_date_year}-01-01", end=f"{end_date_year}-12-31")
+            last_expected_date = all_expected_trading_days[-1].date()
+            print(f"Last expected date: {last_expected_date}")
+            if last_data_date < last_expected_date:
+                print(f"Current symbol appears to be delisted on {last_data_date}, adjust the end date for 7 days ahead announcement.")
+                date_range = [d for d in date_range if d <= (last_data_date - pd.Timedelta(days=7))] # remove the last 7 days for delisting announcement
 
         if len(date_range) < 21:
             print(f"Not enough data for backtesting. Only {len(date_range)} days available.")

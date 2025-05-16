@@ -1,5 +1,5 @@
 [chat]
-model = "gpt-4o-mini"
+model = "gpt-4o"
 end_point = "https://api.openai.com/v1/chat/completions"
 system_message = "You are a helpful assistant."
 
