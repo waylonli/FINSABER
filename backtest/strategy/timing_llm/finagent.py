@@ -407,44 +407,47 @@ if __name__ == "__main__":
     from backtest.data_util import FinMemDataset
     from backtest.finsaber import FINSABER
 
-    # trade_config = {
-    #     "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
-    #     "silence": False,
-    #     "setup_name": "selected_5",
-    #     "date_from": "2021-01-01",
-    #     "date_to": "2024-01-01",
-    #     "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_cherrypick_2000_2024.pkl")
-    #     # "date_from": "2022-10-06",
-    #     # "date_to": "2023-04-10"
-    # }
-    # accept bash arguments for date_from and date_to
-    import sys
-    date_from = sys.argv[1]
-    date_to = sys.argv[2]
-
-
     trade_config = {
-        "tickers": "all",
-        "silence": True,
-        "setup_name": "random_sp500_5",
-        "date_from": date_from,
-        "date_to": date_to,
-        "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_sp500_2000_2024.pkl"),
-        "selection_strategy": RandomSP500Selector(
-            num_tickers=5,
-            random_seed_setting="year"
-        )
+        "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
+        "silence": False,
+        "setup_name": "selected_5",
+        # "date_from": "2021-01-01",
+        # "date_to": "2024-01-01",
+        "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_cherrypick_2000_2024.pkl"),
+        "date_from": "2022-10-06",
+        "date_to": "2023-04-10"
     }
+    # accept bash arguments for date_from and date_to
+    # import sys
+    # date_from = sys.argv[1]
+    # date_to = sys.argv[2]
+
+
+    # trade_config = {
+    #     "tickers": "all",
+    #     "silence": True,
+    #     "setup_name": "random_sp500_5",
+    #     "date_from": date_from,
+    #     "date_to": date_to,
+    #     "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_sp500_2000_2024.pkl"),
+    #     "selection_strategy": RandomSP500Selector(
+    #         num_tickers=5,
+    #         random_seed_setting="year"
+    #     )
+    # }
     engine = FINSABER(trade_config)
     strat_params = {
-        "market_data_info_path": "data/finmem_data/stock_data_sp500_2000_2024.pkl",
+        "market_data_info_path": "data/finmem_data/stock_data_cherrypick_2000_2024.pkl",
         "date_from": "$date_from",  # auto calculate inside the backtest engine,
         "date_to": "$date_to",  # auto calculate inside the backtest engine,
         "symbol": "$symbol",
-        # "training_period": ("2021-08-17", "2022-10-05")
-        "training_period": 3
+        "training_period": ("2021-08-17", "2022-10-05")
+        # "training_period": 3
     }
     # metrics = engine.run_rolling_window(FinAgentStrategy, strat_params=strat_params)
     # print(metrics)
     # from backtest.toolkit.operation_utils import aggregate_results_one_strategy
-    # aggregate_results_one_strategy("selected_5", "FinAgentStrategy")
+    ticker_metrics = engine.run_iterative_tickers(FinAgentStrategy, strat_params=strat_params)
+    print(ticker_metrics)
+    from backtest.toolkit.operation_utils import aggregate_results_one_strategy
+    aggregate_results_one_strategy("cherry_pick_both_finmem", "FinAgentStrategy")
