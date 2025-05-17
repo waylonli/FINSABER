@@ -1,6 +1,6 @@
 # FINSABER
 
-<img src="https://github.com/waylonli/FINSABER/blob/main/figs/framework.png" width="500">
+<img src="https://github.com/waylonli/FINSABER/blob/main/figs/framework.png" width="600">
 
 ## 1. Environment Setup
 
