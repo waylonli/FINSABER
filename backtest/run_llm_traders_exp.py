@@ -58,7 +58,7 @@ if __name__ == "__main__":
     parser.add_argument("--output_dir", type=str, default="backtest/output")
     parser.add_argument("--date_from", type=str, default="2004-01-01")
     parser.add_argument("--date_to", type=str, default="2024-01-01")
-    parser.add_argument("--rolling_window_size", type=int, default=2)
+    parser.add_argument("--rolling_window_size", type=int, default=1)
     parser.add_argument("--rolling_window_step", type=int, default=1)
 
     args = parser.parse_args()
