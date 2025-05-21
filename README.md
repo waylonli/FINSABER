@@ -5,9 +5,21 @@ This document provides a high-level overview of the system, its components, and 
 
 <img src="https://github.com/waylonli/FINSABER/blob/main/figs/framework.png" width="600">
 
-## 1. Data Download
+## 1. Environment Setup
 
-The aggregated data can be downloaded from [here](https://drive.google.com/file/d/1g9GTNr1av2b9-HphssRrQsLSnoyW0lCF/view?usp=sharing) (10.23GB).
+```bash
+conda create -n finsaber python=3.10
+conda activate finsaber
+pip install -r requirements.txt
+```
+
+Rename `.env.example` to `.env` and set the environment variables. 
+- `OPENAI_API_KEY` is required to run LLM-based strategies. 
+- `HF_ACCESS_TOKEN` is optional.
+
+## 2. Data
+
+The aggregated S&P500 sample data can be downloaded from [here](https://drive.google.com/file/d/1g9GTNr1av2b9-HphssRrQsLSnoyW0lCF/view?usp=sharing) (10.23GB).
 
 The data is organised as a dictionary with the following structure:
 ```python
@@ -41,17 +53,6 @@ The data is organised as a dictionary with the following structure:
 To plug in your own data, simply inherit the `backtest.data_util.backtest_dataset.BacktestDataset` class and implement the necessary methods.
 An example for processing the data format above is provided in `backtest/data_util/finmem_dataset.py`.
 
-## 2. Environment Setup
-
-```bash
-conda create -n finsaber python=3.10
-conda activate finsaber
-pip install -r requirements.txt
-```
-
-Rename `.env.example` to `.env` and set the environment variables. 
-- `OPENAI_API_KEY` is required to run LLM-based strategies. 
-- `HF_ACCESS_TOKEN` is optional.
 
 ## 3. Reproduce the results in the paper
 
