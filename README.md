@@ -1,7 +1,6 @@
 # FINSABER
 
 FINSABER is a comprehensive framework for evaluating trading strategies with a specific focus on comparing traditional technical analysis approaches with modern machine learning and large language model (LLM) based strategies. 
-This document provides a high-level overview of the system, its components, and how they interact.
 
 <img src="https://github.com/waylonli/FINSABER/blob/main/figs/framework.png" width="600">
 
