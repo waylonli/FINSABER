@@ -7,7 +7,7 @@ This document provides a high-level overview of the system, its components, and 
 
 ## 1. Data Download
 
-The aggregated data can be downloaded from [here](https://drive.google.com/file/d/1g9GTNr1av2b9-HphssRrQsLSnoyW0lCF/view?usp=sharing).
+The aggregated data can be downloaded from [here](https://drive.google.com/file/d/1g9GTNr1av2b9-HphssRrQsLSnoyW0lCF/view?usp=sharing) (10.23GB).
 
 The data is organised as a dictionary with the following structure:
 ```python
