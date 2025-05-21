@@ -1,10 +1,45 @@
 # FINSABER
 
+FINSABER is a comprehensive framework for evaluating trading strategies with a specific focus on comparing traditional technical analysis approaches with modern machine learning and large language model (LLM) based strategies. 
+This document provides a high-level overview of the system, its components, and how they interact.
+
 <img src="https://github.com/waylonli/FINSABER/blob/main/figs/framework.png" width="600">
 
-## 1. Framework Introduction
+## 1. Data Download
 
-TODO
+The aggregated data can be downloaded from [here](https://drive.google.com/file/d/1g9GTNr1av2b9-HphssRrQsLSnoyW0lCF/view?usp=sharing).
+
+The data is organised as a dictionary with the following structure:
+```python
+{
+    datetime.date(2024,1,1): {
+        "price": {
+            "AAPL": ...,
+            "MSFT": ...,
+            ...
+        },
+        "news": {
+            "AAPL": ...,
+            "MSFT": ...,
+            ...
+        },
+        "filing_k": {
+            "AAPL": ...,
+            "MSFT": ...,
+            ...
+        },
+        "filing_q": {
+            "AAPL": ...,
+            "MSFT": ...,
+            ...
+        },
+        ...
+    }
+}
+```
+
+To plug in your own data, simply inherit the `backtest.data_util.backtest_dataset.BacktestDataset` class and implement the necessary methods.
+An example for processing the data format above is provided in `backtest/data_util/finmem_dataset.py`.
 
 ## 2. Environment Setup
 
