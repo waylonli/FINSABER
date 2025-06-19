@@ -23,6 +23,7 @@ pip install finsaber
 
 ```bash
 git clone https://github.com/waylonli/FINSABER
+cd FINSABER
 conda create -n finsaber python=3.10
 conda activate finsaber
 pip install -r requirements.txt
