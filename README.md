@@ -21,6 +21,7 @@ Rename `.env.example` to `.env` and set the environment variables.
 ## 2. Data
 
 The aggregated S&P500 sample data can be downloaded from [here](https://drive.google.com/file/d/1g9GTNr1av2b9-HphssRrQsLSnoyW0lCF/view?usp=sharing) (10.23 GB).
+
 The csv format of price-only data can be downloaded from [here](https://drive.google.com/file/d/1KfIjn3ydynLduEYa-C5TmYud-ULkbBvM/view?usp=sharing) (253 MB).
 
 The data is organised as a dictionary with the following structure:
