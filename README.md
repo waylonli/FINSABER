@@ -1,10 +1,12 @@
 # FINSABER
 
 [![Arxiv link](https://img.shields.io/static/v1?label=arXiv&message=2505.07078&color=red&logo=arxiv)](https://arxiv.org/abs/2505.07078)
+<a href="https://pypi.org/project/finsaber/"><img alt="PyPI" src="https://img.shields.io/pypi/v/finsaber"></a>
 
 FINSABER is a comprehensive framework for evaluating trading strategies with a specific focus on comparing traditional technical analysis approaches with modern machine learning and large language model (LLM) based strategies. 
 
 <img src="https://github.com/waylonli/FINSABER/blob/main/figs/framework.png" width="600">
+
 
 ## 1. Environment Setup
 
