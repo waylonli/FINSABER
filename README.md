@@ -8,11 +8,26 @@ FINSABER is a comprehensive framework for evaluating trading strategies with a s
 
 ## 1. Environment Setup
 
+To set up the environment, you can use either only install the FINSABER backtest framework or install the full package with all dependencies for running the experiments in the paper.
+
+### Option 1: Install only the FINSABER backtest framework
+
+Simply pip install the package from PyPI:
+
 ```bash
+conda create -n finsaber python=3.10
+pip install finsaber
+```
+
+### Option 2: Install the full package:
+
+```bash
+git clone https://github.com/waylonli/FINSABER
 conda create -n finsaber python=3.10
 conda activate finsaber
 pip install -r requirements.txt
 ```
+### After Installation
 
 Rename `.env.example` to `.env` and set the environment variables. 
 - `OPENAI_API_KEY` is required to run LLM-based strategies. 
@@ -24,7 +39,7 @@ Rename `.env.example` to `.env` and set the environment variables.
 
 - The csv format of price-only data can be downloaded from [here](https://drive.google.com/file/d/1KfIjn3ydynLduEYa-C5TmYud-ULkbBvM/view?usp=sharing) (253 MB).
 
-The data is organised as a dictionary with the following structure:
+The aggregated data is organised as a dictionary with the following structure:
 ```python
 {
     datetime.date(2024,1,1): {
