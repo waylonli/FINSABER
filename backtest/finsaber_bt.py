@@ -171,7 +171,8 @@ class FINSABERBt:
             last_expected_date = all_expected_trading_days[-1]
             last_data_date = pd_data.index.max()
 
-            if last_data_date < last_expected_date:
+            if last_data_date < last_expected_date - pd.DateOffset(days=3):
+                # If the last data date is more than 3 days before the last expected date (avoid weekend or holidays), we assume the stock is delisted
                 print(
                     f"{ticker} appears to be delisted on {last_data_date.strftime('%Y-%m-%d')}, applying 7 days delisting announcement period.")
 
@@ -343,7 +344,7 @@ class FINSABERBt:
 
             total_return = (final_value / test_config.cash) - 1
             total_periods = len(daily_returns)
-            annual_return = (1 + total_return) ** (252 / total_periods) - 1 if total_periods >= 252 else total_return
+            annual_return = (1 + total_return) ** (252 / total_periods) - 1
             # check if annual return is float
             try:
                 assert isinstance(annual_return, float), f"Annual return is not float: {annual_return}"

@@ -25,9 +25,15 @@ class BuyAndHoldStrategy(BaseStrategy):
 if __name__ == '__main__':
 
     # trade_config = {
-    #     "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
+    #     "tickers": [
+    #         # "TSLA",
+    #         "NFLX",
+    #         # "AMZN",
+    #         # "MSFT",
+    #         # "COIN"
+    #     ],
     #     "silence": True,
-    #     "setup_name": "selected_5",
+    #     "setup_name": "debug",
     # }
     trade_config = {
         "tickers": "all",
@@ -37,5 +43,6 @@ if __name__ == '__main__':
     }
     operator = FINSABERBt(trade_config)
     # operator.execute_iter(BuyAndHoldStrategy)
-    operator.run_rolling_window(BuyAndHoldStrategy)
-    aggregate_results_one_strategy(trade_config["setup_name"], BuyAndHoldStrategy.__name__)
+    metrics = operator.run_rolling_window(BuyAndHoldStrategy)
+    print(metrics)
+    # aggregate_results_one_strategy(trade_config["setup_name"], BuyAndHoldStrategy.__name__)
