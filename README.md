@@ -42,6 +42,8 @@ Rename `.env.example` to `.env` and set the environment variables.
 
 - The csv format of price-only data can be downloaded from [here](https://drive.google.com/file/d/1KfIjn3ydynLduEYa-C5TmYud-ULkbBvM/view?usp=sharing) (253 MB).
 
+- The aggregated selective symbols data (TSLA, AMZN, MSFT, NFLX, COIN) can be downloaded from [here](https://drive.google.com/file/d/1pmeG3NqENNW2ak_NnobG_Onu9SUSEy61/view?usp=sharing) (48.1 MB).
+
 The aggregated data is organised as a dictionary with the following structure:
 ```python
 {
