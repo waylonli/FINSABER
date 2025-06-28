@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decision Making Template for Trading</title>
+</head>
+<body>
+    <iframe name="system_content_trading"></iframe>
+
+    <div class="message" role="user">
+        <iframe name="decision_task_description_trading"></iframe>
+
+        <iframe name="decision_trader_preference_trading"></iframe>
+
+        <div class="market_intelligence">
+            <p class="placeholder">The following are summaries of the latest (i.e., today) and past (i.e., before today) market intelligence (e.g., news, financial reports) you've provided.
+                <br><br>The following is a summary from your assistant of the past market intelligence:
+                <br>$$past_market_intelligence_summary$$
+                <br><br>The following is a summary from your assistant of the latest market intelligence:
+                <br>$$latest_market_intelligence_summary$$
+            </p>
+        </div>
+
+        <iframe name="market_intelligence_effects_trading"></iframe>
+
+        <div class="low_level_reflection">
+            <p class="placeholder">The analysis of price movements provided by your assistant across three time horizons: Short-Term, Medium-Term, and Long-Term.
+                <br><br>Past analysis of price movements are as follows:
+                <br>$$past_low_level_reflection$$
+                <br><br>Latest analysis of price movements are as follows:
+                <br>$$latest_low_level_reflection$$
+                <br><br>Please consider these reflections, identify the potential price movements patterns and characteristics of this particular stock and incorporate these insights into your further analysis and reflections when applicable.
+            </p>
+        </div>
+
+        <iframe name="low_level_reflection_effects_trading"></iframe>
+
+        <div class="high_level_reflection">
+            <p class="placeholder">As follows are the analysis provided by your assistant about the reflection on the trading decisions you made during the trading processs, and evaluating if they were correct or incorrect, and considering if there are opportunities for optimization to achieve maximum returns.
+                <br><br>Past reflections on the trading decisions are as follows:
+                <br>$$past_high_level_reflection$$
+                <br><br>Latest reflections on the trading decisions are as follows:
+                <br>$$latest_high_level_reflection$$
+            </p>
+        </div>
+
+        <iframe name="high_level_reflection_effects_trading"></iframe>
+
+        <iframe name="decision_state_description_trading"></iframe>
+
+        <iframe name="decision_prompt_trading"></iframe>
+
+        <iframe name="decision_output_format_trading"></iframe>
+
+    </div>
+
+</body>
+</html>
