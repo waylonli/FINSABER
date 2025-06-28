@@ -43,7 +43,6 @@ backtest/strategy/timing_llm/__pycache__/base_strategy_iso.cpython-310.pyc
 backtest/strategy/timing_llm/__pycache__/finagent.cpython-310.pyc
 backtest/strategy/timing_llm/__pycache__/finmem.cpython-310.pyc
 backtest/toolkit/__pycache__/backtest_framework_iso.cpython-310.pyc
-*.html
 *.csv
 *.parquet
 llm_traders/finmem/data-pipeline/Fake-Sample-Data.zip
