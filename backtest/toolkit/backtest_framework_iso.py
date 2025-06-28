@@ -96,7 +96,7 @@ class FINSABERFrameworkHelper:
             all_expected_trading_days = pd.bdate_range(start=f"{end_date_year}-01-01", end=f"{end_date_year}-12-31")
             last_expected_date = all_expected_trading_days[-1].date()
             print(f"Last expected date: {last_expected_date}")
-            if last_data_date < last_expected_date:
+            if last_data_date < last_expected_date - pd.DateOffset(days=3):
                 print(f"Current symbol appears to be delisted on {last_data_date}, adjust the end date for 7 days ahead announcement.")
                 date_range = [d for d in date_range if d <= (last_data_date - pd.Timedelta(days=7))] # remove the last 7 days for delisting announcement
 
