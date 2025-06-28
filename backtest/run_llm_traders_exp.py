@@ -1,8 +1,3 @@
-import inspect
-import os.path
-import sys
-
-from backtest.data_util import FinMemDataset
 from backtest.experiment_runner import ExperimentRunner
 from backtest.strategy.timing_llm import *
 
@@ -16,7 +11,6 @@ def run_llm_strategies(args):
     runner = ExperimentRunner(output_dir=args.output_dir)
 
     custom_trade_config = {
-        "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_sp500_2000_2024.pkl"),
         "date_from": args.date_from,
         "date_to": args.date_to,
         "rolling_window_size": args.rolling_window_size,

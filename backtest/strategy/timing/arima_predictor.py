@@ -86,5 +86,5 @@ if __name__ == "__main__":
     }
     operator = FINSABERBt(trade_config)
     # operator.run_rolling_window(ARIMAPredictorStrategy)
-    operator.execute_iter(ARIMAPredictorStrategy)
+    operator.run_iterative_tickers(ARIMAPredictorStrategy)
     # aggregate_results_one_strategy(trade_config["selection_strategy"], ARIMAPredictorStrategy.__name__)

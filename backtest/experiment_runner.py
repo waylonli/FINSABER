@@ -2,6 +2,7 @@ import json
 
 import os
 
+from backtest.data_util import FinMemDataset
 from backtest.strategy.timing.base_strategy import BaseStrategy
 from backtest.strategy.timing_llm.base_strategy_iso import BaseStrategyIso
 from backtest.strategy.selection import RandomSP500Selector, MomentumSP500Selector, LowVolatilitySP500Selector
@@ -35,15 +36,23 @@ class ExperimentRunner:
         """
         if setup_name == "cherry_pick_both_finmem":
             default_config = {
+                "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_cherrypick_2000_2024.pkl"),
                 "date_from": "2022-10-06",
                 "date_to": "2023-04-10",
-                "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
+                "tickers": [
+                    # "TSLA",
+                    # "NFLX",
+                    # "AMZN",
+                    # "MSFT",
+                    "COIN"
+                ],
                 "silence": True,
                 "setup_name": setup_name
             }
             self.mode = "iter"
         elif setup_name == "cherry_pick_both_fincon":
             default_config = {
+                "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_cherrypick_2000_2024.pkl"),
                 "date_from": "2022-10-05",
                 "date_to": "2023-06-10",
                 "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN", "NIO", "GOOG", "AAPL"],
@@ -53,6 +62,7 @@ class ExperimentRunner:
             self.mode = "iter"
         elif setup_name in ["selected_5", "selected_4"]:
             default_config = {
+                "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_cherrypick_2000_2024.pkl"),
                 "date_from": "2004-01-01",
                 "date_to": "2024-01-01",
                 "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
@@ -62,6 +72,7 @@ class ExperimentRunner:
             self.mode = "rolling_window"
         elif setup_name.startswith("random_sp500_"):
             default_config = {
+                "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_sp500_2000_2024.pkl"),
                 "date_from": "2004-01-01",
                 "date_to": "2024-01-01",
                 "tickers": "all",
@@ -75,6 +86,7 @@ class ExperimentRunner:
             self.mode = "rolling_window"
         elif setup_name.startswith("momentum_sp500_"):
             default_config = {
+                "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_sp500_2000_2024.pkl"),
                 "date_from": "2004-01-01",
                 "date_to": "2024-01-01",
                 "tickers": "all",
@@ -90,6 +102,7 @@ class ExperimentRunner:
             self.mode = "rolling_window"
         elif setup_name.startswith("lowvol_sp500_"):
             default_config = {
+                "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_sp500_2000_2024.pkl"),
                 "date_from": "2004-01-01",
                 "date_to": "2024-01-01",
                 "tickers": "all",
@@ -123,6 +136,6 @@ class ExperimentRunner:
         if self.mode == "rolling_window":
             operator.run_rolling_window(strategy_class, strat_params=strat_config)
         elif self.mode == "iter":
-            operator.execute_iter(strategy_class, strat_params=strat_config)
+            operator.run_iterative_tickers(strategy_class, strat_params=strat_config)
 
         aggregate_results_one_strategy(trade_config["setup_name"], strategy_class.__name__, output_dir=self.output_dir)

@@ -127,6 +127,7 @@ class FINSABER:
                                 description=f"Backtesting {ticker} on {self.trade_config.date_from} to {self.trade_config.date_to}")
 
                 subset_data = self.data_loader.get_subset_by_time_range(self.trade_config.date_from, self.trade_config.date_to)
+
                 # check if the ticker is in the data
                 try:
                     first_day = subset_data.get_date_range()[0]

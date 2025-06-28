@@ -30,7 +30,7 @@ class FINSABERBt:
 
     def run_rolling_window(self, strategy: bt.Strategy, process: callable = None, **kwargs):
         """
-        Call execute_iter or execute_all for each rolling window
+        Call run_iterative_tickers or execute_all for each rolling window
         :param strategy: The strategy to execute
         :param process: The function to process the data
         :param kwargs: Additional arguments for the strategy
@@ -75,7 +75,7 @@ class FINSABERBt:
             test_config["date_to"] = window[1].strftime("%Y-%m-%d")
 
             eval_metrics[f"{window[0].strftime('%Y-%m-%d')}_{window[1].strftime('%Y-%m-%d')}"] \
-                = self.execute_iter(strategy, process, test_config=test_config, **kwargs)
+                = self.run_iterative_tickers(strategy, process, test_config=test_config, **kwargs)
 
         # export the evaluation metrics
         if self.trade_config.save_results:
@@ -88,7 +88,7 @@ class FINSABERBt:
 
         return eval_metrics
 
-    def execute_iter(self, strategy: bt.Strategy, process: callable = None, test_config: dict = None, **kwargs):
+    def run_iterative_tickers(self, strategy: bt.Strategy, process: callable = None, test_config: dict = None, **kwargs):
         """
         Execute the strategy
         :param strategy: The strategy to execute

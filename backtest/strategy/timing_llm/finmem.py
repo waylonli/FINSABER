@@ -41,7 +41,7 @@ class FinMemStrategy(BaseStrategyIso):
                 days=365 * training_period) if type(date_from) == str else date_from - timedelta(days=365 * training_period)
             # the end date should be 1 day before the start date of the testing period
             train_end_date = datetime.strptime(date_from, "%Y-%m-%d").date() - timedelta(days=1) if type(date_from) == str else date_from - timedelta(days=1)
-        elif type(training_period) == tuple:
+        elif type(training_period) == tuple or type(training_period) == list:
             train_start_date = datetime.strptime(training_period[0], "%Y-%m-%d").date() if type(training_period[0]) == str else training_period[0]
             train_end_date = datetime.strptime(training_period[1], "%Y-%m-%d").date() if type(training_period[1]) == str else training_period[1]
         self.logger.info(f"Training period: {train_start_date} to {train_end_date}")
