@@ -40,10 +40,10 @@ class ExperimentRunner:
                 "date_from": "2022-10-06",
                 "date_to": "2023-04-10",
                 "tickers": [
-                    # "TSLA",
-                    # "NFLX",
-                    # "AMZN",
-                    # "MSFT",
+                    "TSLA",
+                    "NFLX",
+                    "AMZN",
+                    "MSFT",
                     "COIN"
                 ],
                 "silence": True,
