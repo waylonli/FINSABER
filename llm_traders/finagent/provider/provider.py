@@ -262,7 +262,7 @@ class OpenAIProvider(LLMProvider, EmbeddingProvider):
         model: str | None = None,
         temperature: float = 0.0,
         seed: int | None = 42,
-        max_tokens: int = 4096,
+        max_tokens: int = 512,
     ) -> Tuple[str, Dict[str, int]]:
         """Create a chat completion using the OpenAI API
 

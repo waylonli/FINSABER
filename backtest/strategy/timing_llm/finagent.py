@@ -408,14 +408,20 @@ if __name__ == "__main__":
     from backtest.finsaber import FINSABER
 
     trade_config = {
-        "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
+        "tickers": [
+            # "TSLA",
+            "NFLX",
+            # "AMZN",
+            # "MSFT",
+            # "COIN"
+        ],
         "silence": False,
-        "setup_name": "selected_5",
-        # "date_from": "2021-01-01",
-        # "date_to": "2024-01-01",
+        "setup_name": "selected_4",
+        "date_from": "2004-01-01",
+        "date_to": "2006-01-01",
         "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_cherrypick_2000_2024.pkl"),
-        "date_from": "2022-10-06",
-        "date_to": "2023-04-10"
+        # "date_from": "2022-10-06",
+        # "date_to": "2023-04-10"
     }
     # accept bash arguments for date_from and date_to
     # import sys
@@ -441,8 +447,8 @@ if __name__ == "__main__":
         "date_from": "$date_from",  # auto calculate inside the backtest engine,
         "date_to": "$date_to",  # auto calculate inside the backtest engine,
         "symbol": "$symbol",
-        "training_period": ("2021-08-17", "2022-10-05")
-        # "training_period": 3
+        # "training_period": ("2021-08-17", "2022-10-05")
+        "training_period": 2
     }
     # metrics = engine.run_rolling_window(FinAgentStrategy, strat_params=strat_params)
     # print(metrics)
@@ -450,4 +456,4 @@ if __name__ == "__main__":
     ticker_metrics = engine.run_iterative_tickers(FinAgentStrategy, strat_params=strat_params)
     print(ticker_metrics)
     from backtest.toolkit.operation_utils import aggregate_results_one_strategy
-    aggregate_results_one_strategy("cherry_pick_both_finmem", "FinAgentStrategy")
+    # aggregate_results_one_strategy("cherry_pick_both_finmem", "FinAgentStrategy")
