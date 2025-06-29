@@ -169,11 +169,11 @@ if __name__ == "__main__":
 
     trade_config = {
         # "tickers": ["COIN","TSLA", "NFLX", "AMZN", "MSFT",],
-        "tickers": ["NFLX"],
+        "tickers": ["TSLA"],
         "silence": False,
         "setup_name": "cherry_pick_both_finmem",
-        "date_from": "2004-01-01",
-        "date_to": "2006-01-01",
+        "date_from": "2012-01-01",
+        "date_to": "2014-01-01",
         "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_cherrypick_2000_2024.pkl"),
         # "date_from": "2022-10-06",
         # "date_to": "2023-04-10"

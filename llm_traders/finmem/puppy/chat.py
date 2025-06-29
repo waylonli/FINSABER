@@ -107,10 +107,10 @@ class ChatOpenAICompatible(ABC):
                 payload = {
                 "inputs": llama_input_str,
                 "parameters": {
-                                "do_sample": True,
-                                "top_p": 0.6,
+                                "do_sample": False,
+                                # "top_p": 0.6,
                                 "temperature": 0.0,
-                                "top_k": 50,
+                                # "top_k": 50,
                                 "max_new_tokens": 256,
                                 "repetition_penalty": 1.03,
                                 "stop": ["</s>"]
