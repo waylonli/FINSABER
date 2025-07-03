@@ -409,16 +409,16 @@ if __name__ == "__main__":
 
     trade_config = {
         "tickers": [
-            # "TSLA",
-            "NFLX",
+            "TSLA",
+            # "NFLX",
             # "AMZN",
             # "MSFT",
             # "COIN"
         ],
         "silence": False,
         "setup_name": "selected_4",
-        "date_from": "2004-01-01",
-        "date_to": "2006-01-01",
+        "date_from": "2012-01-01",
+        "date_to": "2014-01-01",
         "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_cherrypick_2000_2024.pkl"),
         # "date_from": "2022-10-06",
         # "date_to": "2023-04-10"
@@ -455,5 +455,5 @@ if __name__ == "__main__":
     # from backtest.toolkit.operation_utils import aggregate_results_one_strategy
     ticker_metrics = engine.run_iterative_tickers(FinAgentStrategy, strat_params=strat_params)
     print(ticker_metrics)
-    from backtest.toolkit.operation_utils import aggregate_results_one_strategy
-    # aggregate_results_one_strategy("cherry_pick_both_finmem", "FinAgentStrategy")
+    # from backtest.toolkit.operation_utils import aggregate_results_one_strategy
+    # aggregate_results_one_strategy("selected_4", "FinAgentStrategy")

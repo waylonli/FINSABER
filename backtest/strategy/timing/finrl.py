@@ -15,11 +15,11 @@ from rl_traders.finrl.finrl.meta.preprocessor.preprocessors import FeatureEngine
 
 class FinRLStrategy(BaseStrategy):
     params = (
-        ("algorithm", "ddpg"),           # Options: A2C, DDPG, PPO, SAC, TD3
-        ("total_timesteps", 50000),
+        ("algorithm", "a2c"),           # Options: A2C, DDPG, PPO, SAC, TD3
+        ("total_timesteps", 5000),
         ("initial_amount", 100000),
         ("total_days", 0),
-        ("train_period", 252 * 2),  # Train on past 3 years of daily data
+        ("train_period", 252 * 10),  # Train on past 3 years of daily data
         # ("train_period", 252),  # Train on past 3 years of daily data
     )
 
@@ -111,8 +111,9 @@ class FinRLStrategy(BaseStrategy):
         """
         Train a DRL agent using FinRL.
         """
-        # print("Training a DRL agent...")
+
         df_env = self.train_data.copy()
+
         stock_dim = len(df_env["tic"].unique())
         state_space = 1 + 2 * stock_dim + len(INDICATORS) * stock_dim
         default_env_kwargs = {
@@ -142,7 +143,8 @@ class FinRLStrategy(BaseStrategy):
             e_trade = StockTradingEnv(df=test_df, **default_env_kwargs)
             df_account_value, df_actions = agent.DRL_prediction(
                 model=trained_model,
-                environment=e_trade
+                environment=e_trade,
+                deterministic = True
             )
 
             # turn date to datetime.date
@@ -206,19 +208,19 @@ class FinRLStrategy(BaseStrategy):
 
 
 if __name__ == "__main__":
-    trade_config = {
-        "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
-        "silence": False,
-        "setup_name": "selected_5",
-    }
     # trade_config = {
-    #     "date_from": "2022-10-06",
-    #     "date_to": "2023-04-10",
     #     "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
-    #     "setup_name": "cherry_pick_both_finmem",
+    #     "silence": False,
+    #     "setup_name": "selected_5",
     # }
+    trade_config = {
+        "date_from": "2022-10-06",
+        "date_to": "2023-04-10",
+        "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
+        "setup_name": "cherry_pick_both_finmem",
+    }
     operator = FINSABERBt(trade_config)
-    # operator.execute_iter(FinRLStrategy)
-    operator.run_rolling_window(FinRLStrategy)
+    operator.run_iterative_tickers(FinRLStrategy)
+    # operator.run_rolling_window(FinRLStrategy)
 
-    aggregate_results_one_strategy(trade_config["selection_strategy"], FinRLStrategy.__name__)
+    aggregate_results_one_strategy(trade_config["setup_name"], FinRLStrategy.__name__)

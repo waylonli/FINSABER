@@ -40,7 +40,7 @@ class Together(Model_Wrapper):
         
         self.llm = Together(
             model=self.model_name,
-            temperature=0.7,
+            temperature=0.0,
             max_tokens=200,
             top_k=1,
             together_api_key=self.__key,

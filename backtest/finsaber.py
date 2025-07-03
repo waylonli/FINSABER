@@ -195,6 +195,9 @@ class FINSABER:
                     self._print_results(metrics, ticker)
                     self._plot_equity_curve(equity_with_time, ticker)
 
+                # delete the strategy to free memory
+                del strategy
+
         if self.trade_config.save_results:
             eval_metrics = {f"{self.trade_config.date_from}_{self.trade_config.date_to}": eval_metrics}
             output_dir = os.path.join(self.trade_config.log_base_dir, self.trade_config.setup_name.replace(":", "_"), strategy.__class__.__name__)
