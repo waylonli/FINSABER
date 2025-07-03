@@ -133,8 +133,6 @@ class ExperimentRunner:
         else:
             operator = FINSABERBt(trade_config)
 
-        import pdb; pdb.set_trace()
-
         if self.mode == "rolling_window":
             operator.run_rolling_window(strategy_class, strat_params=strat_config)
         elif self.mode == "iter":
