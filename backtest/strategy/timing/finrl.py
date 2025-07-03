@@ -16,10 +16,10 @@ from rl_traders.finrl.finrl.meta.preprocessor.preprocessors import FeatureEngine
 class FinRLStrategy(BaseStrategy):
     params = (
         ("algorithm", "a2c"),           # Options: A2C, DDPG, PPO, SAC, TD3
-        ("total_timesteps", 5000),
+        ("total_timesteps", 50000),
         ("initial_amount", 100000),
         ("total_days", 0),
-        ("train_period", 252 * 10),  # Train on past 3 years of daily data
+        ("train_period", 252 * 3),  # Train on past 3 years of daily data
         # ("train_period", 252),  # Train on past 3 years of daily data
     )
 
