@@ -55,6 +55,7 @@ class YahooDownloader:
                 proxy=proxy,
                 auto_adjust=auto_adjust,
             )
+
             if temp_df.columns.nlevels != 1:
                 temp_df.columns = temp_df.columns.droplevel(1)
             temp_df["tic"] = tic

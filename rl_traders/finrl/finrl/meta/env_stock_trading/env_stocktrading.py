@@ -81,6 +81,8 @@ class StockTradingEnv(gym.Env):
         self.cost = 0
         self.trades = 0
         self.episode = 0
+        self.asset_streak = 0  # How many consecutive days assets unchanged
+        self.action_streak = 0
         # memorize all the total balance change
         self.asset_memory = [
             self.initial_amount
@@ -296,7 +298,6 @@ class StockTradingEnv(gym.Env):
             # logger.record("environment/total_reward_pct", (tot_reward / (end_total_asset - tot_reward)) * 100)
             # logger.record("environment/total_cost", self.cost)
             # logger.record("environment/total_trades", self.trades)
-
             return self.state, self.reward, self.terminal, False, {}
 
         else:
@@ -347,8 +348,23 @@ class StockTradingEnv(gym.Env):
             self.asset_memory.append(end_total_asset)
             self.date_memory.append(self._get_date())
             self.reward = end_total_asset - begin_total_asset
+
             self.rewards_memory.append(self.reward)
             self.reward = self.reward * self.reward_scaling
+
+            if len(self.asset_memory) >= 2 and self.asset_memory[-1] == self.asset_memory[-2]:
+                self.asset_streak += 1
+                self.reward = -0.01 * self.asset_streak  # Penalty accumulates with streak
+            else:
+                self.asset_streak = 0
+
+            # 2. Action inactivity penalty (if all actions zero)
+            if len(self.actions_memory) >= 1 and np.all(self.actions_memory[-1] == 0):
+                self.action_streak += 1
+                self.reward -= 0.01 * self.action_streak  # Add to any existing penalty
+            else:
+                self.action_streak = 0
+
             self.state_memory.append(
                 self.state
             )  # add current state in state_recorder for each step

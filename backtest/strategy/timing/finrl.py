@@ -12,14 +12,13 @@ from rl_traders.finrl.finrl.meta.env_stock_trading.env_stocktrading import Stock
 from rl_traders.finrl.finrl.config import INDICATORS, TRAINED_MODEL_DIR, RESULTS_DIR
 from rl_traders.finrl.finrl.meta.preprocessor.preprocessors import FeatureEngineer
 
-
 class FinRLStrategy(BaseStrategy):
     params = (
         ("algorithm", "a2c"),           # Options: A2C, DDPG, PPO, SAC, TD3
         ("total_timesteps", 50000),
         ("initial_amount", 100000),
         ("total_days", 0),
-        ("train_period", 252 * 3),  # Train on past 3 years of daily data
+        ("train_period", 252 * 10),  # Train on past 3 years of daily data
         # ("train_period", 252),  # Train on past 3 years of daily data
     )
 
@@ -29,8 +28,24 @@ class FinRLStrategy(BaseStrategy):
         if train_data is None:
             raise ValueError("Train data must be provided.")
 
-        self.df_actions = []
-        self.df_account_value = []
+        self.model_params = {
+            "sac": {
+                "batch_size": 128,
+                "buffer_size": 100000,
+                "learning_rate": 0.0001,
+                "learning_starts": 100,
+                "ent_coef": "auto_0.1",
+            },
+            "ppo": {
+                "n_steps": 2048,
+                "ent_coef": 0.01,
+                "learning_rate": 0.00025,
+                "batch_size": 128,
+            },
+            "a2c": {},
+            "ddpg": {},
+            "td3": {"batch_size": 100, "buffer_size": 1000000, "learning_rate": 0.001}
+        }
 
         self.raw_train_data = train_data.copy()
         # Convert multi-index raw data to long format suitable for FeatureEngineer
@@ -39,32 +54,16 @@ class FinRLStrategy(BaseStrategy):
         self.train_data = self.preprocess_data(self.formatted_raw)
 
         self.test_data = []
-        for test_d in self.datas:
-            test_df = test_d._dataname
-            # rename index as date column
-            test_start_date = test_df.index[0]
-            test_end_date = test_df.index[-1]
-
-            test_df = test_df.rename_axis('date').reset_index()
-            test_df['tic'] = test_d._name
-
-            # concat the train and test data for calculating technical indicators
-            test_df = pd.concat([self.formatted_raw, test_df], ignore_index=True)
-            test_df = self.preprocess_data(test_df)
-            # get the date range for the test data
-            test_df = test_df[(test_df['date'] >= test_start_date) & (test_df['date'] <= test_end_date)]
-            # sort by date and reset index
-            test_df = test_df.sort_values(['date', 'tic']).reset_index(drop=True)
-
-            self.test_data.append(test_df)
+        self.df_account_value, self.df_actions = [], []
 
         if self.train_data.empty:
             raise ValueError("Preprocessed train data is empty.")
-        self.train_drl_model(
+
+        self.model = self.train_drl_model(
             algorithm=self.params.algorithm,
             total_timesteps=self.params.total_timesteps
         )
-        # Build history for state computation
+
         self.history = {tic: [] for tic in self.train_data["tic"].unique()}
 
     def format_raw_data_for_fe(self, raw_data: pd.DataFrame) -> pd.DataFrame:
@@ -79,7 +78,7 @@ class FinRLStrategy(BaseStrategy):
         df = raw_data.copy().reset_index()
         ticker = df.columns[1][1]
         df.columns = df.columns.droplevel(1)
-        # import pdb; pdb.set_trace()
+
         # If the reset index column is not named 'date', rename it.
         if df.columns[0] != "date":
             df.rename(columns={df.columns[0]: "date"}, inplace=True)
@@ -111,13 +110,13 @@ class FinRLStrategy(BaseStrategy):
         """
         Train a DRL agent using FinRL.
         """
-
         df_env = self.train_data.copy()
 
         stock_dim = len(df_env["tic"].unique())
         state_space = 1 + 2 * stock_dim + len(INDICATORS) * stock_dim
+
         default_env_kwargs = {
-            "hmax": 1000,
+            "hmax": 10000,
             "initial_amount": self.params.initial_amount,
             "num_stock_shares": [0] * stock_dim,
             "buy_cost_pct": [0.0049] * stock_dim,
@@ -126,23 +125,49 @@ class FinRLStrategy(BaseStrategy):
             "stock_dim": stock_dim,
             "tech_indicator_list": INDICATORS,
             "action_space": stock_dim,
-            "reward_scaling": 1e-4
+            "reward_scaling": 1e-4,
         }
+
         if env_kwargs:
             default_env_kwargs.update(env_kwargs)
         e_train = StockTradingEnv(df=df_env, **default_env_kwargs)
         env_train, _ = e_train.get_sb_env()
         agent = DRLAgent(env=env_train)
-        model = agent.get_model(algorithm, verbose=0)
+
+        model = agent.get_model(
+            algorithm,
+            verbose=0,
+            seed=42,
+            # model_kwargs=self.model_params[algorithm]
+        )
         trained_model = agent.train_model(
             model=model,
             tb_log_name=algorithm,
             total_timesteps=total_timesteps)
-        self.model = trained_model
+
+        for test_d in self.datas:
+            test_df = test_d._dataname
+            # rename index as date column
+            test_start_date = test_df.index[0]
+            test_end_date = test_df.index[-1]
+
+            test_df = test_df.rename_axis('date').reset_index()
+            test_df['tic'] = test_d._name
+
+            # concat the train and test data for calculating technical indicators
+            test_df = pd.concat([self.formatted_raw, test_df], ignore_index=True)
+            test_df = self.preprocess_data(test_df)
+            # get the date range for the test data
+            test_df = test_df[(test_df['date'] >= test_start_date) & (test_df['date'] <= test_end_date)]
+            # sort by date and reset index
+            test_df = test_df.sort_values(['date', 'tic']).reset_index(drop=True)
+
+            self.test_data.append(test_df)
+
         for test_df in self.test_data:
             e_trade = StockTradingEnv(df=test_df, **default_env_kwargs)
-            df_account_value, df_actions = agent.DRL_prediction(
-                model=trained_model,
+            df_account_value, df_actions = DRLAgent.DRL_prediction(
+                model=model,
                 environment=e_trade,
                 deterministic = True
             )
@@ -154,6 +179,8 @@ class FinRLStrategy(BaseStrategy):
             self.df_account_value.append(df_account_value)
             self.df_actions.append(df_actions)
 
+        self.df_actions[0]['actions'].abs().sum()
+        return trained_model, default_env_kwargs
 
     def compute_state(self):
         state = []
@@ -190,6 +217,8 @@ class FinRLStrategy(BaseStrategy):
             except Exception as e:
                 print(f"No action detected on {today}: {e}")
                 return
+
+            # import pdb; pdb.set_trace()
 
             price = d.close[0]
 
