@@ -14,12 +14,12 @@ from rl_traders.finrl.finrl.meta.preprocessor.preprocessors import FeatureEngine
 
 class FinRLStrategy(BaseStrategy):
     params = (
-        ("algorithm", "a2c"),           # Options: A2C, DDPG, PPO, SAC, TD3
+        ("algorithm", "ddpg"),           # Options: A2C, DDPG, PPO, SAC, TD3
         ("total_timesteps", 50000),
         ("initial_amount", 100000),
         ("total_days", 0),
-        ("train_period", 252 * 10),  # Train on past 3 years of daily data
-        # ("train_period", 252),  # Train on past 3 years of daily data
+        ("train_period", 252 * 3),
+        # ("train_period", 252),
     )
 
     def __init__(self, train_data: pd.DataFrame, strat_params=None):
@@ -116,7 +116,7 @@ class FinRLStrategy(BaseStrategy):
         state_space = 1 + 2 * stock_dim + len(INDICATORS) * stock_dim
 
         default_env_kwargs = {
-            "hmax": 10000,
+            "hmax": 1000,
             "initial_amount": self.params.initial_amount,
             "num_stock_shares": [0] * stock_dim,
             "buy_cost_pct": [0.0049] * stock_dim,
@@ -137,10 +137,9 @@ class FinRLStrategy(BaseStrategy):
         model = agent.get_model(
             algorithm,
             verbose=0,
-            seed=42,
             # model_kwargs=self.model_params[algorithm]
         )
-        trained_model = agent.train_model(
+        model = agent.train_model(
             model=model,
             tb_log_name=algorithm,
             total_timesteps=total_timesteps)
@@ -180,7 +179,7 @@ class FinRLStrategy(BaseStrategy):
             self.df_actions.append(df_actions)
 
         self.df_actions[0]['actions'].abs().sum()
-        return trained_model, default_env_kwargs
+        return model, default_env_kwargs
 
     def compute_state(self):
         state = []
