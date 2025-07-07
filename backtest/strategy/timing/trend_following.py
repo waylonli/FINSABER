@@ -6,7 +6,7 @@ from backtest.toolkit.operation_utils import aggregate_results_one_strategy
 
 class TrendFollowingStrategy(BaseStrategy):
     params = (
-        ("prior_period", 252 * 2),
+        ("prior_period", 252 * 3),
         ("atr_period", 10),
         ("period", 20),
         ("leverage", 0.95),  # To avoid full investment

@@ -171,7 +171,7 @@ if __name__ == "__main__":
         # "tickers": ["COIN","TSLA", "NFLX", "AMZN", "MSFT",],
         "tickers": ["TSLA"],
         "silence": False,
-        "setup_name": "cherry_pick_both_finmem",
+        "setup_name": "debug",
         "date_from": "2012-01-01",
         "date_to": "2014-01-01",
         "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_cherrypick_2000_2024.pkl"),

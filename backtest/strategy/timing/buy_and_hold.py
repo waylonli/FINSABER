@@ -7,7 +7,7 @@ from backtest.strategy.selection import *
 # Create a Strategy
 class BuyAndHoldStrategy(BaseStrategy):
     params = (
-        ("prior_period", 252 * 2),
+        ("prior_period", 252 * 3),
         ("total_days", 0),
     )
 
@@ -19,6 +19,14 @@ class BuyAndHoldStrategy(BaseStrategy):
         if not self.position:
             max_size = self._adjust_size_for_commission(int(self.broker.cash / self.dataclose[0]))
             self.buy(size=max_size)
+            self.trades.append(
+                {
+                    "date": self.datas[0].datetime.date(0),
+                    "size": max_size,
+                    "price": self.dataclose[0],
+                    "action": "buy",
+                }
+            )
         self.post_next_actions()
 
 

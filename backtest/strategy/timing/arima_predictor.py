@@ -7,7 +7,7 @@ from backtest.toolkit.operation_utils import aggregate_results_one_strategy
 
 class ARIMAPredictorStrategy(BaseStrategy):
     params = (
-        ("train_period", 252 * 2),  # Train on the past 3 years of daily data
+        ("train_period", 252 * 3),  # Train on the past 2 years of daily data
         ("order", (5, 1, 0)),  # Default ARIMA order (p, d, q)
         ("total_days", 0),
     )
@@ -63,11 +63,29 @@ class ARIMAPredictorStrategy(BaseStrategy):
             if forecast > current_price:
                 if not self.position:
                     self.buy(size=self._adjust_size_for_commission(int(self.broker.cash / d.close[0])))
+                    self.buys.append(today_date)
+                    self.trades.append(
+                        {
+                            "date": today_date,
+                            "action": "buy",
+                            "price": d.close[0],
+                            "size": self.getposition(d).size,
+                        }
+                    )
             elif forecast == current_price:
                 pass
             else:
                 if self.position:
                     self.sell(size=self.position.size)
+                    self.sells.append(today_date)
+                    self.trades.append(
+                        {
+                            "date": today_date,
+                            "action": "sell",
+                            "price": d.close[0],
+                            "size": -self.getposition(d).size,
+                        }
+                    )
 
         self.post_next_actions()
 

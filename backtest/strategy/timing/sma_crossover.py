@@ -5,7 +5,7 @@ from backtest.toolkit.operation_utils import aggregate_results_one_strategy
 
 class SMACrossStrategy(BaseStrategy):
     params = (
-        ("prior_period", 252 * 2),
+        ("prior_period", 252 * 3),
         ('short_window', 10),
         ('long_window', 20),
         ('trade_size', 0.95),
@@ -26,11 +26,27 @@ class SMACrossStrategy(BaseStrategy):
                 self.close()
             self.buy(size=self._adjust_size_for_commission(self.calculate_trade_size()))
             self.buys.append(self.data.datetime.date(0))
+            self.trades.append(
+                {
+                    "date": self.data.datetime.date(0),
+                    "size": self.calculate_trade_size(),
+                    "price": self.data.close[0],
+                    "type": "buy"
+                }
+            )
         elif self.crossover < 0:
             if self.position.size > 0:
                 self.close()
             self.sell(size=self.calculate_trade_size())
             self.sells.append(self.data.datetime.date(0))
+            self.trades.append(
+                {
+                    "date": self.data.datetime.date(0),
+                    "size": self.calculate_trade_size(),
+                    "price": self.data.close[0],
+                    "type": "sell"
+                }
+            )
 
         self.post_next_actions()
 

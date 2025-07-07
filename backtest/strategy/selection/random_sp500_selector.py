@@ -4,8 +4,6 @@ import pandas as pd
 import random
 from backtest.toolkit.operation_utils import get_tickers_price
 from backtest.strategy.selection import BaseSelector
-from rl_traders.finrl.unit_tests.test_core import start_date
-
 
 class RandomSP500Selector(BaseSelector):
     def __init__(self, num_tickers: int = 10, random_seed_setting: str = None, training_period: int = 3):

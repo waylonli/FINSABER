@@ -7,7 +7,7 @@ from backtest.finsaber_bt import FINSABERBt
 
 class ATRBandStrategy(BaseStrategy):
     params = (
-        ("prior_period", 252 * 2),  # Train on the past 3 years of daily data
+        ("prior_period", 252 * 3),  # Train on the past 3 years of daily data
         ("atr_period", 14),
         ("multiplier", 1.5),
         ("total_days", 0),
@@ -30,8 +30,26 @@ class ATRBandStrategy(BaseStrategy):
         for d in self.datas:
             if d.low[0] <= self.lower_band[d][0] and d.low[-1] > self.lower_band[d][-1]:
                 self.buy(data=d, size=self._adjust_size_for_commission(int(self.broker.cash / d.close[0])))
+                self.buys.append(d.datetime.date(0))
+                self.trades.append(
+                    {
+                        "date": d.datetime.date(0),
+                        "action": "buy",
+                        "price": d.close[0],
+                        "size": self.getposition(d).size,
+                    }
+                )
             elif d.high[0] >= self.upper_band[d][0] and d.high[-1] < self.upper_band[d][-1]:
                 self.sell(data=d, size=self.getposition(d).size)
+                self.sells.append(d.datetime.date(0))
+                self.trades.append(
+                    {
+                        "date": d.datetime.date(0),
+                        "action": "sell",
+                        "price": d.close[0],
+                        "size": -self.getposition(d).size,
+                    }
+                )
 
         self.post_next_actions()
 

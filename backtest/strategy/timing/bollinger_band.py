@@ -7,7 +7,7 @@ from backtest.finsaber_bt import FINSABERBt
 
 class BollingerBandsStrategy(BaseStrategy):
     params = (
-        ("prior_period", 252 * 2),
+        ("prior_period", 252 * 3),
         ("period", 20),
         ("devfactor", 2.0),
         ("total_days", 0),
@@ -25,8 +25,26 @@ class BollingerBandsStrategy(BaseStrategy):
         for d in self.datas:
             if d.close[0] < self.bbands[d].lines.bot[0] and d.close[-1] >= self.bbands[d].lines.bot[-1]:
                 self.buy(data=d, size=self._adjust_size_for_commission(int(self.broker.cash / d.close[0])))
+                self.buys.append(d.datetime.date(0))
+                self.trades.append(
+                    {
+                        "date": d.datetime.date(0),
+                        "action": "buy",
+                        "price": d.close[0],
+                        "size": self.getposition(d).size
+                    }
+                )
             elif d.close[0] > self.bbands[d].lines.top[0] and d.close[-1] <= self.bbands[d].lines.top[-1]:
                 self.sell(data=d, size=self.getposition(d).size)
+                self.sells.append(d.datetime.date(0))
+                self.trades.append(
+                    {
+                        "date": d.datetime.date(0),
+                        "action": "sell",
+                        "price": d.close[0],
+                        "size": -self.getposition(d).size
+                    }
+                )
         self.post_next_actions()
 
 

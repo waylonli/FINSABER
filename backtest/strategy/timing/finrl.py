@@ -7,15 +7,20 @@ from backtest.finsaber_bt import FINSABERBt
 from backtest.toolkit.operation_utils import aggregate_results_one_strategy
 
 # FinRL imports
-from rl_traders.finrl.finrl.agents.stablebaselines3.models import DRLAgent
-from rl_traders.finrl.finrl.meta.env_stock_trading.env_stocktrading import StockTradingEnv
-from rl_traders.finrl.finrl.config import INDICATORS, TRAINED_MODEL_DIR, RESULTS_DIR
-from rl_traders.finrl.finrl.meta.preprocessor.preprocessors import FeatureEngineer
+from rl_traders.finrl.agents.stablebaselines3.models import DRLAgent
+from rl_traders.finrl.meta.env_stock_trading.env_stocktrading import StockTradingEnv
+from rl_traders.finrl.config import INDICATORS, TRAINED_MODEL_DIR, RESULTS_DIR
+from rl_traders.finrl.meta.preprocessor.preprocessors import FeatureEngineer
+
+from stable_baselines3.common.noise import (
+    OrnsteinUhlenbeckActionNoise,
+    NormalActionNoise,
+)
 
 class FinRLStrategy(BaseStrategy):
     params = (
-        ("algorithm", "ddpg"),           # Options: A2C, DDPG, PPO, SAC, TD3
-        ("total_timesteps", 50000),
+        ("algorithm", "a2c"),           # Options: A2C, PPO, SAC, TD3
+        ("total_timesteps", 5000),
         ("initial_amount", 100000),
         ("total_days", 0),
         ("train_period", 252 * 3),
@@ -30,21 +35,52 @@ class FinRLStrategy(BaseStrategy):
 
         self.model_params = {
             "sac": {
-                "batch_size": 128,
-                "buffer_size": 100000,
-                "learning_rate": 0.0001,
+                "learning_rate": 2e-2,
+                "buffer_size": 1_000_000,
+                "batch_size": 256,
                 "learning_starts": 100,
-                "ent_coef": "auto_0.1",
+                "ent_coef": 0.1,  # let the algorithm tune exploration
+                "tau": 0.005,  # soft‐update rate
+                "gamma": 0.99,  # discount factor
+                "action_noise": "normal"
             },
             "ppo": {
                 "n_steps": 2048,
-                "ent_coef": 0.01,
-                "learning_rate": 0.00025,
-                "batch_size": 128,
+                "batch_size": 64,  # smaller minibatches ⇒ more updates per rollout
+                "n_epochs": 10,  # more policy passes
+                "learning_rate": 2.5e-4,
+                "ent_coef": 0.1,  # optional small entropy bonus
+                "clip_range": 0.2,
+                "gae_lambda": 0.95,
+                "gamma": 0.99,
             },
-            "a2c": {},
-            "ddpg": {},
-            "td3": {"batch_size": 100, "buffer_size": 1000000, "learning_rate": 0.001}
+            "a2c": {
+                "n_steps": 100,
+                "learning_rate": 1e-5,
+                "ent_coef": 0.1,
+                "vf_coef": 0.5,
+                "max_grad_norm": 0.5,
+                "gae_lambda": 0.95,
+                "gamma": 0.99,
+            },
+            "ddpg": {
+                "learning_rate": 2e-2,
+                "batch_size": 256,
+                "buffer_size": 1_000_000,
+                "tau": 0.005,
+                "gamma": 0.99,
+
+            },
+            "td3": {
+                "learning_rate": 3e-2,
+                "buffer_size": 1_000_000,
+                "tau": 0.005,
+                "gamma": 0.99,
+                "policy_delay": 2,
+                "target_policy_noise": 0.5,
+                "target_noise_clip": 0.5,
+                "action_noise": "normal"
+            },
         }
 
         self.raw_train_data = train_data.copy()
@@ -137,9 +173,10 @@ class FinRLStrategy(BaseStrategy):
         model = agent.get_model(
             algorithm,
             verbose=0,
-            # model_kwargs=self.model_params[algorithm]
+            # seed=1,
+            model_kwargs=self.model_params[algorithm]
         )
-        model = agent.train_model(
+        trained_model = agent.train_model(
             model=model,
             tb_log_name=algorithm,
             total_timesteps=total_timesteps)
@@ -166,9 +203,9 @@ class FinRLStrategy(BaseStrategy):
         for test_df in self.test_data:
             e_trade = StockTradingEnv(df=test_df, **default_env_kwargs)
             df_account_value, df_actions = DRLAgent.DRL_prediction(
-                model=model,
+                model=trained_model,
                 environment=e_trade,
-                deterministic = True
+                deterministic=True
             )
 
             # turn date to datetime.date
@@ -179,7 +216,7 @@ class FinRLStrategy(BaseStrategy):
             self.df_actions.append(df_actions)
 
         self.df_actions[0]['actions'].abs().sum()
-        return model, default_env_kwargs
+        return trained_model, default_env_kwargs
 
     def compute_state(self):
         state = []
@@ -225,10 +262,29 @@ class FinRLStrategy(BaseStrategy):
                 # check if we have enough cash to buy
                 size = self._adjust_size_for_commission(min(int(self.broker.cash / price), act))
                 self.buy(data=d, size=size)
+                self.buys.append(today)
+                self.trades.append(
+                    {
+                        "date": today,
+                        "ticker": d._name,
+                        "action": "buy",
+                        "size": size,
+                        "price": price,
+                    }
+                )
             elif act < 0:
                 pos = self.getposition(data=d)
                 size = self._adjust_size_for_commission(min(pos.size, -act))
                 self.sell(data=d, size=size)
+                self.sells.append(today)
+                self.trades.append(
+                    {
+                        "date": today,
+                        "action": "sell",
+                        "size": size,
+                        "price": price,
+                    }
+                )
             else:
                 pass
 

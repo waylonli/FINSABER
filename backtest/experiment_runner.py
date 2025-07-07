@@ -46,7 +46,7 @@ class ExperimentRunner:
                     "MSFT",
                     "COIN"
                 ],
-                "silence": True,
+                "silence": False,
                 "setup_name": setup_name
             }
             self.mode = "iter"
