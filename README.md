@@ -1,5 +1,6 @@
 # FINSABER
 
+[![Arxiv link](https://img.shields.io/static/v1?label=arXiv&message=2505.07078&color=red&logo=arxiv)](https://arxiv.org/abs/2505.07078)
 <a href="https://pypi.org/project/finsaber/"><img alt="PyPI" src="https://img.shields.io/pypi/v/finsaber"></a>
 
 FINSABER is a comprehensive framework for evaluating trading strategies with a specific focus on comparing traditional technical analysis approaches with modern machine learning and large language model (LLM) based strategies. 
@@ -89,8 +90,7 @@ python backtest/run_baselines_exp.py \
     --date_from 2004-01-01 \
     --date_to 2024-01-01 \
     --rolling_window_size <window_size> \ # 1 or 2 in the paper
-    --training_years <training_years> # 2 or 3 in the paper
-    --rolling_window_step 1 
+    --rolling_window_step 1
 ```
 
 LLM Strategies:
@@ -102,5 +102,20 @@ python backtest/run_llm_traders_exp.py \
     --date_from 2004-01-01 \
     --date_to 2024-01-01 \
     --rolling_window_size <window_size> \ # 1 or 2 in the paper
+    --training_years <training_years> # 2 or 3 in the paper
     --rolling_window_step 1
+```
+
+## Citation
+
+```
+@misc{li2025llmbasedfinancialinvestingstrategies,
+      title={Can LLM-based Financial Investing Strategies Outperform the Market in Long Run?}, 
+      author={Weixian Waylon Li and Hyeonjun Kim and Mihai Cucuringu and Tiejun Ma},
+      year={2025},
+      eprint={2505.07078},
+      archivePrefix={arXiv},
+      primaryClass={q-fin.TR},
+      url={https://arxiv.org/abs/2505.07078}, 
+}
 ```
