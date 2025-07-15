@@ -19,7 +19,7 @@ from stable_baselines3.common.noise import (
 
 class FinRLStrategy(BaseStrategy):
     params = (
-        ("algorithm", "a2c"),           # Options: A2C, PPO, SAC, TD3
+        ("algorithm", "td3"),           # Options: A2C, PPO, SAC, TD3
         ("total_timesteps", 5000),
         ("initial_amount", 100000),
         ("total_days", 0),
@@ -132,15 +132,26 @@ class FinRLStrategy(BaseStrategy):
         Preprocess formatted raw data using FinRL's FeatureEngineer.
         Expects formatted_raw to have columns: date, tic, open, high, low, close, etc.
         """
-        fe = FeatureEngineer(
-            use_technical_indicator=True,
-            tech_indicator_list=INDICATORS,
-            use_vix=False,
-            use_turbulence=True,
-            user_defined_feature=False
-        )
+        try:
+            fe = FeatureEngineer(
+                use_technical_indicator=True,
+                tech_indicator_list=INDICATORS,
+                use_vix=False,
+                use_turbulence=True,
+                user_defined_feature=False
+            )
+            return fe.preprocess_data(formatted_raw)
 
-        return fe.preprocess_data(formatted_raw)
+        except Exception:
+            print("Failed to add turbulence index. Proceeding without it.")
+            fe = FeatureEngineer(
+                use_technical_indicator=True,
+                tech_indicator_list=INDICATORS,
+                use_vix=False,
+                use_turbulence=False,
+                user_defined_feature=False
+            )
+            return fe.preprocess_data(formatted_raw)
 
     def train_drl_model(self, algorithm: str = "a2c", total_timesteps: int = 50000, env_kwargs: dict = None):
         """

@@ -3,3 +3,4 @@ from .finmem_selector import FinMemSelector
 from .random_sp500_selector import RandomSP500Selector
 from .momentum_factor_sp500_selector import MomentumSP500Selector
 from .low_volatility_sp500_selector import LowVolatilitySP500Selector
+from .fincon_agent_selector import FinConSP500Selector

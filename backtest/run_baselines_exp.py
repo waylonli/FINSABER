@@ -18,6 +18,7 @@ def run_timing_strategies(args):
         "rolling_window_step": args.rolling_window_step,
         "date_from": args.date_from,
         "date_to": args.date_to,
+        "training_years": args.training_years,
     }
 
     # loop all the strategies defined in preliminary.strategy.timing
@@ -57,9 +58,13 @@ if __name__ == "__main__":
     parser.add_argument("--output_dir", type=str, default="backtest/output")
     parser.add_argument("--rolling_window_size", type=int, default=1)
     parser.add_argument("--rolling_window_step", type=int, default=1)
+    parser.add_argument("--training_years", type=int, default=None)
     parser.add_argument("--date_from", type=str, default="2005-01-01")
     parser.add_argument("--date_to", type=str, default="2007-01-01")
 
     args = parser.parse_args()
+
+    # log the arguments
+    print(f"Running timing strategies with args: {args}")
 
     run_timing_strategies(args)

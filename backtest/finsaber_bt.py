@@ -121,6 +121,9 @@ class FINSABERBt:
                     kwargs[additional_arg] = kwargs[additional_arg](pd_data)
 
             if "prior_period" in vars(strategy.params).keys():
+                if test_config.training_years is not None:
+                    strategy.params.prior_period = test_config.training_years * 252
+
                 if not strategy.params.prior_period % 252 == 0:
                     raise ValueError("prior_period must be a multiple of 252")
 
@@ -141,6 +144,9 @@ class FINSABERBt:
 
             # if the model needs to be trained, set the training data that are not used for backtesting
             if "train_period" in vars(strategy.params).keys():
+                if test_config.training_years is not None:
+                    strategy.params.train_period = test_config.training_years * 252
+
                 if not strategy.params.train_period % 252 == 0:
                     raise ValueError("train_period must be a multiple of 252")
 

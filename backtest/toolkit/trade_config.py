@@ -15,6 +15,7 @@ class TradeConfig:
     silence: bool = False
     rolling_window_size: int = 2
     rolling_window_step: int = 1
+    training_years: int = None
     selection_strategy: BaseSelector = None
     setup_name: str = None
     result_filename: str = None

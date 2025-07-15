@@ -1,5 +1,9 @@
 import os
 import httpx
+import logging
+logging.basicConfig(level=logging.DEBUG)
+logging.getLogger('httpx').setLevel(logging.WARNING)
+logging.getLogger('httpcore').setLevel(logging.WARNING)
 import json
 import subprocess
 from abc import ABC

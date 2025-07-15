@@ -2,7 +2,10 @@ import os
 import numpy as np
 from typing import List, Union
 from langchain_community.embeddings import OpenAIEmbeddings
-
+import logging
+logging.basicConfig(level=logging.DEBUG)
+logging.getLogger('httpx').setLevel(logging.WARNING)
+logging.getLogger('httpcore').setLevel(logging.WARNING)
 
 class OpenAILongerThanContextEmb:
     """

@@ -5,7 +5,7 @@ import os
 from backtest.data_util import FinMemDataset
 from backtest.strategy.timing.base_strategy import BaseStrategy
 from backtest.strategy.timing_llm.base_strategy_iso import BaseStrategyIso
-from backtest.strategy.selection import RandomSP500Selector, MomentumSP500Selector, LowVolatilitySP500Selector
+from backtest.strategy.selection import RandomSP500Selector, MomentumSP500Selector, LowVolatilitySP500Selector, FinConSP500Selector
 from backtest.finsaber_bt import FINSABERBt
 from backtest.finsaber import FINSABER
 from backtest.toolkit.operation_utils import aggregate_results_one_strategy
@@ -65,6 +65,7 @@ class ExperimentRunner:
                 "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_cherrypick_2000_2024.pkl"),
                 "date_from": "2004-01-01",
                 "date_to": "2024-01-01",
+                "training_years": 3,
                 "tickers": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
                 "silence": True,
                 "setup_name": setup_name
@@ -89,6 +90,7 @@ class ExperimentRunner:
                 "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_sp500_2000_2024.pkl"),
                 "date_from": "2004-01-01",
                 "date_to": "2024-01-01",
+                "training_years": 2,
                 "tickers": "all",
                 "silence": True,
                 "setup_name": setup_name,
@@ -105,12 +107,29 @@ class ExperimentRunner:
                 "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_sp500_2000_2024.pkl"),
                 "date_from": "2004-01-01",
                 "date_to": "2024-01-01",
+                "training_years": 2,
                 "tickers": "all",
                 "silence": True,
                 "setup_name": setup_name,
                 "selection_strategy": LowVolatilitySP500Selector(
                     num_tickers=int(setup_name.split("_")[-1]),
                     lookback_period=21,
+                    training_period=2
+                )
+            }
+            self.mode = "rolling_window"
+        elif setup_name.startswith("fincon_selector_sp500_"):
+            default_config = {
+                "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_sp500_2000_2024.pkl"),
+                "date_from": "2004-01-01",
+                "date_to": "2024-01-01",
+                "training_years": 2,
+                "tickers": "all",
+                "silence": True,
+                "setup_name": setup_name,
+                "selection_strategy": FinConSP500Selector(
+                    num_tickers=int(setup_name.split("_")[-1]),
+                    lookback_years=2,
                     training_period=2
                 )
             }

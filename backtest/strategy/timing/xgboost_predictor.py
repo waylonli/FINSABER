@@ -36,7 +36,12 @@ class XGBoostPredictorStrategy(BaseStrategy):
 
     def next(self):
         for d in self.datas:
-            features = d._dataname[self.column_order]
+            try:
+                features = d._dataname[self.column_order]
+            except KeyError:
+                # If the features are not available, skip this data
+                continue
+
             today_date = pd.to_datetime(d.datetime.date(0))
             # get the exact line 0of features
             features = features.loc[today_date]
