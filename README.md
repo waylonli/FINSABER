@@ -89,6 +89,7 @@ python backtest/run_baselines_exp.py \
     --include <strategy_name> \ # can be one of the class name under backtest/strategy/timing
     --date_from 2004-01-01 \
     --date_to 2024-01-01 \
+    --training_years <training_years> # 2 or 3 in the paper
     --rolling_window_size <window_size> \ # 1 or 2 in the paper
     --rolling_window_step 1
 ```
@@ -102,7 +103,6 @@ python backtest/run_llm_traders_exp.py \
     --date_from 2004-01-01 \
     --date_to 2024-01-01 \
     --rolling_window_size <window_size> \ # 1 or 2 in the paper
-    --training_years <training_years> # 2 or 3 in the paper
     --rolling_window_step 1
 ```
 
