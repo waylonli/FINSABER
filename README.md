@@ -30,6 +30,9 @@ conda create -n finsaber python=3.10
 conda activate finsaber
 pip install -r requirements.txt
 ```
+
+Note: it seems `pip` has issue with installing the `faiss` package. Please install it via anaconda.
+
 ### After Installation
 
 Rename `.env.example` to `.env` and set the environment variables. 
