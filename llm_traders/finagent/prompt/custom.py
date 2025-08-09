@@ -121,5 +121,7 @@ class Prompt():
 
         for key in check_keys:
             if key not in response_dict:
-                raise KeyError(f"Key {key} not in response: {response_dict}")
+                print(messages)
+                # raise KeyError(f"Key {key} not in response: {response_dict}")
+                response_dict[key] = f"No {key} in response"
         return response_dict, soup

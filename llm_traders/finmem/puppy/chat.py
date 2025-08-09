@@ -129,6 +129,7 @@ class ChatOpenAICompatible(ABC):
                 payload = {
                     "model": self.model,  # or another model like "gpt-4.0-turbo"
                     "messages": input_str,
+                    "temperature": 0.0,
                 }
                 payload.update(self.other_parameters)
                 payload = json.dumps(payload)

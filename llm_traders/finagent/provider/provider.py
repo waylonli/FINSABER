@@ -25,6 +25,7 @@ MAX_TOKENS = {
     "gpt-3.5-turbo-0301": 4097,
     "gpt-3.5-turbo-0613": 4097,
     "gpt-3.5-turbo-16k-0613": 16385,
+    'gpt-4o-mini': 8192,
 }
 
 PROVIDER_SETTING_KEY_VAR = "key_var"

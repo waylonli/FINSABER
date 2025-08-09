@@ -124,7 +124,22 @@ class FINSABERFrameworkHelper:
             [self.portfolio[ticker]['quantity'] * self.data_loader.get_ticker_price_by_date(ticker, self.data_loader.get_date_range()[-1])
              for ticker in self.portfolio])
 
-        assert len(strategy.equity) > 1, "Equity data is missing."
+        if not len(strategy.equity) > 1:
+            print("No equity data available for evaluation.")
+            # return all 0s
+            return {
+                'final_value': final_value,
+                'total_return': 0.0,
+                'annual_return': 0.0,
+                'annual_volatility': 0.0,
+                'sharpe_ratio': 0.0,
+                'sortino_ratio': 0.0,
+                'total_commission': 0.0,
+                'max_drawdown': 0.0
+            }
+
+
+
         daily_returns = pd.Series([strategy.equity[i] / strategy.equity[i - 1] - 1
                                    for i in range(1, len(strategy.equity))])
 
