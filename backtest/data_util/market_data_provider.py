@@ -18,14 +18,13 @@ LOGGER = logging.getLogger(__name__)
 DEFAULT_SP500_PATH = os.path.join("data", "extra", "sp500_historical_2000_2024.csv")
 DEFAULT_MARKET_CAP_TEMPLATE = os.path.join("data", "extra", "{ticker}-market-cap.csv")
 
-
 @dataclass(slots=True)
 class MarketSnapshot:
     adv: float = 1.0
     median_dollar_volume: float = 1.0
     vix: float = 0.0
     idiosyncratic_vol: float = 0.0
-    log_market_cap: float = 2.0
+    log_market_cap: float = np.nan
     beta: float = 0.0
     sp500_return: float = 0.0
 
@@ -153,6 +152,23 @@ class MarketDataProvider:
         med_series = med_series.ffill().fillna(1.0)
         return med_series
 
+    def _build_market_cap_series(self, ticker: str) -> pd.Series:
+        path = self.market_cap_template.format(ticker=ticker.lower())
+        if not path or not os.path.exists(path):
+            LOGGER.debug("Market cap file not found for %s: %s", ticker, path)
+            return pd.Series(dtype=float)
+
+        df = pd.read_csv(path)
+        df.columns = df.columns.str.strip()
+        df["Date"] = pd.to_datetime(df["Date"], format="%Y-%m-%d", errors="coerce")
+        df = df.dropna(subset=["Date", "Market Cap"]).sort_values("Date")
+        if df.empty:
+            return pd.Series(dtype=float)
+
+        df["log_market_cap"] = np.log1p(df["Market Cap"].astype(float) / 1e9)
+        series = pd.Series(df["log_market_cap"].values, index=df["Date"])
+        return series.reindex(_calendar_index(df["Date"])).ffill().dropna(how="all")
+
     def _build_vix_series(self) -> pd.Series:
         df = _load_sp500_dataframe(self.sp500_file_path)
         if df.empty:
@@ -230,23 +246,6 @@ class MarketDataProvider:
         series = pd.Series(residuals, index=pd.to_datetime(dates))
         series = series.reindex(_calendar_index(dates)).ffill().fillna(0.0)
         return series
-
-    def _build_market_cap_series(self, ticker: str) -> pd.Series:
-        path = self.market_cap_template.format(ticker=ticker.lower())
-        if not os.path.exists(path):
-            LOGGER.warning("Market cap file not found for %s: %s", ticker, path)
-            return pd.Series(dtype=float)
-
-        df = pd.read_csv(path)
-        df.columns = df.columns.str.strip()
-        df["Date"] = pd.to_datetime(df["Date"], format="%Y-%m-%d", errors="coerce")
-        df = df.dropna(subset=["Date", "Market Cap"]).sort_values("Date")
-        if df.empty:
-            return pd.Series(dtype=float)
-
-        df["log_market_cap"] = np.log1p(df["Market Cap"].astype(float) / 1e9)
-        series = pd.Series(df["log_market_cap"].values, index=df["Date"])
-        return series.reindex(_calendar_index(df["Date"])).ffill().fillna(np.nan)
 
     def _build_beta_series(self, ticker: str) -> pd.Series:
         sp500_df = _load_sp500_dataframe(self.sp500_file_path)
