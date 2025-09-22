@@ -31,6 +31,7 @@ class FINSABER:
         self.data_loader = self.trade_config.data_loader
         self.market_data = MarketDataProvider(
             adv_window=self.trade_config.execution.liquidity.adv_window,
+            median_window=self.trade_config.execution.liquidity.median_lookback_days,
         )
 
 

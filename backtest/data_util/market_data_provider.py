@@ -22,6 +22,7 @@ DEFAULT_MARKET_CAP_TEMPLATE = os.path.join("data", "extra", "{ticker}-market-cap
 @dataclass(slots=True)
 class MarketSnapshot:
     adv: float = 1.0
+    median_dollar_volume: float = 1.0
     vix: float = 0.0
     idiosyncratic_vol: float = 0.0
     log_market_cap: float = 2.0
@@ -35,14 +36,17 @@ class MarketDataProvider:
     def __init__(
         self,
         adv_window: int = 252,
+        median_window: int = 21,
         sp500_file_path: str = DEFAULT_SP500_PATH,
         market_cap_template: str = DEFAULT_MARKET_CAP_TEMPLATE,
     ) -> None:
         self.adv_window = adv_window
+        self.median_window = median_window
         self.sp500_file_path = sp500_file_path
         self.market_cap_template = market_cap_template
 
         self._adv_cache: Dict[str, pd.Series] = {}
+        self._median_dv_cache: Dict[str, pd.Series] = {}
         self._idiosync_cache: Dict[str, pd.Series] = {}
         self._market_cap_cache: Dict[str, pd.Series] = {}
         self._beta_cache: Dict[str, pd.Series] = {}
@@ -54,6 +58,7 @@ class MarketDataProvider:
         ts = pd.Timestamp(date)
         return MarketSnapshot(
             adv=float(self._value_at(self._adv_lookup(ticker), ts, default=1.0)),
+            median_dollar_volume=float(self._value_at(self._median_dollar_volume_lookup(ticker), ts, default=1.0)),
             vix=float(self._value_at(self._vix_lookup(), ts, default=0.0)),
             idiosyncratic_vol=float(self._value_at(self._idiosync_lookup(ticker), ts, default=0.0)),
             log_market_cap=float(self._value_at(self._market_cap_lookup(ticker), ts, default=np.nan)),
@@ -69,6 +74,11 @@ class MarketDataProvider:
         if ticker not in self._adv_cache:
             self._adv_cache[ticker] = self._build_adv_series(ticker)
         return self._adv_cache[ticker]
+
+    def _median_dollar_volume_lookup(self, ticker: str) -> pd.Series:
+        if ticker not in self._median_dv_cache:
+            self._median_dv_cache[ticker] = self._build_median_dollar_volume_series(ticker)
+        return self._median_dv_cache[ticker]
 
     def _vix_lookup(self) -> pd.Series:
         if self._vix_series is None:
@@ -119,6 +129,29 @@ class MarketDataProvider:
         adv_series = adv_series.reindex(_calendar_index(df["date"]))
         adv_series = adv_series.ffill().fillna(1.0)
         return adv_series
+
+    def _build_median_dollar_volume_series(self, ticker: str) -> pd.Series:
+        df = load_price_dataset(symbols=[ticker], adjust=False)
+        if df.empty:
+            LOGGER.warning("No price data available for %s when computing median dollar volume.", ticker)
+            return pd.Series(dtype=float)
+
+        df = df.sort_values("date")
+        df["dollar_volume"] = df["close"].astype(float) * df["volume"].astype(float)
+
+        window = max(int(self.median_window), 1)
+        min_periods = max(window // 2, 1)
+        med = (
+            df["dollar_volume"]
+            .rolling(window=window, min_periods=min_periods)
+            .median()
+            .shift(1)
+        )
+
+        med_series = med.set_axis(pd.to_datetime(df["date"].values))
+        med_series = med_series.reindex(_calendar_index(df["date"]))
+        med_series = med_series.ffill().fillna(1.0)
+        return med_series
 
     def _build_vix_series(self) -> pd.Series:
         df = _load_sp500_dataframe(self.sp500_file_path)

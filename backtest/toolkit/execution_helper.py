@@ -201,11 +201,24 @@ class ExecutionContext:
         intended_size: int,
         price: float,
     ) -> tuple[int, bool]:
-        cap_fraction = self.config.liquidity.cap_fraction_of_adv
-        if snapshot.adv <= 0 or cap_fraction <= 0:
+        fraction = max(self.config.liquidity.cap_fraction_of_adv, 0.0)
+        median_dv = max(snapshot.median_dollar_volume, 0.0)
+        max_usd_cap = max(self.config.liquidity.max_usd_cap, 0.0)
+
+        usd_caps = []
+        if fraction > 0 and median_dv > 0:
+            usd_caps.append(fraction * median_dv)
+        if max_usd_cap > 0:
+            usd_caps.append(max_usd_cap)
+
+        if not usd_caps:
             return intended_size, False
-        adv_dollar_cap = snapshot.adv * cap_fraction
-        max_shares = int(adv_dollar_cap / price)
+
+        usd_limit = min(usd_caps)
+        if usd_limit <= 0:
+            return 0, True
+
+        max_shares = int(usd_limit / price)
         if max_shares <= 0:
             return 0, True
         if intended_size > max_shares:

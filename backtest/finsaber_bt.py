@@ -120,6 +120,7 @@ class FINSABERBt:
 
         market_data = MarketDataProvider(
             adv_window=test_config.execution.liquidity.adv_window,
+            median_window=test_config.execution.liquidity.median_lookback_days,
         )
         base_strategy_kwargs = dict(kwargs)
 

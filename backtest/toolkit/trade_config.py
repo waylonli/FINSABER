@@ -49,6 +49,8 @@ class LiquidityConfig:
     enabled: bool = True
     cap_fraction_of_adv: float = 0.10
     adv_window: int = 252
+    median_lookback_days: int = 21
+    max_usd_cap: float = 500_000.0
     continue_after_cap: bool = False
 
     def update_from_dict(self, values: Dict[str, Any]) -> None:
@@ -61,6 +63,10 @@ class LiquidityConfig:
                 setattr(self, key, float(value))
             elif key == "adv_window":
                 setattr(self, key, int(value))
+            elif key == "median_lookback_days":
+                setattr(self, key, int(value))
+            elif key == "max_usd_cap":
+                setattr(self, key, float(value))
 
 
 @dataclass(slots=True)
@@ -93,7 +99,7 @@ class TradeConfig:
     tickers: Union[List[str], str]  # Now can also be 'all' to indicate all tickers
     date_from: str = "2004-01-01"
     date_to: str = "2024-01-01"
-    cash: float = 100000.0
+    cash: float = 1000000.0
     risk_free_rate: float = 0.03
     print_trades_table: bool = False
     silence: bool = False
@@ -108,6 +114,8 @@ class TradeConfig:
     data_loader: str = None
     liquidity_cap_pct: float = 0.10  # Maximum trade size as percentage of ADV (default: 10%)
     use_slippage: bool = True  # Toggle to enable/disable slippage costs in sizing
+    liquidity_max_usd: float = 500000.0
+    liquidity_median_lookback_days: int = 21
     execution: ExecutionConfig = field(default_factory=ExecutionConfig)
 
     def __post_init__(self):
@@ -122,10 +130,19 @@ class TradeConfig:
         if self.date_from > self.date_to:
             raise ValueError("date_from must be earlier than date_to")
 
+        self.liquidity_max_usd = float(self.liquidity_max_usd)
+        self.liquidity_median_lookback_days = int(self.liquidity_median_lookback_days)
+
         # Synchronise aliases with the execution configuration
         self.execution.liquidity.cap_fraction_of_adv = self.liquidity_cap_pct
+        self.execution.liquidity.max_usd_cap = self.liquidity_max_usd
+        self.execution.liquidity.median_lookback_days = self.liquidity_median_lookback_days
         self.use_slippage = self.execution.slippage.enabled
-        self.execution.liquidity.enabled = self.execution.liquidity.cap_fraction_of_adv > 0
+        liquidity_active = (
+            (self.execution.liquidity.cap_fraction_of_adv > 0)
+            or (self.execution.liquidity.max_usd_cap > 0)
+        )
+        self.execution.liquidity.enabled = liquidity_active
 
 
     @classmethod
@@ -142,7 +159,18 @@ class TradeConfig:
         # Keep aliases in sync if provided
         if "liquidity_cap_pct" in config_copy:
             config_copy["execution"].liquidity.cap_fraction_of_adv = config_copy["liquidity_cap_pct"]
-            config_copy["execution"].liquidity.enabled = config_copy["liquidity_cap_pct"] > 0
+
+        if "liquidity_max_usd" in config_copy:
+            config_copy["execution"].liquidity.max_usd_cap = float(config_copy["liquidity_max_usd"])
+
+        if "liquidity_median_lookback_days" in config_copy:
+            config_copy["execution"].liquidity.median_lookback_days = int(config_copy["liquidity_median_lookback_days"])
+
+        liquidity_cfg = config_copy["execution"].liquidity
+        liquidity_cfg.enabled = (
+            liquidity_cfg.cap_fraction_of_adv > 0
+            or liquidity_cfg.max_usd_cap > 0
+        )
 
         if "use_slippage" in config_copy:
             config_copy["execution"].slippage.enabled = bool(config_copy["use_slippage"])
