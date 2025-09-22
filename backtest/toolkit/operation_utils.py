@@ -2,6 +2,7 @@ import datetime
 import os
 import backtrader as bt
 import datasets as ds
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from dotenv import load_dotenv
@@ -68,7 +69,8 @@ def get_tickers_price(
     tickers: list[str] | str,
     date_from: str = "2000-01-01",
     date_to: str = "2024-01-01",
-    return_original: bool = False
+    return_original: bool = False,
+    warmup_days: int = 30
 ) -> pd.DataFrame:
     """
     Get daily price and technical indicators for specified tickers within the given date range.
@@ -78,10 +80,10 @@ def get_tickers_price(
       - RSI
       - MACD (plus signal and histogram)
 
-    Note: To obtain SMA_30 correctly from the first day, we load 30 days before `date_from` and then filter them out.
+    Note: To obtain indicators correctly from the first day, we load warmup_days before `date_from` and then filter them out.
     """
-    # Extend the start date to fetch enough data for 30-day calculations
-    extended_date_from = (pd.to_datetime(date_from) - datetime.timedelta(days=30)).strftime("%Y-%m-%d")
+    # Extend the start date to fetch enough data for indicator calculations
+    extended_date_from = (pd.to_datetime(date_from) - datetime.timedelta(days=warmup_days)).strftime("%Y-%m-%d")
 
     # Load data from your source
     if isinstance(tickers, list):
@@ -95,6 +97,16 @@ def get_tickers_price(
     df = df[(df["date"] >= pd.to_datetime(extended_date_from)) & (df["date"] < pd.to_datetime(date_to))]
     df = df.sort_values(["symbol", "date"])
 
+    # Function to compute weighted moving average
+    def wma(series, window):
+        """Calculate Weighted Moving Average - returns NaN until enough data available"""
+        def calc_wma(x):
+            if len(x) < window:
+                return np.nan
+            weights = np.arange(1, window + 1)
+            return np.average(x, weights=weights)
+        return series.rolling(window=window, min_periods=window).apply(calc_wma, raw=True)
+
     # Function to compute indicators on a per-symbol basis
     def compute_indicators(g):
         g = g.sort_values("date")
@@ -102,8 +114,14 @@ def get_tickers_price(
         # Simple moving averages
         g["SMA_5"] = g["close"].rolling(5).mean()
         g["SMA_10"] = g["close"].rolling(10).mean()
+        g["SMA_13"] = g["close"].rolling(13).mean()
         g["SMA_15"] = g["close"].rolling(15).mean()
         g["SMA_30"] = g["close"].rolling(30).mean()
+        g["SMA_48"] = g["close"].rolling(48).mean()
+
+        # Weighted moving averages
+        g["WMA_50"] = wma(g["close"], 50)
+        g["WMA_200"] = wma(g["close"], 200)
 
         # Exponential moving average
         g["EMA_9"] = g["close"].ewm(span=9, adjust=False).mean()
@@ -144,8 +162,9 @@ def get_tickers_price(
         index="date",
         columns="symbol",
         values=[
-            "open", "high", "low", "close",
-            "SMA_5", "SMA_10", "SMA_15", "SMA_30",
+            "open", "high", "low", "close", "volume",
+            "SMA_5", "SMA_10", "SMA_13", "SMA_15", "SMA_30", "SMA_48",
+            "WMA_50", "WMA_200",
             "EMA_9", "RSI",
             "MACD", "MACD_signal", "MACD_hist"
         ],

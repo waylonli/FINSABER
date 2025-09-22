@@ -4,11 +4,19 @@ import pickle
 from datetime import datetime
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-# from backtest.data_util import BacktestDataset
-# from backtest.strategy.timing_llm.base_strategy_iso import BaseStrategyIso
+
+from backtest.toolkit.execution_helper import ExecutionContext, PreparedOrder
 
 class FINSABERFrameworkHelper:
-    def __init__(self, initial_cash=100000, risk_free_rate=0.0, commission_per_share=0.0049, min_commission=0.99, max_commission_rate=0.01):
+    def __init__(
+            self,
+            initial_cash=100000,
+            risk_free_rate=0.0,
+            commission_per_share=0.0049,
+            min_commission=0.99,
+            max_commission_rate=0.01,
+            execution_context: ExecutionContext | None = None,
+    ):
         self.initial_cash = initial_cash
         self.cash = initial_cash
         self.portfolio = {}
@@ -18,6 +26,7 @@ class FINSABERFrameworkHelper:
         self.min_commission = min_commission
         self.max_commission_rate = max_commission_rate
         self.data_loader = None
+        self.execution: ExecutionContext | None = execution_context
 
     def load_backtest_data(
             self,
@@ -53,40 +62,158 @@ class FINSABERFrameworkHelper:
         return max(self.min_commission, min(commission, txn_amount * self.max_commission_rate))
 
     def buy(self, date, ticker, price, quantity):
-        if quantity >= 0:
-            cost = price * quantity
-            commission = self.calculate_commission(quantity, price)
-            total_cost = cost + commission
-        elif quantity == -1:
-            # Buy all available cash, taking into account commission
-            total_cost = self.cash
-            commission = self.calculate_commission(int(total_cost / price), price)
-            total_cost -= commission
-            quantity = int(total_cost / price)
-            total_cost = price * quantity + commission
+        timestamp = pd.Timestamp(date)
+        if price <= 0:
+            return
 
-        if self.cash >= total_cost:
-            self.cash -= total_cost
-            if ticker in self.portfolio:
-                self.portfolio[ticker]['quantity'] += quantity
-            else:
-                self.portfolio[ticker] = {'quantity': quantity, 'price': price}
-            self.history.append({'date': date, 'ticker': ticker, 'type': 'buy', 'price': price, 'quantity': quantity, 'commission': commission})
+        if self.execution and not self.execution.should_continue(ticker, "buy"):
+            return
+
+        intended_size = 0
+        if quantity == -1:
+            intended_size = int(self.cash // price)
+        elif quantity > 0:
+            intended_size = int(quantity)
+
+        if intended_size <= 0:
+            return
+
+        prepared: PreparedOrder | None = None
+        trade_size = intended_size
+
+        while trade_size > 0:
+            if self.execution:
+                prepared = self.execution.prepare_order(
+                    ticker,
+                    timestamp,
+                    price,
+                    trade_size,
+                    "buy",
+                    self.cash,
+                )
+                trade_size = prepared.size
+                if trade_size <= 0:
+                    return
+
+            commission = self.calculate_commission(trade_size, price)
+            base_cost = trade_size * price + commission
+
+            if base_cost <= self.cash + 1e-6:
+                break
+
+            trade_size -= 1
+            prepared = None
+
+        if trade_size <= 0:
+            return
+
+        commission = self.calculate_commission(trade_size, price)
+        base_cost = trade_size * price + commission
+
+        if base_cost > self.cash + 1e-6:
+            print(f"Insufficient cash to buy {trade_size} of {ticker} on {date}")
+            return
+
+        self.cash -= base_cost
+
+        if ticker in self.portfolio:
+            self.portfolio[ticker]['quantity'] += trade_size
         else:
-            print(f"Insufficient cash to buy {quantity} of {ticker} on {date}")
+            self.portfolio[ticker] = {'quantity': trade_size, 'price': price}
+
+        slippage_cost = 0.0
+        pct_dtv = 0.0
+        signed_sqrt_dtv = 0.0
+        was_capped = False
+
+        if self.execution and prepared:
+            fill = self.execution.manual_fill(prepared, trade_size, price, timestamp)
+            if fill:
+                slippage_cost = fill.slippage_cost
+                pct_dtv = fill.pct_dtv
+                signed_sqrt_dtv = fill.signed_sqrt_dtv
+                was_capped = fill.was_liquidity_capped
+                self.cash -= slippage_cost
+
+        self.history.append({
+            'date': date,
+            'ticker': ticker,
+            'type': 'buy',
+            'price': price,
+            'quantity': trade_size,
+            'commission': commission,
+            'slippage_cost': slippage_cost,
+            'pct_dtv': pct_dtv,
+            'signed_sqrt_dtv': signed_sqrt_dtv,
+            'was_liquidity_capped': was_capped,
+        })
 
     def sell(self, date, ticker, price, quantity):
-        if ticker in self.portfolio and self.portfolio[ticker]['quantity'] >= quantity:
-            revenue = price * quantity
-            commission = self.calculate_commission(quantity, price)
-            net_revenue = revenue - commission
-            self.cash += net_revenue
-            self.portfolio[ticker]['quantity'] -= quantity
-            if self.portfolio[ticker]['quantity'] == 0:
-                del self.portfolio[ticker]
-            self.history.append({'date': date, 'ticker': ticker, 'type': 'sell', 'price': price, 'quantity': quantity, 'commission': commission})
+        timestamp = pd.Timestamp(date)
+        if price <= 0:
+            return
+
+        holdings = self.portfolio.get(ticker, {}).get('quantity', 0)
+        if quantity == -1:
+            intended_size = holdings
         else:
+            intended_size = min(int(quantity), holdings)
+
+        if intended_size <= 0:
             print(f"Insufficient holdings to sell {quantity} of {ticker} on {date}")
+            return
+
+        prepared: PreparedOrder | None = None
+        trade_size = intended_size
+
+        if self.execution:
+            prepared = self.execution.prepare_order(
+                ticker,
+                timestamp,
+                price,
+                trade_size,
+                "sell",
+                float('inf'),
+            )
+            trade_size = prepared.size
+            if trade_size <= 0:
+                return
+
+        commission = self.calculate_commission(trade_size, price)
+        revenue = trade_size * price
+        net_revenue = revenue - commission
+
+        self.cash += net_revenue
+        self.portfolio[ticker]['quantity'] -= trade_size
+        if self.portfolio[ticker]['quantity'] == 0:
+            del self.portfolio[ticker]
+
+        slippage_cost = 0.0
+        pct_dtv = 0.0
+        signed_sqrt_dtv = 0.0
+        was_capped = False
+
+        if self.execution and prepared:
+            fill = self.execution.manual_fill(prepared, trade_size, price, timestamp)
+            if fill:
+                slippage_cost = fill.slippage_cost
+                pct_dtv = fill.pct_dtv
+                signed_sqrt_dtv = fill.signed_sqrt_dtv
+                was_capped = fill.was_liquidity_capped
+                self.cash -= slippage_cost
+
+        self.history.append({
+            'date': date,
+            'ticker': ticker,
+            'type': 'sell',
+            'price': price,
+            'quantity': trade_size,
+            'commission': commission,
+            'slippage_cost': slippage_cost,
+            'pct_dtv': pct_dtv,
+            'signed_sqrt_dtv': signed_sqrt_dtv,
+            'was_liquidity_capped': was_capped,
+        })
 
     def run(self, strategy, delist_check=True):
         date_range = self.data_loader.get_date_range()
@@ -152,7 +279,8 @@ class FINSABERFrameworkHelper:
         sharpe_ratio = (daily_returns.mean() * 252 - self.risk_free_rate) / annual_volatility if annual_volatility > 0 else 0
         sortino_ratio = (daily_returns.mean() * 252 - self.risk_free_rate) / downside_deviation if downside_deviation > 0 else 0
 
-        total_commission = sum([trade['commission'] for trade in self.history])
+        total_commission = sum(trade['commission'] for trade in self.history)
+        total_slippage_cost = sum(trade.get('slippage_cost', 0.0) for trade in self.history)
 
         # Calculate maximum drawdown
         equity_series = pd.Series(strategy.equity)
@@ -168,6 +296,7 @@ class FINSABERFrameworkHelper:
             'sharpe_ratio': sharpe_ratio,
             'sortino_ratio': sortino_ratio,
             'total_commission': total_commission,
+            'total_slippage_cost': total_slippage_cost,
             'max_drawdown': max_drawdown
         }
 
@@ -196,6 +325,10 @@ class FINSABERFrameworkHelper:
         self.portfolio = {}
         self.history = []
         self.data_loader = None
+        # execution context reused by caller; state resets when new context supplied
+
+    def set_execution_context(self, execution_context: ExecutionContext | None):
+        self.execution = execution_context
 
 # class SampleStrategy(BaseStrategyIso):
 #     def on_data(self, date, prices, framework):

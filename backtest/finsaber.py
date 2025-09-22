@@ -1,3 +1,4 @@
+import copy
 from datetime import datetime
 import pandas as pd
 from rich.progress import Progress, track
@@ -14,6 +15,8 @@ from backtest.toolkit.trade_config import TradeConfig
 from backtest.toolkit.backtest_framework_iso import FINSABERFrameworkHelper
 from backtest.toolkit.operation_utils import aggregate_results_one_strategy
 from backtest.toolkit.llm_cost_monitor import reset_llm_cost, get_llm_cost
+from backtest.toolkit.execution_helper import ExecutionContext
+from backtest.data_util.market_data_provider import MarketDataProvider
 
 
 class FINSABER:
@@ -26,6 +29,9 @@ class FINSABER:
             min_commission=self.trade_config.__dict__.get("min_commission", 0.99)
         )
         self.data_loader = self.trade_config.data_loader
+        self.market_data = MarketDataProvider(
+            adv_window=self.trade_config.execution.liquidity.adv_window,
+        )
 
 
     def run_rolling_window(self, strategy_class, rolling_window_size=None, rolling_window_step=None, strat_params=None):
@@ -139,6 +145,11 @@ class FINSABER:
                     continue
 
                 self.framework.reset()
+                execution_context = ExecutionContext(
+                    config=copy.deepcopy(self.trade_config.execution),
+                    market_data=self.market_data,
+                )
+                self.framework.set_execution_context(execution_context)
                 success_or_not = self.framework.load_backtest_data_single_ticker(
                     subset_data,
                     ticker,
@@ -223,5 +234,3 @@ class FINSABER:
                 resolved_params[key] = value
 
         return resolved_params
-
-

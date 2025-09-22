@@ -1,18 +1,27 @@
+import copy
+import logging
 import os
+import warnings
+import pickle
+
 import backtrader as bt
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from tqdm import tqdm
 from tabulate import tabulate
+
+from backtest.toolkit.execution_helper import ExecutionContext
+from backtest.data_util.market_data_provider import MarketDataProvider
 from backtest.toolkit.trade_config import TradeConfig
 from backtest.toolkit.operation_utils import add_tickers_data, get_tickers_price
 from backtest.strategy.selection import *
-import warnings
-import pickle
-import matplotlib.pyplot as plt
 from backtest.toolkit import metrics
 
+LOGGER = logging.getLogger(__name__)
+
 warnings.filterwarnings("ignore")
+
 
 # TODO wandb support
 # TODO rolling window backtesting
@@ -27,7 +36,6 @@ class FINSABERBt:
         """
         self.trade_config = TradeConfig.from_dict(config)
 
-
     def run_rolling_window(self, strategy: bt.Strategy, process: callable = None, **kwargs):
         """
         Call run_iterative_tickers or execute_all for each rolling window
@@ -36,9 +44,8 @@ class FINSABERBt:
         :param kwargs: Additional arguments for the strategy
         """
         # divide the date into rolling windows
-        rolling_window_size = self.trade_config.rolling_window_size # in years
-        rolling_window_step = self.trade_config.rolling_window_step # in years
-
+        rolling_window_size = self.trade_config.rolling_window_size  # in years
+        rolling_window_step = self.trade_config.rolling_window_step  # in years
 
         # e.g. 2000-01-01 to 2005-01-01, rolling_window_size=2, rolling_window_step=1, then the rolling windows are:
         # 2000-01-01 to 2002-01-01, 2001-01-01 to 2003-01-01, 2002-01-01 to 2004-01-01, 2003-01-01 to 2005-01-01
@@ -68,7 +75,12 @@ class FINSABERBt:
                 window[0].strftime("%Y-%m-%d"),
                 window[1].strftime("%Y-%m-%d")
             )
-            print(f"Selected tickers for the period {window[0].strftime('%Y')} to {window[1].strftime('%Y')}: {self.trade_config.tickers}")
+            LOGGER.info(
+                "Selected tickers for %s-%s: %s",
+                window[0].strftime('%Y'),
+                window[1].strftime('%Y'),
+                self.trade_config.tickers,
+            )
 
             test_config = self.trade_config.to_dict()
             test_config["date_from"] = window[0].strftime("%Y-%m-%d")
@@ -79,7 +91,8 @@ class FINSABERBt:
 
         # export the evaluation metrics
         if self.trade_config.save_results:
-            output_dir = os.path.join(self.trade_config.log_base_dir, self.trade_config.setup_name.replace(":", "_"), strategy.__name__)
+            output_dir = os.path.join(self.trade_config.log_base_dir, self.trade_config.setup_name.replace(":", "_"),
+                                      strategy.__name__)
             filename = f"{self.trade_config.date_from}_{self.trade_config.date_to}.pkl" if self.trade_config.result_filename is None else self.trade_config.result_filename
             os.makedirs(output_dir, exist_ok=True)
             with open(os.path.join(output_dir, filename), "wb") as f:
@@ -88,7 +101,8 @@ class FINSABERBt:
 
         return eval_metrics
 
-    def run_iterative_tickers(self, strategy: bt.Strategy, process: callable = None, test_config: dict = None, **kwargs):
+    def run_iterative_tickers(self, strategy: bt.Strategy, process: callable = None, test_config: dict = None,
+                              **kwargs):
         """
         Execute the strategy
         :param strategy: The strategy to execute
@@ -104,7 +118,13 @@ class FINSABERBt:
 
         eval_metrics = {}
 
-        tickers_loop = test_config.tickers if test_config.tickers != "all" else get_tickers_price("all")["symbol"].unique()
+        market_data = MarketDataProvider(
+            adv_window=test_config.execution.liquidity.adv_window,
+        )
+        base_strategy_kwargs = dict(kwargs)
+
+        tickers_loop = test_config.tickers if test_config.tickers != "all" else get_tickers_price("all")[
+            "symbol"].unique()
 
         for ticker in tickers_loop:
 
@@ -112,62 +132,79 @@ class FINSABERBt:
 
             cerebro = bt.Cerebro()
 
-            pd_data = get_tickers_price(ticker, date_from=test_config.date_from, date_to=test_config.date_to)
+            # Calculate required warmup days based on strategy parameters
+            warmup_days = 30  # Default warmup
+            if hasattr(strategy.params, 'long_window'):
+                warmup_days = max(warmup_days, strategy.params.long_window + 10)  # Add buffer
+            elif hasattr(strategy.params, 'short_window') and hasattr(strategy.params, 'long_window'):
+                warmup_days = max(warmup_days, max(strategy.params.short_window, strategy.params.long_window) + 10)
+
+            LOGGER.debug("Warmup for %s: %s days (%s)", ticker, warmup_days, strategy.__name__)
+            pd_data = get_tickers_price(ticker, date_from=test_config.date_from, date_to=test_config.date_to,
+                                        warmup_days=warmup_days)
             train_data = None
 
-            for additional_arg in kwargs:
-                # if it is callable, call it
-                if callable(kwargs[additional_arg]):
-                    kwargs[additional_arg] = kwargs[additional_arg](pd_data)
+            strategy_kwargs = {}
+            for key, value in base_strategy_kwargs.items():
+                strategy_kwargs[key] = value(pd_data) if callable(value) else value
 
             if "prior_period" in vars(strategy.params).keys():
-                if test_config.training_years is not None:
-                    strategy.params.prior_period = test_config.training_years * 252
-
                 if not strategy.params.prior_period % 252 == 0:
                     raise ValueError("prior_period must be a multiple of 252")
 
                 prior_year = strategy.params.prior_period // 252
                 prior_data = get_tickers_price(
                     ticker,
-                    date_from=(pd.to_datetime(test_config.date_from) - pd.DateOffset(years=prior_year)).strftime("%Y-%m-%d"),
+                    date_from=(pd.to_datetime(test_config.date_from) - pd.DateOffset(years=prior_year)).strftime(
+                        "%Y-%m-%d"),
                     date_to=(pd.to_datetime(test_config.date_from) - pd.DateOffset(days=1)).strftime("%Y-%m-%d")
                 )
 
                 if prior_data is not None:
                     if prior_data.index.min().year > pd.to_datetime(test_config.date_from).year - prior_year:
-                        print(f"Prior data for {ticker} is not enough at year {pd.to_datetime(test_config.date_from).year}")
+                        LOGGER.warning(
+                            "Insufficient prior data for %s in %s",
+                            ticker,
+                            pd.to_datetime(test_config.date_from).year,
+                        )
                         continue
                 else:
-                    print(f"No prior data for {ticker} at year {pd.to_datetime(test_config.date_from).year}")
+                    LOGGER.warning(
+                        "No prior data for %s in %s",
+                        ticker,
+                        pd.to_datetime(test_config.date_from).year,
+                    )
                     continue
 
             # if the model needs to be trained, set the training data that are not used for backtesting
             if "train_period" in vars(strategy.params).keys():
-                if test_config.training_years is not None:
-                    strategy.params.train_period = test_config.training_years * 252
-
                 if not strategy.params.train_period % 252 == 0:
                     raise ValueError("train_period must be a multiple of 252")
 
                 train_year = strategy.params.train_period // 252
                 train_data = get_tickers_price(
                     ticker,
-                    date_from=(pd.to_datetime(test_config.date_from) - pd.DateOffset(years=train_year)).strftime("%Y-%m-%d"),
+                    date_from=(pd.to_datetime(test_config.date_from) - pd.DateOffset(years=train_year)).strftime(
+                        "%Y-%m-%d"),
                     date_to=(pd.to_datetime(test_config.date_from) - pd.DateOffset(days=1)).strftime("%Y-%m-%d")
                 )
 
                 kwargs["train_data"] = train_data
 
             # skip if no data or data is not start from January
-            if (pd_data is None or pd_data.index.min().month != 1 or len(pd_data) < 21) and ("cherry_pick" not in test_config.setup_name):
+            if (pd_data is None or pd_data.index.min().month != 1 or len(pd_data) < 21) and (
+                    "cherry_pick" not in test_config.setup_name):
                 # print(f"No data in the period {test_config.date_from} to {test_config.date_to} for {ticker}")
                 continue
 
             # skip if no enough data for training
             if train_data is not None:
                 if train_data.index.min().year > pd.to_datetime(test_config.date_from).year - train_year:
-                    print(f"Train data for {ticker} is not enough at year {pd.to_datetime(test_config.date_from).year}")
+                    LOGGER.warning(
+                        "Insufficient training data for %s in %s",
+                        ticker,
+                        pd.to_datetime(test_config.date_from).year,
+                    )
                     continue
 
             # detect if the stock is delisted in the middle of the period, if it is, assign 0 price to the missing dates
@@ -188,25 +225,50 @@ class FINSABERBt:
             # check again
             if ((pd_data is None or pd_data.index.min().month != 1 or len(pd_data) < 21) and (
                     "cherry_pick" not in test_config.setup_name)):
-                print(f"Not enough data in the period {test_config.date_from} to {test_config.date_to} for {ticker}")
+                LOGGER.warning(
+                    "Skipping %s due to insufficient data between %s and %s",
+                    ticker,
+                    test_config.date_from,
+                    test_config.date_to,
+                )
                 continue
 
             add_tickers_data(cerebro, pd_data)
 
-            # Add a strategy
-            cerebro.addstrategy(strategy, total_days=len(set(pd_data.index.tolist())), **kwargs)
+            execution_context = ExecutionContext(
+                config=copy.deepcopy(test_config.execution),
+                market_data=market_data,
+            )
+
+            strategy_kwargs.update(
+                {
+                    "execution_context": execution_context,
+                    "setup_name": test_config.setup_name,
+                    "strategy_name": strategy.__name__,
+                    "total_days": len(set(pd_data.index.tolist())),
+                }
+            )
+
+            cerebro.addstrategy(
+                strategy,
+                **strategy_kwargs,
+            )
 
             # Set our desired cash start
             cerebro.broker.setcash(test_config.cash)
-            commission_scheme = USStockCommission()
-            cerebro.broker.addcommissioninfo(commission_scheme)
+
+            # #ORIGINAL
+            # commission_scheme = USStockCommission()
+            # cerebro.broker.addcommissioninfo(commission_scheme)
+
             cerebro.broker.set_shortcash(False)
 
             # Add observers
             cerebro.addobserver(bt.observers.Value)
 
             # Add analyzers for Sharpe Ratio and Drawdown
-            cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='mysharpe', riskfreerate=test_config.risk_free_rate, timeframe=bt.TimeFrame.Days, annualize=True)
+            cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='mysharpe', riskfreerate=test_config.risk_free_rate,
+                                timeframe=bt.TimeFrame.Days, annualize=True)
             cerebro.addanalyzer(bt.analyzers.DrawDown, _name='mydrawdown')
             cerebro.addanalyzer(bt.analyzers.Returns, _name='myreturns')
             # cerebro.addanalyzer(bt.analyzers.AnnualReturn, _name='myannualreturn')
@@ -256,15 +318,14 @@ class FINSABERBt:
 
         if "cherry_pick" in test_config.setup_name and test_config.save_results:
             # store the results using pickle
-            output_dir = os.path.join(test_config.log_base_dir, test_config.setup_name.replace(":", "_"), strategy.__name__)
+            output_dir = os.path.join(test_config.log_base_dir, test_config.setup_name.replace(":", "_"),
+                                      strategy.__name__)
             filename = f"{test_config.date_from}_{test_config.date_to}.pkl" if test_config.result_filename is None else test_config.result_filename
             os.makedirs(output_dir, exist_ok=True)
             with open(os.path.join(output_dir, filename), "wb") as f:
                 pickle.dump({f"{test_config.date_from}_{test_config.date_to}": eval_metrics}, f)
             f.close()
         return eval_metrics
-
-
 
     def _analyze_results(self,
                          strategy: bt.Strategy,
@@ -274,11 +335,9 @@ class FINSABERBt:
                          print_annual_metrics=True,
                          print_trades_table=False):
 
-
         if strategy is None:
             print("No strategy results to analyze")
             return None
-
 
         max_drawdown = strategy.analyzers.mydrawdown.get_analysis().max.drawdown
         total_return = strategy.broker.getvalue() / test_config.cash - 1
@@ -307,7 +366,8 @@ class FINSABERBt:
         if print_trades_table:
             trades = []
             for trade in strategy.trades:
-                trades.append([trade.open_datetime().date(), trade.close_datetime().date(), trade.price, trade.pnl, trade.pnlcomm])
+                trades.append([trade.open_datetime().date(), trade.close_datetime().date(), trade.price, trade.pnl,
+                               trade.pnlcomm])
             trades_df = pd.DataFrame(trades, columns=['Open Date', 'Close Date', "Price", 'Profit/Loss',
                                                       'PnL (incl. commission)'])
             print("-" * 50)
@@ -315,7 +375,7 @@ class FINSABERBt:
             print(tabulate(trades_df, headers='keys', tablefmt='psql'))
 
         if not test_config.silence:
-            print("="*50)
+            print("=" * 50)
 
         return {
             'sharpe_ratio': annual_metrics['Sharpe Ratio'],
@@ -325,7 +385,6 @@ class FINSABERBt:
             'max_drawdown': max_drawdown,
             'total_return': total_return
         }
-
 
     def _calculate_annualized_metrics(
             self,
@@ -397,5 +456,65 @@ class USStockCommission(bt.CommInfoBase):
         # Transaction amount in $
         txn_amount = abs(size * price)
 
+        # # DEBUG PRINT
+        # print(f"[COMMISSION] size={size}, price={price}, raw_commission={commission}, "
+        #       f"min={self.p.min_commission}, cap={1 * txn_amount}")
+
         # Apply both minimum and maximum constraints
-        return min(max(commission, self.p.min_commission), 0.01 * txn_amount)
+        return min(max(commission, self.p.min_commission), 0.01 * txn_amount)  # 0.01 MAX
+
+
+class USStockCommissionWithSlippage(USStockCommission):
+    params = (
+        # repeat the parent's items
+        ('commission_per_share', 0.0049),
+        ('min_commission', 0.99),
+        ('stocklike', True),
+        ('commtype', bt.CommInfoBase.COMM_FIXED),
+        # add your own
+        ('adv', 1.0),
+        ('c', 10.0),
+        ('a', 0.5),
+    )
+
+    def _getcommission(self, size, price, pseudoexec):
+        commission = super()._getcommission(size, price, pseudoexec)
+        adv = max(self.p.adv, 1.0)
+        impact_ratio = abs(size) / adv
+        slippage = abs(size) * price * (self.p.c * (impact_ratio ** self.p.a)) / 100.0
+        return commission + slippage
+
+
+class USStockCommissionWithRollingSlippage(bt.CommInfoBase):
+    params = (
+        ('commission_per_share', 0.0049),
+        ('min_commission', 0.99),
+        ('adv_lookup', None),  # dict {Timestamp: ADV}
+        ('c', 10.0),  # slippage constant
+        ('a', 0.5),  # slippage exponent
+    )
+
+    # The broker reference will be injected immediately after registration
+    broker = None
+
+    def _getcommission(self, size, price, pseudoexec):
+        # ---------- base commission (no 1 % cap) ---------------------------
+        commission = abs(size) * self.p.commission_per_share
+        commission = max(commission, self.p.min_commission)
+
+        # ---------- rolling-ADV slippage -----------------------------------
+        if self.broker is None:  # sizing pass may hit first
+            return commission  # can't compute slippage yet
+
+        trade_date = pd.to_datetime(self.broker.datetime.date())
+        adv = max(self.p.adv_lookup.get(trade_date, 1.0), 1.0)
+
+        impact = abs(size) / adv
+        slip_pct = self.p.c * (impact ** self.p.a) / 100.0
+        slippage = abs(size) * price * slip_pct
+
+        # Optional debug line
+        print(f"[COM] {trade_date.date()} size={size} ADV={adv:.0f} "
+              f"slip%={slip_pct * 100:.3f} fee=${commission + slippage:,.2f}")
+
+        return commission + slippage
