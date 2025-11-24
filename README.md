@@ -5,10 +5,17 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/waylonli/FINSABER?style=social)]()
 
+**Official implementation for the KDD 2026 paper: "Can LLM-based Financial Investing Strategies Outperform the Market in Long Run?"**
+
+
+## 📣 News
+* **[24/11/2025]** We are excited to announce that FINSABER has been accepted to **KDD 2026**! 🚀
+* **[19/06/2025]** Code and initial benchmarks released.
+
+## 📖 Overview
 FINSABER is a comprehensive framework for evaluating trading strategies with a specific focus on comparing traditional technical analysis approaches with modern machine learning and large language model (LLM) based strategies. 
 
 <img src="https://github.com/waylonli/FINSABER/blob/main/figs/framework.png" width="900">
-
 
 ## 1. Environment Setup
 
@@ -43,11 +50,13 @@ Rename `.env.example` to `.env` and set the environment variables.
 
 ## 2. Data
 
-- The aggregated S&P500 sample data can be downloaded from [here](https://drive.google.com/file/d/1g9GTNr1av2b9-HphssRrQsLSnoyW0lCF/view?usp=sharing) (10.23 GB).
+We provide aggregated datasets hosted on Google Drive.
 
-- The csv format of price-only data can be downloaded from [here](https://drive.google.com/file/d/1KfIjn3ydynLduEYa-C5TmYud-ULkbBvM/view?usp=sharing) (253 MB).
-
-- The aggregated selective symbols data (TSLA, AMZN, MSFT, NFLX, COIN) can be downloaded from [here](https://drive.google.com/file/d/1pmeG3NqENNW2ak_NnobG_Onu9SUSEy61/view?usp=sharing) (48.1 MB).
+| Dataset | Content | Size | Link |
+| :--- | :--- | :--- | :--- |
+| **S&P500 Full** | Aggregated sample data (Price + News + Filings) | 10.23 GB | [Download](https://drive.google.com/file/d/1g9GTNr1av2b9-HphssRrQsLSnoyW0lCF/view?usp=sharing) |
+| **Price Only** | CSV format price-only data | 253 MB | [Download](https://drive.google.com/file/d/1KfIjn3ydynLduEYa-C5TmYud-ULkbBvM/view?usp=sharing) |
+| **Selected Symbols** | Aggregated data for TSLA, AMZN, MSFT, NFLX, COIN | 48.1 MB | [Download](https://drive.google.com/file/d/1pmeG3NqENNW2ak_NnobG_Onu9SUSEy61/view?usp=sharing) |
 
 The aggregated data is organised as a dictionary with the following structure:
 ```python
