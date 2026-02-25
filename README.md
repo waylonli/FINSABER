@@ -37,7 +37,7 @@ git clone https://github.com/waylonli/FINSABER
 cd FINSABER
 conda create -n finsaber python=3.10
 conda activate finsaber
-pip install -r requirements.txt
+pip install -r requirements-complete.txt --no-deps
 ```
 
 Note: it seems `pip` has issue with installing the `faiss` package. Please install it via anaconda.
