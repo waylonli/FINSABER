@@ -285,3 +285,7 @@ engine.run_rolling_window(MyLLMStrategy, strat_params={"symbol": "AAPL", "date_f
       url={https://arxiv.org/abs/2505.07078}, 
 }
 ```
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=waylonli/FINSABER&type=date&legend=top-left)](https://www.star-history.com/#waylonli/FINSABER&type=date&legend=top-left)
