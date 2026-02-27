@@ -1,0 +1,16 @@
+<div class="prompt">
+    <p class="text">Based on the above information, you should analyze the summary of market intelligence and the Kline chart on the reasoning that lead to past to feature price movements. Then output the results as the following constraints:
+        <br><br>"reasoning": This field will be used for trading decisions. You should think step-by-step and provide the detailed reasoning to determine how the summary of market intelligence and Kline chart that lead to the price movements. Please strictly follow the following constraints and output formats:
+        <br>1. There should be three fields under this field, corresponding to the three time horizons: "short_term_reasoning", "medium_term_reasoning", and "long_term_reasonig".
+        <br> - "short_term_reasoning": Reasoning about the price movements at the Short-Term.
+        <br> - "medium_term_reasoning": Reasoning about the price movements at the Medium-Term.
+        <br> - "long_term_reasoning": Reasoning about the price movements at the Long-Term.
+        <br>3. For the reasoning of each time horizon, you should analyze step-by-step and follow the rules as follows and do not miss any of them:
+        <br> - Price movements should involve a shift in trend from the past to the future.
+        <br> - You should analyze the summary of market intelligence that lead to the price movements. And you should pay MORE attention to the effect of latest market intelligence on price movements.
+        <br> - You should conduct a thorough analysis of the Kline chart, focusing on price changes. And provide the reasoning driving these price movements.
+        <br> - The reasoning you provide for each time horizon should be concise and clear, with no more than 300 tokens.
+        <br><br>"query": This field will be used to retrieve past reasoning for price movements, so you should step-by-step analyze and extract the key information that represent each piece of reasoning based on the above analysis. You need to follow the rules and do not miss any of them:
+        <br>1. Analyzing and summarizing reasoning of each time horizon, condensing it into a concise sentence of no more than 100 tokens to extract key information.
+    </p>
+</div>

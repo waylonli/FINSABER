@@ -34,6 +34,9 @@ def plot_kline(df,
 
     df = df.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'volume': 'Volume', 'timestamp': 'Date'})
 
+    # Drop rows with missing OHLCV data (e.g. from pkl entries without full price data)
+    df = df.dropna(subset=["Open", "High", "Low", "Close", "Volume"])
+
     format = "%Y-%m-%d"
     date = df.index.strftime(format).tolist()
     values = df[["Open", "Close", "Low", "High"]].values.tolist()
@@ -49,8 +52,8 @@ def plot_kline(df,
     df['bbp'] = bbands.iloc[:, 4]
 
     macd = cal_macd(df, 7, 14)
-    max_macd = max(abs(x) for x in macd)
-    max_volume = max(df["Volume"])
+    max_macd = max((abs(x) for x in macd if not np.isnan(x)), default=1)
+    max_volume = df["Volume"].max() or 1
     adj_macd = [number * max_volume / max_macd for number in macd]
 
     kline = (

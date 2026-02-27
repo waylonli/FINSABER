@@ -1,0 +1,32 @@
+<div class="prompt">
+    <p class="placeholder">Based on the above information, you should analyze the key insights and summarize the market intelligence. Please strictly follow the following constraints and output formats:
+        <br><br>"analysis": This field is used to extract key insights from the above information. You should analyze step-by-step and follow the rules as follows and do not miss any of them:
+        <br>1. Please disregard UNRELATED market intelligence.
+        <br>2. For each piece of market intelligence, you should analyze it and extract key insights according to the following steps:
+        <br> - Extract the key insights that can represent this market intelligence. It should NOT contain IDs, $$asset_name$$ or $$asset_symbol$$.
+        <br> - Analyze the market effects duration and provide the duration of the effects on asset prices. You are only allowed to select the only one of the three types: SHORT-TERM, MEDIUM-TERM and LONG-TERM.
+        <br> - Analyze the market sentiment and provide the type of market sentiment. A clear preference over POSITIVE or NEGATIVE is much better than being NEUTRAL. You are only allowed to select the only one of the three types: POSITIVE, NEGATIVE and NEUTRAL.
+        <br>3. The analysis you provide for each piece of market intelligence should be concise and clear, with no more than 40 tokens per piece.
+        <br>4. Your analysis MUST be in the following format:
+        <br> - ID: 000001 - Analysis that you provided for market intelligence 000001.
+        <br> - ID: 000002 - Analysis that you provided for market intelligence 000002.
+        <br> - ...
+
+        <br><br>"summary": This field is used to summarize the above analysis and extract key investment insights. You should summarize step-by-step and follow the rules as follows and do not miss any of them:
+        <br>1. Please disregard UNRELATED market intelligence.
+        <br>2. Because this field is primarily used for decision-making in trading tasks, you should focus primarily on asset related key investment insights.
+        <br>3. Please combine and summarize market intelligence on similar sentiment tendencies and duration of effects on asset prices.
+        <br>4. You should provide an overall analysis of all the market intelligence, explicitly provide a market sentiment (POSITIVE, NEGATIVE or NEUTRAL) and provide a reasoning for the analysis.
+        <br>5. Summary that you provided for market intelligence should contain IDs (e.g., ID: 000001, 000002).
+        <br>6. The summary you provide should be concise and clear, with no more than 300 tokens.
+
+        <br><br>"query": This field will be used to retrieve past market intelligence based on the duration of effects on asset prices. You should summarize step-by-step the above analysis and extract key insights. Please follow the rules as follows and do not miss any of them:
+        <br>1. Please disregard UNRELATED market intelligence.
+        <br>2. Because this field is primarily used for retrieving past market intelligence based on the duration of effects on asset prices, you should focus primarily on asset related key insights and duration of effects.
+        <br>3. Please combine the analysis of market intelligence on similar duration of effects on asset prices.
+        <br>4. You should provide a query text for each duration of effects on asset prices, which can be associated with several pieces of market intelligence.
+        <br> - The query text that you provide should be primarily keywords from the original market intelligence contained.
+        <br> - The query text that you provide should NOT contain IDs, $$asset_name$$ or $$asset_symbol$$.
+        <br> - The query text that you provide should be concise and clear, with no more than 100 tokens per query.
+    </p>
+</div>

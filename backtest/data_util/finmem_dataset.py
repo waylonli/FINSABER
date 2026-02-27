@@ -16,7 +16,10 @@ class FinMemDataset(BacktestDataset):
     def get_ticker_price_by_date(self, ticker, date):
         if type(date) == str:
             date = pd.to_datetime(date).date()
-        return self.data[date]["price"][ticker]
+        price = self.data[date]["price"][ticker]
+        if isinstance(price, dict):
+            return price["adjusted_close"]
+        return price
 
     def get_data_by_date(self, date):
         if type(date) == str:

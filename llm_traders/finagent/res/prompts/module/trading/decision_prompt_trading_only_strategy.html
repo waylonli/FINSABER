@@ -1,0 +1,24 @@
+<div class="prompt">
+    <p class="text">Based on the above information, you should step-by-step analyze the summary of analysis of price movements, reflection of the past trading decisions and trading strategies guidance. You should consider the decisions and explanations of some trading strategies in a comprehensive manner. And provide the reasoning for what you should to BUY, SELL or HOLD on the stock. Then you should output the reasoning and decision result as follows:
+        <br><br>"analysis": You should analyze step-by-step how the above information may affect the results of your decisions. You need to follow the rules as follows and do not miss any of them.
+        <br>1.When analyzing the analysis of price movements, you should determine whether the future trend is bullish or bearish and reflect on the lessons you've learned.
+        <br> - If the future trend is bullish, you should consider a BUY instead of a HOLD to increase your profits.
+        <br> - If the future trend is bearish, you should consider a SELL instead of a HOLD to prevent further losses.
+        <br> - You should provide your decision result based on the analysis of price movements.
+        <br>2.When analyzing the decisions and explanations of some trading strategies, you should consider the results and explanations of their decisions together. And provide your decision result.
+        <br>3.Combining the results of all the above analysis and decisions, you should determine whether the current situation is suitable for BUY, SELL or HOLD. And provide your final decision result.
+
+        <br><br>"reasoning": You should think step-by-step and provide the detailed reasoning to determine the decision result executed on the current observation for the trading task. You need to follow the rules as follows and do not miss any of them.
+        <br>1.You should provide the reasoning for each point of the "analysis" and the final results you provide.
+        <br>2.You should provide the reasoning for your trusted trading strategies decisions if some of the trading strategies decisions are conflicting.
+        <br>3.When your analysis and the trading strategy decisions are in conflict, you should make the final decision by considering your own confidence in the analysis and the performance of each strategy. It is important to note that past performance is not necessarily a direct indicator of a strategy's current performance. There are instances where a past year's annualized rate of return (ARR) of 60% can result in a negative current ARR due to changes in market dynamics. This approach will help foster a more rational decision-making process.
+        <br>4.Although strategies align with certain market conditions and trader preferences, it's essential not to base decisions solely on these criteria.
+
+        <br><br>"action": Based on the above information and your analysis. You should also pay more attention to the following points to make a decision result:
+        <br>1.You can only output one of BUY, HOLD and SELL.
+        <br>2.You have to consider the results of the trading strategies' decisions and give your own decisions.
+        <br>3.The above information may be in the opposite direction of decision-making (e.g., BUY or SELL), but you should consider step-by-step all of the above information together to give an exact BUY or SELL decision result.
+        <br>4.It is important to follow realistic constraints based on your financial position and limitations. If it's not possible to execute a buy or sell, you should output HOLD.
+        <br>5.Before making a decision, you must check the current situation. If your CASH reserve is lower than the current Adj Close Price, then the decision result should NOT be BUY. Similarly, the decision result should NOT be SELL if you have no existing POSITION.
+    </p>
+</div>

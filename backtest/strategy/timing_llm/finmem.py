@@ -88,8 +88,12 @@ class FinMemStrategy(BaseStrategyIso):
             framework: FINSABERFrameworkHelper
     ):
         prices = today_data["price"]
+        symbol = self.config["general"]["trading_symbol"]
+        cur_price = prices[symbol]
+        if isinstance(cur_price, dict):
+            cur_price = cur_price["adjusted_close"]
 
-        # self.logger.info(f"{date} price for {self.config['general']['trading_symbol']}: {prices[self.config['general']['trading_symbol']]}")
+        # self.logger.info(f"{date} price for {symbol}: {cur_price}")
         market_info = self.test_enviroment.step()
 
         if market_info[-1] or self.test_enviroment.cur_date > self.test_enviroment.end_date:
@@ -103,23 +107,23 @@ class FinMemStrategy(BaseStrategyIso):
         # self.logger.info(f"Agent decision on {date}: {decision}")
 
         if decision == 1:
-            if framework.cash >= prices[self.config["general"]["trading_symbol"]]:
+            if framework.cash >= cur_price:
                 framework.buy(
                     date,
-                    self.config["general"]["trading_symbol"],
-                    prices[self.config["general"]["trading_symbol"]],
+                    symbol,
+                    cur_price,
                     -1  # buy all available cash
                 )
-                self.logger.info(f"Executed BUY on {date} for {self.config['general']['trading_symbol']}.")
+                self.logger.info(f"Executed BUY on {date} for {symbol}.")
         elif decision == -1:
-            if self.config["general"]["trading_symbol"] in framework.portfolio:
+            if symbol in framework.portfolio:
                 framework.sell(
                     date,
-                    self.config["general"]["trading_symbol"],
-                    prices[self.config["general"]["trading_symbol"]],
-                    framework.portfolio[self.config["general"]["trading_symbol"]]["quantity"]
+                    symbol,
+                    cur_price,
+                    framework.portfolio[symbol]["quantity"]
                 )
-                self.logger.info(f"Executed SELL on {date} for {self.config['general']['trading_symbol']}.")
+                self.logger.info(f"Executed SELL on {date} for {symbol}.")
             # else:
             #     self.logger.warning(
             #         f"Insufficient holdings to sell {self.config['general']['trading_symbol']} on {date}.")

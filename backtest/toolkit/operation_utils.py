@@ -9,7 +9,11 @@ import pandas_datareader.data as web
 import pickle
 load_dotenv()
 HF_ACCESS_TOKEN = os.getenv("HF_ACCESS_TOKEN")
-import pwb_toolbox.datasets as pwb_ds
+try:
+    import pwb_toolbox.datasets as pwb_ds
+except Exception as e:
+    # log a warning message
+    print(f"Warning: pwb_toolbox is not imported properly with error message: {e}")
 
 
 def load_price_dataset(

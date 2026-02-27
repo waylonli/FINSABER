@@ -50,40 +50,43 @@ Rename `.env.example` to `.env` and set the environment variables.
 
 ## 2. Data
 
-We provide aggregated datasets hosted on Google Drive.
+We provide aggregated datasets on [HuggingFace](https://huggingface.co/datasets/waylonli/FINSABER-data). Datasets are **auto-downloaded** when running experiments, so manual download is optional.
 
 | Dataset | Content | Size | Link |
 | :--- | :--- | :--- | :--- |
-| **S&P500 Full** | Aggregated sample data (Price + News + Filings) | 10.23 GB | [Download](https://drive.google.com/file/d/1g9GTNr1av2b9-HphssRrQsLSnoyW0lCF/view?usp=sharing) |
-| **Price Only** | CSV format price-only data | 253 MB | [Download](https://drive.google.com/file/d/1KfIjn3ydynLduEYa-C5TmYud-ULkbBvM/view?usp=sharing) |
-| **Selected Symbols** | Aggregated data for TSLA, AMZN, MSFT, NFLX, COIN | 48.1 MB | [Download](https://drive.google.com/file/d/1pmeG3NqENNW2ak_NnobG_Onu9SUSEy61/view?usp=sharing) |
+| **S&P500 Full** | Aggregated data (Price + News + Filings) | ~11 GB | [Download](https://huggingface.co/datasets/waylonli/FINSABER-data/resolve/main/data/finmem_data/stock_data_sp500_2000_2024.pkl) |
+| **Price Only** | CSV format price-only data | ~253 MB | [Download](https://huggingface.co/datasets/waylonli/FINSABER-data/resolve/main/data/price/all_sp500_prices_2000_2024_delisted_include.csv) |
+| **Selected Symbols** | Aggregated data for TSLA, AMZN, MSFT, NFLX, COIN | ~53 MB | [Download](https://huggingface.co/datasets/waylonli/FINSABER-data/resolve/main/data/finmem_data/stock_data_cherrypick_2000_2024.pkl) |
 
 The aggregated data is organised as a dictionary with the following structure:
 ```python
 {
-    datetime.date(2024,1,1): {
+    datetime.date(2024, 1, 2): {
         "price": {
-            "AAPL": ...,
-            "MSFT": ...,
+            "AAPL": {
+                "open": 187.15,
+                "high": 188.44,
+                "low": 183.89,
+                "close": 185.64,
+                "adjusted_close": 185.3,
+                "volume": 82488700
+            },
             ...
         },
         "news": {
-            "AAPL": ...,
-            "MSFT": ...,
+            "AAPL": ["headline 1", "headline 2", ...],
             ...
         },
         "filing_k": {
-            "AAPL": ...,
-            "MSFT": ...,
+            "AAPL": "10-K filing text...",
             ...
         },
         "filing_q": {
-            "AAPL": ...,
-            "MSFT": ...,
+            "AAPL": "10-Q filing text...",
             ...
-        },
-        ...
-    }
+        }
+    },
+    ...
 }
 ```
 
@@ -182,12 +185,13 @@ class MyLLMStrategy(BaseStrategyIso):
 
     def on_data(self, date, today_data, framework):
         prices = today_data["price"]
+        cur_price = prices[self.symbol]["adjusted_close"]
         signal = self.model.decide(date=date, prices=prices)
-        if signal == "buy" and framework.cash >= prices[self.symbol]:
-            framework.buy(date, self.symbol, prices[self.symbol], -1)  # invest available cash
+        if signal == "buy" and framework.cash >= cur_price:
+            framework.buy(date, self.symbol, cur_price, -1)  # invest available cash
         elif signal == "sell" and self.symbol in framework.portfolio:
             qty = framework.portfolio[self.symbol]["quantity"]
-            framework.sell(date, self.symbol, prices[self.symbol], qty)
+            framework.sell(date, self.symbol, cur_price, qty)
 ```
 
 Expose the strategy via `backtest/strategy/timing_llm/__init__.py` and point `backtest/run_llm_traders_exp.py` to it with `--strategy MyLLMStrategy --strat_config_path <config>`.

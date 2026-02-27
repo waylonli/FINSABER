@@ -500,6 +500,8 @@ class BrainDB:
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
         )
+        # create log dir if not exist
+        os.makedirs(os.path.join("llm_traders", "finmem", "data", "04_model_output_log"), exist_ok=True)
         file_handler = logging.FileHandler(
             os.path.join(
                 "llm_traders",
@@ -510,6 +512,7 @@ class BrainDB:
             ),
             mode="a",
         )
+
         file_handler.setFormatter(logging_formatter)
         logger.addHandler(file_handler)
         emb_config = config["agent"]["agent_1"]["embedding"]["detail"]

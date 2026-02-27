@@ -1,7 +1,9 @@
+from backtest.data_util.download import ensure_datasets
 from backtest.experiment_runner import ExperimentRunner
 from backtest.strategy.timing_llm import *
 
 def run_llm_strategies(args):
+    ensure_datasets()
     runner = ExperimentRunner(output_dir=args.output_dir)
 
     print("=" * 50)

@@ -1,5 +1,4 @@
 import os
-import pickle
 import warnings
 
 from backtest.strategy.selection import RandomSP500Selector
@@ -74,25 +73,22 @@ class FinAgentStrategy(BaseStrategyIso):
             "llm_traders/finagent/res/prompts/template/train/trading/high_level_reflection.html")
         self.train_decision_template = self._read_template("llm_traders/finagent/res/prompts/template/train/trading/decision.html")
 
-        # Build dataset
+        # Build dataset from the aggregated pkl file
         self.dataset = DATASET.build(cfg={
-            "type": "Dataset",
+            "type": "PklDataset",
             "asset": [self.selected_asset],
-            "price_path": "datasets/exp_stocks/price",
-            "news_path": "datasets/exp_stocks/news",
-            "interval": "1d",
+            "pkl_path": market_data_info_path,
             "workdir": self.workdir,
             "tag": self.tag
         })
 
-        # === Keep original settings for market data loading and period definitions ===
-        with open(market_data_info_path, "rb") as f:
-            env_data = pickle.load(f)
+        # Use the loaded raw_data for date range validation
+        env_data = self.dataset.raw_data
 
         if isinstance(training_period, (int, float)):
             train_start_date = datetime.strptime(date_from, "%Y-%m-%d").date() - timedelta(days=365 * training_period)
             train_end_date = datetime.strptime(date_from, "%Y-%m-%d").date() - timedelta(days=1)
-        elif isinstance(training_period, tuple):
+        elif isinstance(training_period, (tuple, list)):
             train_start_date = datetime.strptime(training_period[0], "%Y-%m-%d").date() if isinstance(
                 training_period[0], str) else training_period[0]
             train_end_date = datetime.strptime(training_period[1], "%Y-%m-%d").date() if isinstance(training_period[1],
@@ -123,8 +119,6 @@ class FinAgentStrategy(BaseStrategyIso):
         test_start_date = datetime.strptime(date_from, "%Y-%m-%d").date()
         test_end_date = datetime.strptime(date_to, "%Y-%m-%d").date()
         self.logger.info(f"Testing period for {self.selected_asset}: {test_start_date} to {test_end_date}")
-        test_data = {k: v for k, v in env_data.items() if test_start_date <= k <= test_end_date}
-        # === End original settings ===
 
         # Build environments using the dates above
         self.train_env = ENVIRONMENT.build({
@@ -158,11 +152,6 @@ class FinAgentStrategy(BaseStrategyIso):
             "discount": 1.0,
         })
         self.test_env.reset()
-
-        if hasattr(self.train_env, 'set_data'):
-            self.train_env.set_data(train_data)
-        if hasattr(self.test_env, 'set_data'):
-            self.test_env.set_data(test_data)
 
         # Build plots
         self.plots = PLOTS.build({
@@ -373,7 +362,10 @@ class FinAgentStrategy(BaseStrategyIso):
                            framework.portfolio[self.selected_asset]["quantity"])
             return "done"
 
-        info["price"] = today_data['price'][self.selected_asset]
+        cur_price = today_data['price'][self.selected_asset]
+        if isinstance(cur_price, dict):
+            cur_price = cur_price["adjusted_close"]
+        info["price"] = cur_price
         action = self.run_step(state, info, mode="valid")
 
         # self.logger.info(f"Agent decision on {date}: {action}")

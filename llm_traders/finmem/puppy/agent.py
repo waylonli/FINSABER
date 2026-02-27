@@ -119,6 +119,8 @@ class LLMAgent(Agent):
             ),
             mode="a",
         )
+        # create log dir if not exist
+        os.makedirs(os.path.dirname(file_handler.baseFilename), exist_ok=True)
         file_handler.setFormatter(logging_formatter)
         self.logger.addHandler(file_handler)
         self.logger.propagate = False

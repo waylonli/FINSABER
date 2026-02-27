@@ -20,10 +20,17 @@ terminated_market_info_type = Tuple[None, None, None, None, None, None, bool]
 
 # env data structure validation
 class OneDateRecord(BaseModel):
-    price: Dict[str, float]
+    price: Dict[str, Any]  # Dict[ticker, float] (legacy) or Dict[ticker, Dict[str, float]] (enriched OHLCV)
     filing_k: Dict[str, str]
     filing_q: Dict[str, str]
     news: Dict[str, List[str]]
+
+
+def _extract_adj_close(price_entry):
+    """Extract adjusted close from a price entry (float or OHLCV dict)."""
+    if isinstance(price_entry, dict):
+        return price_entry["adjusted_close"]
+    return price_entry
 
 
 class MarketEnvironment:
@@ -100,7 +107,7 @@ class MarketEnvironment:
         else:
             cur_news = {self.symbol: ''}
 
-        cur_record = {symbol: future_price[symbol] - cur_price[symbol] for symbol in cur_price if symbol in future_price}
+        cur_record = {symbol: _extract_adj_close(future_price[symbol]) - _extract_adj_close(cur_price[symbol]) for symbol in cur_price if symbol in future_price}
 
         # handle none filing case
         if len(cur_filing_k) == 0 or self.symbol not in cur_filing_k:
@@ -120,7 +127,7 @@ class MarketEnvironment:
         return (
             cur_date,
             # yesterday's price if current price is none
-            cur_price[self.symbol],
+            _extract_adj_close(cur_price[self.symbol]),
             cur_filing_k,
             cur_filing_q,
             cur_news[self.symbol] if self.symbol in cur_news else None,
