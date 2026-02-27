@@ -21,16 +21,7 @@ FINSABER is a comprehensive framework for evaluating trading strategies with a s
 
 To set up the environment, you can use either only install the FINSABER backtest framework or install the full package with all dependencies for running the experiments in the paper.
 
-### Option 1: Install only the FINSABER backtest framework
-
-Simply pip install the package from PyPI:
-
-```bash
-conda create -n finsaber python=3.10
-pip install finsaber
-```
-
-### Option 2: Install the full package:
+### Option 1: Install the full package (recommend):
 
 ```bash
 git clone https://github.com/waylonli/FINSABER
@@ -38,6 +29,17 @@ cd FINSABER
 conda create -n finsaber python=3.10
 conda activate finsaber
 pip install -r requirements-complete.txt --no-deps
+```
+
+Alternatively, you can import the conda environment through `conda env create -f finsaber_env.yml`.
+
+### Option 2: Install only the FINSABER backtest framework
+
+Simply pip install the package from PyPI:
+
+```bash
+conda create -n finsaber python=3.10
+pip install finsaber
 ```
 
 Note: it seems `pip` has issue with installing the `faiss` package. Please install it via anaconda.
