@@ -42,7 +42,9 @@ conda create -n finsaber python=3.10
 pip install finsaber
 ```
 
-Note: it seems `pip` has issue with installing the `faiss` package. Please install it via anaconda.
+Note: 
+- It seems `pip` has issue with installing the `faiss` package. Please install it via anaconda.
+- `pandas-ta` can be installed through pip install "git+https://github.com/aarigs/pandas-ta.git" if needed.
 
 ### After Installation
 
