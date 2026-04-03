@@ -58,9 +58,9 @@ We provide aggregated datasets on [HuggingFace](https://huggingface.co/datasets/
 
 | Dataset | Content | Size | Link |
 | :--- | :--- | :--- | :--- |
-| **S&P500 Full** | Aggregated data (Price + News + Filings) | ~11 GB | [Download](https://huggingface.co/datasets/waylonli/FINSABER-data/resolve/main/data/finmem_data/stock_data_sp500_2000_2024.pkl) |
-| **Price Only** | CSV format price-only data | ~253 MB | [Download](https://huggingface.co/datasets/waylonli/FINSABER-data/resolve/main/data/price/all_sp500_prices_2000_2024_delisted_include.csv) |
-| **Selected Symbols** | Aggregated data for TSLA, AMZN, MSFT, NFLX, COIN | ~53 MB | [Download](https://huggingface.co/datasets/waylonli/FINSABER-data/resolve/main/data/finmem_data/stock_data_cherrypick_2000_2024.pkl) |
+| **S&P500 Full** | Aggregated data (Price + News + Filings) | ~11 GB | TODO |
+| **Price Only** | CSV format price-only data | ~253 MB | TODO |
+| **Selected Symbols** | Aggregated data for TSLA, AMZN, MSFT, NFLX, COIN | ~53 MB | TODO |
 
 The aggregated data is organised as a dictionary with the following structure:
 ```python
