@@ -2,6 +2,7 @@
 
 [![Arxiv link](https://img.shields.io/static/v1?label=arXiv&message=2505.07078&color=red&logo=arxiv)](https://arxiv.org/abs/2505.07078)
 <a href="https://pypi.org/project/finsaber/"><img alt="PyPI" src="https://img.shields.io/pypi/v/finsaber"></a>
+[![Documentation](https://img.shields.io/badge/docs-FINSABER%20v2.0-15616d?logo=readthedocs&logoColor=white)](https://waylonli.github.io/FINSABER/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/waylonli/FINSABER?style=social)]()
 
