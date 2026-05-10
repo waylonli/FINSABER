@@ -1230,7 +1230,7 @@
 <p>Use one ticker and a short date range first. After the run succeeds, expand to more tickers, longer periods, selectors, or LLM strategies.</p>
 </div>
 <h2 id="step-1-load-data">Step 1: Load Data</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest</span><span class="w"> </span><span class="kn">import</span> <span class="n">FinsaberParquetDataset</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">finsaber</span><span class="w"> </span><span class="kn">import</span> <span class="n">FinsaberParquetDataset</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">data</span> <span class="o">=</span> <span class="n">FinsaberParquetDataset</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;I:\Data\finsaber2\sp500_2000_2025_parquet&quot;</span><span class="p">)</span>
 </code></pre></div>
@@ -1258,8 +1258,8 @@
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Backtrader engine</label><label for="__tabbed_1_2">Python-native engine</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest</span><span class="w"> </span><span class="kn">import</span> <span class="n">FINSABERBt</span><span class="p">,</span> <span class="n">FinsaberParquetDataset</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest.strategy.timing</span><span class="w"> </span><span class="kn">import</span> <span class="n">BuyAndHoldStrategy</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">finsaber</span><span class="w"> </span><span class="kn">import</span> <span class="n">FINSABERBt</span><span class="p">,</span> <span class="n">FinsaberParquetDataset</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">finsaber.strategy.timing</span><span class="w"> </span><span class="kn">import</span> <span class="n">BuyAndHoldStrategy</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">data</span> <span class="o">=</span> <span class="n">FinsaberParquetDataset</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;I:\Data\finsaber2\sp500_2000_2025_parquet&quot;</span><span class="p">)</span>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
@@ -1284,8 +1284,8 @@
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest</span><span class="w"> </span><span class="kn">import</span> <span class="n">FINSABER</span><span class="p">,</span> <span class="n">FinsaberParquetDataset</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest.strategy.timing_llm</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseStrategyIso</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">finsaber</span><span class="w"> </span><span class="kn">import</span> <span class="n">FINSABER</span><span class="p">,</span> <span class="n">FinsaberParquetDataset</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">finsaber.strategy.timing_llm</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseStrategyIso</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">BuyOnce</span><span class="p">(</span><span class="n">BaseStrategyIso</span><span class="p">):</span>
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">on_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">date</span><span class="p">,</span> <span class="n">today_data</span><span class="p">,</span> <span class="n">framework</span><span class="p">):</span>
@@ -1342,8 +1342,8 @@
 <h2 id="in-memory-dataset">In-Memory Dataset</h2>
 <p>For small experiments, wrap a date-keyed dictionary with <code>FinsaberDataset</code>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">date</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest</span><span class="w"> </span><span class="kn">import</span> <span class="n">FINSABERBt</span><span class="p">,</span> <span class="n">FinsaberDataset</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest.strategy.timing</span><span class="w"> </span><span class="kn">import</span> <span class="n">BuyAndHoldStrategy</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">finsaber</span><span class="w"> </span><span class="kn">import</span> <span class="n">FINSABERBt</span><span class="p">,</span> <span class="n">FinsaberDataset</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">finsaber.strategy.timing</span><span class="w"> </span><span class="kn">import</span> <span class="n">BuyAndHoldStrategy</span>
 <a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
 <a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">loader</span> <span class="o">=</span> <span class="n">FinsaberDataset</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="p">{</span>
 <a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">date</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span> <span class="p">{</span>

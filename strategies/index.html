@@ -1203,7 +1203,7 @@
 <h2 id="backtrader-strategies">Backtrader Strategies</h2>
 <p>Backtrader strategies run through <code>FINSABERBt</code>. Subclass <code>BaseStrategy</code> and implement <code>next()</code>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">backtrader</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bt</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest.strategy.timing.base_strategy</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseStrategy</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">finsaber.strategy.timing.base_strategy</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseStrategy</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">MovingAverageCross</span><span class="p">(</span><span class="n">BaseStrategy</span><span class="p">):</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">params</span> <span class="o">=</span> <span class="p">(</span>
@@ -1233,7 +1233,7 @@
 <p>Use Backtrader strategies when you need built-in indicators, Backtrader analyzers, or an event loop that resembles existing Backtrader code.</p>
 <h2 id="llm-style-strategies">LLM-Style Strategies</h2>
 <p>LLM-style strategies run through <code>FINSABER</code>. They receive all data for a date and trade through the framework object.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest.strategy.timing_llm</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseStrategyIso</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">finsaber.strategy.timing_llm</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseStrategyIso</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">RuleBasedAgent</span><span class="p">(</span><span class="n">BaseStrategyIso</span><span class="p">):</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">symbol</span><span class="p">):</span>
@@ -1250,7 +1250,7 @@
 <a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>            <span class="n">framework</span><span class="o">.</span><span class="n">sell</span><span class="p">(</span><span class="n">date</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="p">,</span> <span class="n">bar</span><span class="p">[</span><span class="s2">&quot;adjusted_close&quot;</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
 </code></pre></div>
 <p>Run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest</span><span class="w"> </span><span class="kn">import</span> <span class="n">FINSABER</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">finsaber</span><span class="w"> </span><span class="kn">import</span> <span class="n">FINSABER</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">results</span> <span class="o">=</span> <span class="n">FINSABER</span><span class="p">(</span><span class="n">config</span><span class="p">)</span><span class="o">.</span><span class="n">run_iterative_tickers</span><span class="p">(</span>
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">RuleBasedAgent</span><span class="p">,</span>
@@ -1261,7 +1261,7 @@
 <p>The <code>reference_price</code> is stored for audit and used as a fallback if the execution bar is unavailable. Under normal <code>next_open</code> execution, the actual fill uses the next adjusted open from the data loader.</p>
 <h2 id="selector-strategies">Selector Strategies</h2>
 <p>Selection strategies choose tickers for rolling-window runs.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest.strategy.selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseSelector</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">finsaber.strategy.selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseSelector</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">TopVolumeSelector</span><span class="p">(</span><span class="n">BaseSelector</span><span class="p">):</span>
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">top_k</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>

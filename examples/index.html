@@ -1129,8 +1129,8 @@
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>--strat_config_path<span class="w"> </span>strats_configs/finmem_config_normal.json
 </code></pre></div>
 <h2 id="minimal-package-usage">Minimal Package Usage</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest</span><span class="w"> </span><span class="kn">import</span> <span class="n">FINSABERBt</span><span class="p">,</span> <span class="n">FinsaberParquetDataset</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest.strategy.timing</span><span class="w"> </span><span class="kn">import</span> <span class="n">BuyAndHoldStrategy</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">finsaber</span><span class="w"> </span><span class="kn">import</span> <span class="n">FINSABERBt</span><span class="p">,</span> <span class="n">FinsaberParquetDataset</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">finsaber.strategy.timing</span><span class="w"> </span><span class="kn">import</span> <span class="n">BuyAndHoldStrategy</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">data</span> <span class="o">=</span> <span class="n">FinsaberParquetDataset</span><span class="p">(</span><span class="s2">&quot;path/to/sp500_2000_2025_parquet&quot;</span><span class="p">)</span>
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
