@@ -27,7 +27,7 @@ The engine asks the loader: "What could the strategy know on this date?" The str
 All loaders should implement `TradingData`. Engines depend on this interface instead of a specific storage format, so users can plug in local parquet, database-backed loaders, or enriched datasets with extra modalities.
 
 ```python
-from backtest import TradingData
+from finsaber import TradingData
 
 class MyData(TradingData):
     ...
@@ -139,7 +139,7 @@ Price, news, and filings do not always align perfectly. The loader should preser
 ## Implementing A Custom Loader
 
 ```python
-from backtest import TradingData
+from finsaber import TradingData
 
 class MyDataset(TradingData):
     def __init__(self, connection, tickers):

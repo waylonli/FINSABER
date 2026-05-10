@@ -32,8 +32,8 @@ python examples/experiments/run_llm_traders_exp.py \
 ## Minimal Package Usage
 
 ```python
-from backtest import FINSABERBt, FinsaberParquetDataset
-from backtest.strategy.timing import BuyAndHoldStrategy
+from finsaber import FINSABERBt, FinsaberParquetDataset
+from finsaber.strategy.timing import BuyAndHoldStrategy
 
 data = FinsaberParquetDataset("path/to/sp500_2000_2025_parquet")
 config = {

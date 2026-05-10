@@ -87,8 +87,8 @@ The dataset implements `TradingData`, the config defines the market universe and
 === "Package usage"
 
     ```python
-    from backtest import FINSABERBt, FinsaberParquetDataset
-    from backtest.strategy.timing import BuyAndHoldStrategy
+    from finsaber import FINSABERBt, FinsaberParquetDataset
+    from finsaber.strategy.timing import BuyAndHoldStrategy
 
     data = FinsaberParquetDataset(r"I:\Data\finsaber2\sp500_2000_2025_parquet")
 
@@ -110,7 +110,7 @@ The dataset implements `TradingData`, the config defines the market universe and
 === "Custom data"
 
     ```python
-    from backtest import TradingData
+    from finsaber import TradingData
 
     class MyDataset(TradingData):
         def get_data_by_date(self, date):
@@ -120,7 +120,7 @@ The dataset implements `TradingData`, the config defines the market universe and
 === "Custom strategy"
 
     ```python
-    from backtest.strategy.timing_llm import BaseStrategyIso
+    from finsaber.strategy.timing_llm import BaseStrategyIso
 
     class MyAgent(BaseStrategyIso):
         def on_data(self, date, today_data, framework):

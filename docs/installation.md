@@ -3,7 +3,7 @@
 ## Package Install
 
 ```bash
-pip install finsaber-backtest
+pip install finsaber
 ```
 
 The package installs the reusable backtesting framework only.

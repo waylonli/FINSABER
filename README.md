@@ -27,7 +27,7 @@ The packaged core is intentionally limited to reusable backtesting code: data lo
 For framework use:
 
 ```bash
-pip install finsaber-backtest
+pip install finsaber
 ```
 
 For local development:
@@ -55,8 +55,8 @@ Read the FINSABER-2 documentation at [https://waylonli.github.io/FINSABER/](http
 Run a Buy-and-Hold backtest on the parquet dataset:
 
 ```python
-from backtest import FINSABERBt, FinsaberParquetDataset
-from backtest.strategy.timing import BuyAndHoldStrategy
+from finsaber import FINSABERBt, FinsaberParquetDataset
+from finsaber.strategy.timing import BuyAndHoldStrategy
 
 data = FinsaberParquetDataset(r"I:\Data\finsaber2\sp500_2000_2025_parquet")
 
@@ -103,7 +103,7 @@ For small or custom datasets, `FinsaberDataset` accepts an in-memory dictionary:
 
 ```python
 from datetime import date
-from backtest import FinsaberDataset
+from finsaber import FinsaberDataset
 
 data = {
     date(2024, 1, 2): {
@@ -133,7 +133,7 @@ A runnable example is available at `examples/custom_dataset_example.py`.
 Implement `TradingData` when your storage format is not a date-keyed dictionary.
 
 ```python
-from backtest import TradingData
+from finsaber import TradingData
 
 class MyData(TradingData):
     def __init__(self, store):
@@ -179,7 +179,7 @@ Backtrader strategies are used by `FINSABERBt`. Subclass `BaseStrategy`, impleme
 
 ```python
 import backtrader as bt
-from backtest.strategy.timing.base_strategy import BaseStrategy
+from finsaber.strategy.timing.base_strategy import BaseStrategy
 
 class MovingAverageCross(BaseStrategy):
     params = (
@@ -214,8 +214,8 @@ results = FINSABERBt(config).run_iterative_tickers(MovingAverageCross)
 LLM-style strategies use the pure Python engine `FINSABER`. They receive date-level data and submit orders through the framework object. The default execution timing is `next_open`, which avoids same-day close look-ahead bias.
 
 ```python
-from backtest import FINSABER
-from backtest.strategy.timing_llm import BaseStrategyIso
+from finsaber import FINSABER
+from finsaber.strategy.timing_llm import BaseStrategyIso
 
 class RuleBasedAgent(BaseStrategyIso):
     def __init__(self, symbol):
@@ -245,7 +245,7 @@ results = FINSABER(config).run_iterative_tickers(
 )
 ```
 
-If your strategy calls an LLM, record cost through `backtest.toolkit.llm_cost_monitor`. FINSABER can include LLM costs in `total_trading_cost`.
+If your strategy calls an LLM, record cost through `finsaber.toolkit.llm_cost_monitor`. FINSABER can include LLM costs in `total_trading_cost`.
 
 ## Execution Settings
 

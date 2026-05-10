@@ -12,7 +12,7 @@ The example buys and holds `AAPL` over a short date range. It is intentionally s
 ## Step 1: Load Data
 
 ```python
-from backtest import FinsaberParquetDataset
+from finsaber import FinsaberParquetDataset
 
 data = FinsaberParquetDataset(r"I:\Data\finsaber2\sp500_2000_2025_parquet")
 ```
@@ -48,8 +48,8 @@ The important financial choice is `execution_timing="next_open"`. The strategy o
 === "Backtrader engine"
 
     ```python
-    from backtest import FINSABERBt, FinsaberParquetDataset
-    from backtest.strategy.timing import BuyAndHoldStrategy
+    from finsaber import FINSABERBt, FinsaberParquetDataset
+    from finsaber.strategy.timing import BuyAndHoldStrategy
 
     data = FinsaberParquetDataset(r"I:\Data\finsaber2\sp500_2000_2025_parquet")
 
@@ -76,8 +76,8 @@ The important financial choice is `execution_timing="next_open"`. The strategy o
 === "Python-native engine"
 
     ```python
-    from backtest import FINSABER, FinsaberParquetDataset
-    from backtest.strategy.timing_llm import BaseStrategyIso
+    from finsaber import FINSABER, FinsaberParquetDataset
+    from finsaber.strategy.timing_llm import BaseStrategyIso
 
     class BuyOnce(BaseStrategyIso):
         def on_data(self, date, today_data, framework):
@@ -145,8 +145,8 @@ For small experiments, wrap a date-keyed dictionary with `FinsaberDataset`.
 
 ```python
 from datetime import date
-from backtest import FINSABERBt, FinsaberDataset
-from backtest.strategy.timing import BuyAndHoldStrategy
+from finsaber import FINSABERBt, FinsaberDataset
+from finsaber.strategy.timing import BuyAndHoldStrategy
 
 loader = FinsaberDataset(data={
     date(2024, 1, 2): {

@@ -1,13 +1,29 @@
 [build-system]
-requires = ["setuptools>=69", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "finsaber-backtest"
-version = "0.1.0"
-description = "Reusable FINSABER backtesting framework and data adapters."
+name = "finsaber"
+version = "2.0.0"
+description = "FINSABER financial backtesting framework and data adapters."
 readme = "README.md"
 requires-python = ">=3.10"
+authors = [
+    { name = "Waylon Li" },
+]
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
     "backtrader>=1.9.78",
     "colorlog>=6.0",
@@ -20,6 +36,12 @@ dependencies = [
     "tabulate>=0.9",
     "tqdm>=4.66",
 ]
+
+[project.urls]
+Homepage = "https://github.com/waylonli/FINSABER"
+Documentation = "https://waylonli.github.io/FINSABER/"
+Repository = "https://github.com/waylonli/FINSABER"
+Issues = "https://github.com/waylonli/FINSABER/issues"
 
 [project.optional-dependencies]
 research = [
@@ -40,7 +62,7 @@ docs = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["backtest*"]
+include = ["backtest*", "finsaber*"]
 exclude = [
     "backtest.output*",
     "llm_traders*",

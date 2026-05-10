@@ -34,7 +34,7 @@ Backtrader strategies run through `FINSABERBt`. Subclass `BaseStrategy` and impl
 
 ```python
 import backtrader as bt
-from backtest.strategy.timing.base_strategy import BaseStrategy
+from finsaber.strategy.timing.base_strategy import BaseStrategy
 
 class MovingAverageCross(BaseStrategy):
     params = (
@@ -73,7 +73,7 @@ Use Backtrader strategies when you need built-in indicators, Backtrader analyzer
 LLM-style strategies run through `FINSABER`. They receive all data for a date and trade through the framework object.
 
 ```python
-from backtest.strategy.timing_llm import BaseStrategyIso
+from finsaber.strategy.timing_llm import BaseStrategyIso
 
 class RuleBasedAgent(BaseStrategyIso):
     def __init__(self, symbol):
@@ -93,7 +93,7 @@ class RuleBasedAgent(BaseStrategyIso):
 Run:
 
 ```python
-from backtest import FINSABER
+from finsaber import FINSABER
 
 results = FINSABER(config).run_iterative_tickers(
     RuleBasedAgent,
@@ -110,7 +110,7 @@ The `reference_price` is stored for audit and used as a fallback if the executio
 Selection strategies choose tickers for rolling-window runs.
 
 ```python
-from backtest.strategy.selection import BaseSelector
+from finsaber.strategy.selection import BaseSelector
 
 class TopVolumeSelector(BaseSelector):
     def __init__(self, top_k=5):

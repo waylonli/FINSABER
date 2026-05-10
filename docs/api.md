@@ -1,5 +1,7 @@
 # API Reference
 
+The public import path is `finsaber`. The detailed API reference below documents the implementation modules that are re-exported through that public package.
+
 ::: backtest
 
 ::: backtest.data_util.trading_data.TradingData

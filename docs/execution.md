@@ -135,7 +135,7 @@ LLM costs can be recorded and included in trading cost:
 Use:
 
 ```python
-from backtest.toolkit.llm_cost_monitor import add_openai_cost_from_response
+from finsaber.toolkit.llm_cost_monitor import add_openai_cost_from_response
 
 add_openai_cost_from_response(response)
 ```
