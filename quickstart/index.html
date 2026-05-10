@@ -13,10 +13,10 @@
         <link rel="canonical" href="https://waylonli.github.io/FINSABER/quickstart/">
       
       
-        <link rel="prev" href="../installation/">
+        <link rel="prev" href="../concepts/">
       
       
-        <link rel="next" href="../examples/">
+        <link rel="next" href="../configuration/">
       
       
         
@@ -402,6 +402,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -482,6 +486,34 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backtesting Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -545,10 +577,65 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#what-you-will-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What You Will Run
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-1-load-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Load Data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-2-define-the-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Define The Run
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-3-run-a-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Run A Strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#buy-and-hold-on-parquet-data" class="md-nav__link">
     <span class="md-ellipsis">
       
         Buy And Hold On Parquet Data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-4-read-the-result" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4: Read The Result
       
     </span>
   </a>
@@ -592,6 +679,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -988,10 +1103,65 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#what-you-will-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What You Will Run
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-1-load-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Load Data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-2-define-the-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Define The Run
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-3-run-a-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Run A Strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#buy-and-hold-on-parquet-data" class="md-nav__link">
     <span class="md-ellipsis">
       
         Buy And Hold On Parquet Data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-4-read-the-result" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4: Read The Result
       
     </span>
   </a>
@@ -1052,63 +1222,112 @@
 
 
 <h1 id="quick-start">Quick Start</h1>
+<p>This page walks through the shortest complete workflow: load data, define a run configuration, execute a strategy, and inspect output files.</p>
+<h2 id="what-you-will-run">What You Will Run</h2>
+<p>The example buys and holds <code>AAPL</code> over a short date range. It is intentionally simple because the first goal is to confirm the framework, data loader, execution model, and result writer are working.</p>
+<div class="admonition tip">
+<p class="admonition-title">Start small</p>
+<p>Use one ticker and a short date range first. After the run succeeds, expand to more tickers, longer periods, selectors, or LLM strategies.</p>
+</div>
+<h2 id="step-1-load-data">Step 1: Load Data</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest</span><span class="w"> </span><span class="kn">import</span> <span class="n">FinsaberParquetDataset</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">data</span> <span class="o">=</span> <span class="n">FinsaberParquetDataset</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;I:\Data\finsaber2\sp500_2000_2025_parquet&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>The loader reads daily prices plus optional news and filings. It returns data through the common <code>TradingData</code> interface, so the engine does not need to know whether the source is parquet, memory, or a custom database.</p>
+<h2 id="step-2-define-the-run">Step 2: Define The Run</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="s2">&quot;data_loader&quot;</span><span class="p">:</span> <span class="n">data</span><span class="p">,</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="s2">&quot;tickers&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;AAPL&quot;</span><span class="p">],</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="s2">&quot;date_from&quot;</span><span class="p">:</span> <span class="s2">&quot;2024-01-02&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="s2">&quot;date_to&quot;</span><span class="p">:</span> <span class="s2">&quot;2024-01-10&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="s2">&quot;setup_name&quot;</span><span class="p">:</span> <span class="s2">&quot;buy_hold_aapl&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="s2">&quot;cash&quot;</span><span class="p">:</span> <span class="mi">100_000</span><span class="p">,</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="s2">&quot;execution_timing&quot;</span><span class="p">:</span> <span class="s2">&quot;next_open&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="s2">&quot;commission_per_share&quot;</span><span class="p">:</span> <span class="mf">0.0049</span><span class="p">,</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="s2">&quot;min_commission&quot;</span><span class="p">:</span> <span class="mf">0.99</span><span class="p">,</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="s2">&quot;slippage_perc&quot;</span><span class="p">:</span> <span class="mf">0.0005</span><span class="p">,</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="s2">&quot;liquidity_cap_pct&quot;</span><span class="p">:</span> <span class="mf">0.025</span><span class="p">,</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="s2">&quot;save_results&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="s2">&quot;silence&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="p">}</span>
+</code></pre></div>
+<p>The important financial choice is <code>execution_timing="next_open"</code>. The strategy observes data for day <code>t</code>, submits an order, and the order fills at the next available adjusted open. This is usually safer than same-day close execution for date-level text data.</p>
+<h2 id="step-3-run-a-strategy">Step 3: Run A Strategy</h2>
 <h2 id="buy-and-hold-on-parquet-data">Buy And Hold On Parquet Data</h2>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Backtrader engine</label><label for="__tabbed_1_2">Python-native engine</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest</span><span class="w"> </span><span class="kn">import</span> <span class="n">FINSABERBt</span><span class="p">,</span> <span class="n">FinsaberParquetDataset</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest.strategy.timing</span><span class="w"> </span><span class="kn">import</span> <span class="n">BuyAndHoldStrategy</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">data</span> <span class="o">=</span> <span class="n">FinsaberParquetDataset</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;I:\Data\finsaber2\sp500_2000_2025_parquet&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="s2">&quot;data_loader&quot;</span><span class="p">:</span> <span class="n">data</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="s2">&quot;tickers&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;AAPL&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="s2">&quot;date_from&quot;</span><span class="p">:</span> <span class="s2">&quot;2024-01-02&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="s2">&quot;date_to&quot;</span><span class="p">:</span> <span class="s2">&quot;2024-01-10&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="s2">&quot;setup_name&quot;</span><span class="p">:</span> <span class="s2">&quot;buy_hold_aapl&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="s2">&quot;cash&quot;</span><span class="p">:</span> <span class="mi">100_000</span><span class="p">,</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="s2">&quot;execution_timing&quot;</span><span class="p">:</span> <span class="s2">&quot;next_open&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="s2">&quot;commission_per_share&quot;</span><span class="p">:</span> <span class="mf">0.0049</span><span class="p">,</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="s2">&quot;min_commission&quot;</span><span class="p">:</span> <span class="mf">0.99</span><span class="p">,</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="s2">&quot;slippage_perc&quot;</span><span class="p">:</span> <span class="mf">0.0005</span><span class="p">,</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="s2">&quot;liquidity_cap_pct&quot;</span><span class="p">:</span> <span class="mf">0.025</span><span class="p">,</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="s2">&quot;save_results&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="s2">&quot;silence&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="p">}</span>
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="n">results</span> <span class="o">=</span> <span class="n">FINSABERBt</span><span class="p">(</span><span class="n">config</span><span class="p">)</span><span class="o">.</span><span class="n">run_iterative_tickers</span><span class="p">(</span><span class="n">BuyAndHoldStrategy</span><span class="p">)</span>
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="nb">print</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s2">&quot;AAPL&quot;</span><span class="p">][</span><span class="s2">&quot;total_return&quot;</span><span class="p">])</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest</span><span class="w"> </span><span class="kn">import</span> <span class="n">FINSABERBt</span><span class="p">,</span> <span class="n">FinsaberParquetDataset</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest.strategy.timing</span><span class="w"> </span><span class="kn">import</span> <span class="n">BuyAndHoldStrategy</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">data</span> <span class="o">=</span> <span class="n">FinsaberParquetDataset</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;I:\Data\finsaber2\sp500_2000_2025_parquet&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="s2">&quot;data_loader&quot;</span><span class="p">:</span> <span class="n">data</span><span class="p">,</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="s2">&quot;tickers&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;AAPL&quot;</span><span class="p">],</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="s2">&quot;date_from&quot;</span><span class="p">:</span> <span class="s2">&quot;2024-01-02&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="s2">&quot;date_to&quot;</span><span class="p">:</span> <span class="s2">&quot;2024-01-10&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="s2">&quot;setup_name&quot;</span><span class="p">:</span> <span class="s2">&quot;buy_hold_aapl&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="s2">&quot;cash&quot;</span><span class="p">:</span> <span class="mi">100_000</span><span class="p">,</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    <span class="s2">&quot;execution_timing&quot;</span><span class="p">:</span> <span class="s2">&quot;next_open&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>    <span class="s2">&quot;commission_per_share&quot;</span><span class="p">:</span> <span class="mf">0.0049</span><span class="p">,</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>    <span class="s2">&quot;min_commission&quot;</span><span class="p">:</span> <span class="mf">0.99</span><span class="p">,</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>    <span class="s2">&quot;slippage_perc&quot;</span><span class="p">:</span> <span class="mf">0.0005</span><span class="p">,</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>    <span class="s2">&quot;liquidity_cap_pct&quot;</span><span class="p">:</span> <span class="mf">0.025</span><span class="p">,</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>    <span class="s2">&quot;save_results&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>    <span class="s2">&quot;silence&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="p">}</span>
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="n">results</span> <span class="o">=</span> <span class="n">FINSABERBt</span><span class="p">(</span><span class="n">config</span><span class="p">)</span><span class="o">.</span><span class="n">run_iterative_tickers</span><span class="p">(</span><span class="n">BuyAndHoldStrategy</span><span class="p">)</span>
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="nb">print</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s2">&quot;AAPL&quot;</span><span class="p">][</span><span class="s2">&quot;total_return&quot;</span><span class="p">])</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest</span><span class="w"> </span><span class="kn">import</span> <span class="n">FINSABER</span><span class="p">,</span> <span class="n">FinsaberParquetDataset</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest.strategy.timing_llm</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseStrategyIso</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">BuyOnce</span><span class="p">(</span><span class="n">BaseStrategyIso</span><span class="p">):</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">on_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">date</span><span class="p">,</span> <span class="n">today_data</span><span class="p">,</span> <span class="n">framework</span><span class="p">):</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        <span class="n">bar</span> <span class="o">=</span> <span class="n">today_data</span><span class="p">[</span><span class="s2">&quot;price&quot;</span><span class="p">][</span><span class="s2">&quot;AAPL&quot;</span><span class="p">]</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>        <span class="k">if</span> <span class="s2">&quot;AAPL&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">framework</span><span class="o">.</span><span class="n">portfolio</span><span class="p">:</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>            <span class="n">framework</span><span class="o">.</span><span class="n">buy</span><span class="p">(</span><span class="n">date</span><span class="p">,</span> <span class="s2">&quot;AAPL&quot;</span><span class="p">,</span> <span class="n">bar</span><span class="p">[</span><span class="s2">&quot;adjusted_close&quot;</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">data</span> <span class="o">=</span> <span class="n">FinsaberParquetDataset</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;I:\Data\finsaber2\sp500_2000_2025_parquet&quot;</span><span class="p">)</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="s2">&quot;data_loader&quot;</span><span class="p">:</span> <span class="n">data</span><span class="p">,</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="s2">&quot;tickers&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;AAPL&quot;</span><span class="p">],</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="s2">&quot;date_from&quot;</span><span class="p">:</span> <span class="s2">&quot;2024-01-02&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="s2">&quot;date_to&quot;</span><span class="p">:</span> <span class="s2">&quot;2024-01-10&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="s2">&quot;setup_name&quot;</span><span class="p">:</span> <span class="s2">&quot;buy_once_aapl&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    <span class="s2">&quot;execution_timing&quot;</span><span class="p">:</span> <span class="s2">&quot;next_open&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="s2">&quot;save_results&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    <span class="s2">&quot;silence&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="p">}</span>
-<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>
-<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="n">results</span> <span class="o">=</span> <span class="n">FINSABER</span><span class="p">(</span><span class="n">config</span><span class="p">)</span><span class="o">.</span><span class="n">run_iterative_tickers</span><span class="p">(</span><span class="n">BuyOnce</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest</span><span class="w"> </span><span class="kn">import</span> <span class="n">FINSABER</span><span class="p">,</span> <span class="n">FinsaberParquetDataset</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest.strategy.timing_llm</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseStrategyIso</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">BuyOnce</span><span class="p">(</span><span class="n">BaseStrategyIso</span><span class="p">):</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">on_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">date</span><span class="p">,</span> <span class="n">today_data</span><span class="p">,</span> <span class="n">framework</span><span class="p">):</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="n">bar</span> <span class="o">=</span> <span class="n">today_data</span><span class="p">[</span><span class="s2">&quot;price&quot;</span><span class="p">][</span><span class="s2">&quot;AAPL&quot;</span><span class="p">]</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>        <span class="k">if</span> <span class="s2">&quot;AAPL&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">framework</span><span class="o">.</span><span class="n">portfolio</span><span class="p">:</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>            <span class="n">framework</span><span class="o">.</span><span class="n">buy</span><span class="p">(</span><span class="n">date</span><span class="p">,</span> <span class="s2">&quot;AAPL&quot;</span><span class="p">,</span> <span class="n">bar</span><span class="p">[</span><span class="s2">&quot;adjusted_close&quot;</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">data</span> <span class="o">=</span> <span class="n">FinsaberParquetDataset</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;I:\Data\finsaber2\sp500_2000_2025_parquet&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="s2">&quot;data_loader&quot;</span><span class="p">:</span> <span class="n">data</span><span class="p">,</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="s2">&quot;tickers&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;AAPL&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    <span class="s2">&quot;date_from&quot;</span><span class="p">:</span> <span class="s2">&quot;2024-01-02&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="s2">&quot;date_to&quot;</span><span class="p">:</span> <span class="s2">&quot;2024-01-10&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>    <span class="s2">&quot;setup_name&quot;</span><span class="p">:</span> <span class="s2">&quot;buy_once_aapl&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>    <span class="s2">&quot;execution_timing&quot;</span><span class="p">:</span> <span class="s2">&quot;next_open&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>    <span class="s2">&quot;save_results&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>    <span class="s2">&quot;silence&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="p">}</span>
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="n">results</span> <span class="o">=</span> <span class="n">FINSABER</span><span class="p">(</span><span class="n">config</span><span class="p">)</span><span class="o">.</span><span class="n">run_iterative_tickers</span><span class="p">(</span><span class="n">BuyOnce</span><span class="p">)</span>
 </code></pre></div>
 </div>
 </div>
 </div>
 <p>This run uses adjusted prices for fills and valuation, applies commission, caps orders to <code>2.5%</code> of prior average volume, and writes metrics and CSV artifacts under <code>backtest/output/buy_hold_aapl/BuyAndHoldStrategy/</code>.</p>
+<h2 id="step-4-read-the-result">Step 4: Read The Result</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">window</span> <span class="o">=</span> <span class="s2">&quot;2024-01-02_2024-01-10&quot;</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">metrics</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="n">window</span><span class="p">][</span><span class="s2">&quot;AAPL&quot;</span><span class="p">]</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">metrics</span><span class="p">[</span><span class="s2">&quot;final_value&quot;</span><span class="p">])</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">metrics</span><span class="p">[</span><span class="s2">&quot;total_return&quot;</span><span class="p">])</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">metrics</span><span class="p">[</span><span class="s2">&quot;sharpe_ratio&quot;</span><span class="p">])</span>
+</code></pre></div>
+<p>If <code>save_results=True</code>, inspect:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>backtest/output/buy_hold_aapl/BuyAndHoldStrategy/
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>  run_config.json
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>  run_summary.csv
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>  2024-01-02_2024-01-10/AAPL/metrics.json
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>  2024-01-02_2024-01-10/AAPL/equity_curve.csv
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>  2024-01-02_2024-01-10/AAPL/orders.csv
+</code></pre></div>
+<p>Use <code>run_summary.csv</code> for comparisons across many tickers. Use <code>metrics.json</code> for one ticker. Use <code>equity_curve.csv</code> to plot portfolio value over time.</p>
 <h2 id="configuration-checklist">Configuration Checklist</h2>
 <p>Every run should specify:</p>
 <ul>
@@ -1119,32 +1338,33 @@
 <li><code>setup_name</code>: a stable run name for output paths.</li>
 <li>Cost controls such as <code>commission_per_share</code>, <code>slippage_perc</code>, and <code>liquidity_cap_pct</code>.</li>
 </ul>
+<p>See <a href="../configuration/">Configuration</a> for the full field guide.</p>
 <h2 id="in-memory-dataset">In-Memory Dataset</h2>
 <p>For small experiments, wrap a date-keyed dictionary with <code>FinsaberDataset</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">date</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest</span><span class="w"> </span><span class="kn">import</span> <span class="n">FINSABERBt</span><span class="p">,</span> <span class="n">FinsaberDataset</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest.strategy.timing</span><span class="w"> </span><span class="kn">import</span> <span class="n">BuyAndHoldStrategy</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">loader</span> <span class="o">=</span> <span class="n">FinsaberDataset</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">date</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span> <span class="p">{</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>        <span class="s2">&quot;price&quot;</span><span class="p">:</span> <span class="p">{</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>            <span class="s2">&quot;DEMO&quot;</span><span class="p">:</span> <span class="p">{</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>                <span class="s2">&quot;open&quot;</span><span class="p">:</span> <span class="mf">100.0</span><span class="p">,</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>                <span class="s2">&quot;high&quot;</span><span class="p">:</span> <span class="mf">102.0</span><span class="p">,</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>                <span class="s2">&quot;low&quot;</span><span class="p">:</span> <span class="mf">99.0</span><span class="p">,</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>                <span class="s2">&quot;close&quot;</span><span class="p">:</span> <span class="mf">101.0</span><span class="p">,</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>                <span class="s2">&quot;adjusted_close&quot;</span><span class="p">:</span> <span class="mf">101.0</span><span class="p">,</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>                <span class="s2">&quot;volume&quot;</span><span class="p">:</span> <span class="mi">1_000_000</span><span class="p">,</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>            <span class="p">}</span>
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>        <span class="p">}</span>
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>    <span class="p">}</span>
-<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="p">})</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">date</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest</span><span class="w"> </span><span class="kn">import</span> <span class="n">FINSABERBt</span><span class="p">,</span> <span class="n">FinsaberDataset</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest.strategy.timing</span><span class="w"> </span><span class="kn">import</span> <span class="n">BuyAndHoldStrategy</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">loader</span> <span class="o">=</span> <span class="n">FinsaberDataset</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">date</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span> <span class="p">{</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>        <span class="s2">&quot;price&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>            <span class="s2">&quot;DEMO&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>                <span class="s2">&quot;open&quot;</span><span class="p">:</span> <span class="mf">100.0</span><span class="p">,</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>                <span class="s2">&quot;high&quot;</span><span class="p">:</span> <span class="mf">102.0</span><span class="p">,</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>                <span class="s2">&quot;low&quot;</span><span class="p">:</span> <span class="mf">99.0</span><span class="p">,</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>                <span class="s2">&quot;close&quot;</span><span class="p">:</span> <span class="mf">101.0</span><span class="p">,</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>                <span class="s2">&quot;adjusted_close&quot;</span><span class="p">:</span> <span class="mf">101.0</span><span class="p">,</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>                <span class="s2">&quot;volume&quot;</span><span class="p">:</span> <span class="mi">1_000_000</span><span class="p">,</span>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>            <span class="p">}</span>
+<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>        <span class="p">}</span>
+<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>    <span class="p">}</span>
+<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="p">})</span>
 </code></pre></div>
 <p>Use this format for unit tests, toy examples, or custom pipelines that already produce Python dictionaries. Use <code>FinsaberParquetDataset</code> for large historical runs.</p>
 <p>See <code>examples/custom_dataset_example.py</code> for a runnable custom data example.</p>
 <h2 id="result-location">Result Location</h2>
 <p>By default, results are written under:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>backtest/output/&lt;setup_name&gt;/&lt;strategy_name&gt;/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>backtest/output/&lt;setup_name&gt;/&lt;strategy_name&gt;/
 </code></pre></div>
 <p>Set <code>log_base_dir</code> in the config to redirect output.</p>
 
@@ -1184,7 +1404,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../installation/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Installation">
+          <a href="../concepts/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Backtesting Concepts">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1194,20 +1414,20 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                Installation
+                Backtesting Concepts
               </div>
             </div>
           </a>
         
         
           
-          <a href="../examples/" class="md-footer__link md-footer__link--next" aria-label="Next: Examples">
+          <a href="../configuration/" class="md-footer__link md-footer__link--next" aria-label="Next: Configuration">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Examples
+                Configuration
               </div>
             </div>
             <div class="md-footer__button md-icon">

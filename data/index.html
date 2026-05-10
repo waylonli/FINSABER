@@ -400,6 +400,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -480,6 +484,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backtesting Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../quickstart/" class="md-nav__link">
         
   
@@ -488,6 +520,34 @@
     
   
     Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
   
 
     
@@ -698,10 +758,32 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#mental-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mental Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#data-interface" class="md-nav__link">
     <span class="md-ellipsis">
       
         Data Interface
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#price-field-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Price Field Requirements
       
     </span>
   </a>
@@ -731,10 +813,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#alignment-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alignment Policy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#implementing-a-custom-loader" class="md-nav__link">
     <span class="md-ellipsis">
       
         Implementing A Custom Loader
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#custom-dataset-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Custom Dataset Checklist
       
     </span>
   </a>
@@ -999,10 +1103,32 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#mental-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mental Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#data-interface" class="md-nav__link">
     <span class="md-ellipsis">
       
         Data Interface
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#price-field-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Price Field Requirements
       
     </span>
   </a>
@@ -1032,10 +1158,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#alignment-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alignment Policy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#implementing-a-custom-loader" class="md-nav__link">
     <span class="md-ellipsis">
       
         Implementing A Custom Loader
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#custom-dataset-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Custom Dataset Checklist
       
     </span>
   </a>
@@ -1074,12 +1222,28 @@
 
 
 <h1 id="data">Data</h1>
+<p>Data is the most important part of a backtest. A good strategy can look bad on broken data, and a bad strategy can look good if future information leaks into the past.</p>
+<h2 id="mental-model">Mental Model</h2>
+<p>FINSABER expects data to be organized by date:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>date
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  price
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    ticker -&gt; OHLCV bar
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>  news
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    ticker -&gt; list of articles
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>  filing_k
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    ticker -&gt; annual filing text
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>  filing_q
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    ticker -&gt; quarterly filing text
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>  optional extra modality
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    ticker -&gt; payload
+</code></pre></div>
+<p>The engine asks the loader: "What could the strategy know on this date?" The strategy should not query future dates directly.</p>
 <h2 id="data-interface">Data Interface</h2>
 <p>All loaders should implement <code>TradingData</code>. Engines depend on this interface instead of a specific storage format, so users can plug in local parquet, database-backed loaders, or enriched datasets with extra modalities.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest</span><span class="w"> </span><span class="kn">import</span> <span class="n">TradingData</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyData</span><span class="p">(</span><span class="n">TradingData</span><span class="p">):</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">...</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest</span><span class="w"> </span><span class="kn">import</span> <span class="n">TradingData</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyData</span><span class="p">(</span><span class="n">TradingData</span><span class="p">):</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="o">...</span>
 </code></pre></div>
 <p>Required methods:</p>
 <ul>
@@ -1092,43 +1256,92 @@
 <li><code>get_date_range()</code></li>
 </ul>
 <p>The contract is date-first. A loader returns all available modalities for one date, and each modality is keyed by ticker where applicable. This keeps strategies from accidentally scanning future rows.</p>
+<h2 id="price-field-requirements">Price Field Requirements</h2>
+<p>The minimum useful daily bar is:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>open</code></td>
+<td>Yes</td>
+<td>Raw open. Used to derive adjusted open.</td>
+</tr>
+<tr>
+<td><code>high</code></td>
+<td>Yes</td>
+<td>Raw high. Used to derive adjusted high.</td>
+</tr>
+<tr>
+<td><code>low</code></td>
+<td>Yes</td>
+<td>Raw low. Used to derive adjusted low.</td>
+</tr>
+<tr>
+<td><code>close</code></td>
+<td>Yes</td>
+<td>Raw close. Used with adjusted close to compute adjustment factor.</td>
+</tr>
+<tr>
+<td><code>adjusted_close</code></td>
+<td>Strongly recommended</td>
+<td>Split/dividend-adjusted close.</td>
+</tr>
+<tr>
+<td><code>volume</code></td>
+<td>Strongly recommended</td>
+<td>Raw share volume for liquidity caps.</td>
+</tr>
+<tr>
+<td><code>cik</code></td>
+<td>Optional</td>
+<td>Useful for SEC filing alignment.</td>
+</tr>
+</tbody>
+</table>
+<p>If <code>adjusted_close</code> is missing, raw prices may create false jumps around stock splits. For serious historical equity tests, prefer adjusted OHLC for price simulation and raw volume for liquidity.</p>
 <h2 id="parquet-layout">Parquet Layout</h2>
 <p><code>FinsaberParquetDataset</code> expects:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>sp500_2000_2025_parquet/
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  price_daily/year=YYYY/part-000.parquet
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  news_items/year=YYYY/part-000.parquet
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  filingk/year=YYYY/part-000.parquet
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  filingq/year=YYYY/part-000.parquet
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>sp500_2000_2025_parquet/
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>  price_daily/year=YYYY/part-000.parquet
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  news_items/year=YYYY/part-000.parquet
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>  filingk/year=YYYY/part-000.parquet
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>  filingq/year=YYYY/part-000.parquet
 </code></pre></div>
 <p>Price rows should include:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>date, symbol, cik, open, high, low, close, adjusted_close, volume
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>date, symbol, cik, open, high, low, close, adjusted_close, volume
 </code></pre></div>
 <p>The loader computes:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>adjusted_open = open * adjusted_close / close
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>adjusted_high = high * adjusted_close / close
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>adjusted_low = low * adjusted_close / close
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>adjusted_open = open * adjusted_close / close
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>adjusted_high = high * adjusted_close / close
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>adjusted_low = low * adjusted_close / close
 </code></pre></div>
 <p>Raw <code>volume</code> is retained for liquidity caps.</p>
 <p>The loader lazily reads the selected date range and ticker universe. When <code>tickers="all"</code>, the ticker list is inferred from <code>price_daily</code>. The default price field is <code>adjusted_close</code>, but execution can use <code>adjusted_open</code>, <code>adjusted_high</code>, and <code>adjusted_low</code> when timing requires them.</p>
 <h2 id="in-memory-format">In-Memory Format</h2>
 <p><code>FinsaberDataset</code> accepts:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">date</span><span class="p">:</span> <span class="p">{</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>        <span class="s2">&quot;price&quot;</span><span class="p">:</span> <span class="p">{</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>            <span class="s2">&quot;AAPL&quot;</span><span class="p">:</span> <span class="p">{</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>                <span class="s2">&quot;open&quot;</span><span class="p">:</span> <span class="mf">187.15</span><span class="p">,</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>                <span class="s2">&quot;high&quot;</span><span class="p">:</span> <span class="mf">188.44</span><span class="p">,</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>                <span class="s2">&quot;low&quot;</span><span class="p">:</span> <span class="mf">183.89</span><span class="p">,</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>                <span class="s2">&quot;close&quot;</span><span class="p">:</span> <span class="mf">185.64</span><span class="p">,</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>                <span class="s2">&quot;adjusted_close&quot;</span><span class="p">:</span> <span class="mf">185.30</span><span class="p">,</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>                <span class="s2">&quot;volume&quot;</span><span class="p">:</span> <span class="mi">82488700</span><span class="p">,</span>
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>            <span class="p">}</span>
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>        <span class="p">},</span>
-<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>        <span class="s2">&quot;news&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;AAPL&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;...&quot;</span><span class="p">]},</span>
-<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>        <span class="s2">&quot;filing_k&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;AAPL&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">},</span>
-<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>        <span class="s2">&quot;filing_q&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;AAPL&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">},</span>
-<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>    <span class="p">}</span>
-<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">date</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>        <span class="s2">&quot;price&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>            <span class="s2">&quot;AAPL&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>                <span class="s2">&quot;open&quot;</span><span class="p">:</span> <span class="mf">187.15</span><span class="p">,</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>                <span class="s2">&quot;high&quot;</span><span class="p">:</span> <span class="mf">188.44</span><span class="p">,</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>                <span class="s2">&quot;low&quot;</span><span class="p">:</span> <span class="mf">183.89</span><span class="p">,</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>                <span class="s2">&quot;close&quot;</span><span class="p">:</span> <span class="mf">185.64</span><span class="p">,</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>                <span class="s2">&quot;adjusted_close&quot;</span><span class="p">:</span> <span class="mf">185.30</span><span class="p">,</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>                <span class="s2">&quot;volume&quot;</span><span class="p">:</span> <span class="mi">82488700</span><span class="p">,</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>            <span class="p">}</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>        <span class="p">},</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>        <span class="s2">&quot;news&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;AAPL&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;...&quot;</span><span class="p">]},</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>        <span class="s2">&quot;filing_k&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;AAPL&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">},</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>        <span class="s2">&quot;filing_q&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;AAPL&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">},</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>    <span class="p">}</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="p">}</span>
 </code></pre></div>
 <p>You may add extra modalities such as:</p>
 <ul>
@@ -1138,24 +1351,66 @@
 <li><code>alternative_data</code></li>
 </ul>
 <p>Keep the daily shape consistent: modality name, ticker key, payload.</p>
+<h2 id="alignment-policy">Alignment Policy</h2>
+<p>Price, news, and filings do not always align perfectly. The loader should preserve what is known and avoid guessing aggressively.</p>
+<table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>Recommended behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Price exists, no news</td>
+<td>Return an empty or missing <code>news</code> entry for that ticker/date.</td>
+</tr>
+<tr>
+<td>News exists, no price</td>
+<td>Keep it for feature construction only if the strategy can handle missing tradable price.</td>
+</tr>
+<tr>
+<td>Filing appears under ticker alias</td>
+<td>Deduplicate by accession or CIK before feature construction.</td>
+</tr>
+<tr>
+<td>Date-only text timestamp</td>
+<td>Treat as available from the next decision point unless timestamps prove otherwise.</td>
+</tr>
+<tr>
+<td>Delisted ticker has no future price</td>
+<td>Let the engine skip or reject fills with missing future bars.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="implementing-a-custom-loader">Implementing A Custom Loader</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest</span><span class="w"> </span><span class="kn">import</span> <span class="n">TradingData</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyDataset</span><span class="p">(</span><span class="n">TradingData</span><span class="p">):</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">tickers</span><span class="p">):</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span> <span class="o">=</span> <span class="n">connection</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">tickers</span> <span class="o">=</span> <span class="n">tickers</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_data_by_date</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">date</span><span class="p">):</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>        <span class="k">return</span> <span class="p">{</span>
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>            <span class="s2">&quot;price&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_prices</span><span class="p">(</span><span class="n">date</span><span class="p">),</span>
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>            <span class="s2">&quot;earnings_call&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_calls</span><span class="p">(</span><span class="n">date</span><span class="p">),</span>
-<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>        <span class="p">}</span>
-<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>
-<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_tickers_list</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tickers</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest</span><span class="w"> </span><span class="kn">import</span> <span class="n">TradingData</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyDataset</span><span class="p">(</span><span class="n">TradingData</span><span class="p">):</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">tickers</span><span class="p">):</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span> <span class="o">=</span> <span class="n">connection</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">tickers</span> <span class="o">=</span> <span class="n">tickers</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_data_by_date</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">date</span><span class="p">):</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>        <span class="k">return</span> <span class="p">{</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>            <span class="s2">&quot;price&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_prices</span><span class="p">(</span><span class="n">date</span><span class="p">),</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>            <span class="s2">&quot;earnings_call&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_calls</span><span class="p">(</span><span class="n">date</span><span class="p">),</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>        <span class="p">}</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_tickers_list</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tickers</span><span class="p">)</span>
 </code></pre></div>
 <p>Implement the remaining abstract methods by filtering the same underlying source. If a modality is unavailable for a date, return an empty dictionary rather than leaking data from another date.</p>
+<h2 id="custom-dataset-checklist">Custom Dataset Checklist</h2>
+<ul>
+<li>Implement all <code>TradingData</code> methods.</li>
+<li>Return Python <code>date</code> keys or normalize date strings consistently.</li>
+<li>Keep ticker symbols consistent across price, news, and filings.</li>
+<li>Include <code>adjusted_close</code> when possible.</li>
+<li>Keep raw <code>volume</code> unadjusted for liquidity calculations.</li>
+<li>Make <code>get_subset_by_time_range</code> and <code>get_ticker_subset_by_time_range</code> return a smaller loader, not a future-aware object.</li>
+<li>Add tests with a tiny in-memory dataset before using a full private dataset.</li>
+</ul>
 <h2 id="avoiding-look-ahead-bias">Avoiding Look-Ahead Bias</h2>
 <p>Date-only news and filings should be considered unavailable until the next decision point unless timestamps prove same-day availability. For strict backtests, prefer <code>execution_timing="next_open"</code>.</p>
 

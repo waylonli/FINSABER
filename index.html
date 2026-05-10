@@ -434,6 +434,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#recommended-reading-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommended Reading Path
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#workflow" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -482,6 +493,10 @@
   
     
     
+      
+        
+      
+        
       
         
       
@@ -569,6 +584,34 @@
   
   
     <li class="md-nav__item">
+      <a href="concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backtesting Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="quickstart/" class="md-nav__link">
         
   
@@ -577,6 +620,34 @@
     
   
     Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
   
 
     
@@ -992,6 +1063,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#recommended-reading-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommended Reading Path
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#workflow" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1069,6 +1151,10 @@
 
 <h2 id="framework-highlights">Framework Highlights</h2>
 <div class="finsaber-grid">
+  <a class="finsaber-card" href="concepts/">
+    <h3>Beginner concepts</h3>
+    <p>Learn signals, orders, fills, positions, equity curves, timing, and common backtesting biases.</p>
+  </a>
   <a class="finsaber-card" href="data/">
     <h3>Pluggable market data</h3>
     <p>Use the built-in parquet and dictionary loaders, or implement <code>TradingData</code> for private datasets.</p>
@@ -1087,6 +1173,15 @@
   </a>
 </div>
 
+<h2 id="recommended-reading-path">Recommended Reading Path</h2>
+<p>If you are new to the framework, read in this order:</p>
+<ol>
+<li><a href="concepts/">Backtesting Concepts</a> for finance and backtesting vocabulary.</li>
+<li><a href="quickstart/">Quick Start</a> to run a short buy-and-hold example.</li>
+<li><a href="configuration/">Configuration</a> to understand every important run setting.</li>
+<li><a href="data/">Data</a> and <a href="strategies/">Strategies</a> when plugging in your own dataset or model.</li>
+<li><a href="execution/">Execution Model</a> and <a href="results/">Results</a> before interpreting performance.</li>
+</ol>
 <p>The installable wheel intentionally focuses on reusable backtesting infrastructure. Paper-specific FinMem, FinAgent, FinCon, and FinRL integrations remain available in the repository, but the package exports data loaders, execution models, metrics, result writers, selectors, and strategy interfaces.</p>
 <h2 id="workflow">Workflow</h2>
 <p>The repository includes the original FINSABER pipeline figure:</p>

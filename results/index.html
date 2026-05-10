@@ -400,6 +400,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -480,6 +484,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backtesting Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../quickstart/" class="md-nav__link">
         
   
@@ -488,6 +520,34 @@
     
   
     Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
   
 
     
@@ -880,6 +940,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#how-to-debug-a-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How To Debug A Run
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#presentation-guidelines" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1021,6 +1092,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#how-to-debug-a-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How To Debug A Run
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#presentation-guidelines" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1072,18 +1154,64 @@
 <p>Only files with available data are written.</p>
 <p><code>run_config.json</code> captures the resolved <code>TradeConfig</code>. <code>run_manifest.json</code> records generated artifacts and helps downstream scripts discover output files without hard-coding paths. <code>run_summary.csv</code> is the first file to inspect for comparing tickers, windows, and strategies.</p>
 <h2 id="important-metrics">Important Metrics</h2>
-<ul>
-<li><code>total_return</code></li>
-<li><code>annual_return</code></li>
-<li><code>annual_volatility</code></li>
-<li><code>sharpe_ratio</code></li>
-<li><code>sortino_ratio</code></li>
-<li><code>max_drawdown</code></li>
-<li><code>total_commission</code></li>
-<li><code>total_slippage</code></li>
-<li><code>total_llm_cost</code></li>
-<li><code>total_trading_cost</code></li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>final_value</code></td>
+<td>Ending portfolio value after cash, positions, and forced final liquidation where applicable.</td>
+</tr>
+<tr>
+<td><code>total_return</code></td>
+<td>Total percentage gain or loss over the run.</td>
+</tr>
+<tr>
+<td><code>annual_return</code></td>
+<td>Total return annualized with a 252-trading-day convention.</td>
+</tr>
+<tr>
+<td><code>annual_volatility</code></td>
+<td>Standard deviation of daily returns, annualized by <code>sqrt(252)</code>.</td>
+</tr>
+<tr>
+<td><code>sharpe_ratio</code></td>
+<td>Excess annualized return divided by annualized volatility.</td>
+</tr>
+<tr>
+<td><code>sortino_ratio</code></td>
+<td>Excess annualized return divided by downside volatility.</td>
+</tr>
+<tr>
+<td><code>max_drawdown</code></td>
+<td>Largest peak-to-trough equity decline.</td>
+</tr>
+<tr>
+<td><code>total_commission</code></td>
+<td>Sum of commission charged on executed trades.</td>
+</tr>
+<tr>
+<td><code>total_slippage</code></td>
+<td>Sum of adverse fill-price impact.</td>
+</tr>
+<tr>
+<td><code>total_llm_cost</code></td>
+<td>Sum of tracked LLM provider cost.</td>
+</tr>
+<tr>
+<td><code>total_trading_cost</code></td>
+<td>Commission plus slippage plus LLM cost when configured.</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Metric units</p>
+<p><code>total_return</code>, <code>annual_return</code>, and <code>annual_volatility</code> are fractions in artifacts. For example, <code>0.12</code> means <code>12%</code>. <code>max_drawdown</code> is currently reported as a percentage-style magnitude in the Python-native engine.</p>
+</div>
 <h2 id="recommended-analysis-flow">Recommended Analysis Flow</h2>
 <p>Start with <code>run_summary.csv</code> for a flat overview. Then inspect per-ticker files:</p>
 <ul>
@@ -1092,8 +1220,46 @@
 <li><code>rejected_orders.csv</code>: insufficient liquidity, invalid price, insufficient cash, or missing future bars.</li>
 <li><code>equity_curve.csv</code>: portfolio value through time.</li>
 </ul>
+<h2 id="how-to-debug-a-run">How To Debug A Run</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>File to inspect</th>
+<th>Likely cause</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Return is zero</td>
+<td><code>trades.csv</code>, <code>orders.csv</code></td>
+<td>Strategy never traded or all orders were rejected.</td>
+</tr>
+<tr>
+<td>Many missing tickers</td>
+<td><code>run_summary.csv</code></td>
+<td>Tickers absent from date range or loader subset.</td>
+</tr>
+<tr>
+<td>Unrealistically high return</td>
+<td><code>run_config.json</code></td>
+<td>Same-close timing, no costs, or no liquidity cap.</td>
+</tr>
+<tr>
+<td>Large cost drag</td>
+<td><code>trades.csv</code>, <code>llm_costs.csv</code></td>
+<td>High turnover, high slippage, or expensive LLM calls.</td>
+</tr>
+<tr>
+<td>Orders not filled</td>
+<td><code>rejected_orders.csv</code></td>
+<td>Missing future bars, insufficient cash, or liquidity constraints.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="presentation-guidelines">Presentation Guidelines</h2>
 <p>For paper tables or dashboards, aggregate from <code>run_summary.csv</code> rather than scraping console logs. Console output is for progress monitoring; CSV and JSON artifacts are the stable interface for analysis.</p>
+<p>For financial reports, show at least total return, annual return, volatility, Sharpe ratio, max drawdown, total trading cost, and the execution assumptions used to produce them.</p>
 
 
 

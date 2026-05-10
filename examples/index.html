@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://waylonli.github.io/FINSABER/examples/">
       
       
-        <link rel="prev" href="../quickstart/">
+        <link rel="prev" href="../configuration/">
       
       
         <link rel="next" href="../architecture/">
@@ -402,6 +402,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -485,6 +489,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backtesting Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../quickstart/" class="md-nav__link">
         
   
@@ -493,6 +525,34 @@
     
   
     Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
   
 
     
@@ -599,6 +659,17 @@
     <span class="md-ellipsis">
       
         Minimal Package Usage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommended-learning-sequence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommended Learning Sequence
       
     </span>
   </a>
@@ -1009,6 +1080,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#recommended-learning-sequence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommended Learning Sequence
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1030,11 +1112,13 @@
 
 
 <h1 id="examples">Examples</h1>
+<p>Examples are ordered from simplest to most research-specific. Start with package examples before running paper-specific agents.</p>
 <h2 id="custom-dataset">Custom Dataset</h2>
 <p>Run:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>examples/custom_dataset_example.py
 </code></pre></div>
 <p>This example creates an in-memory <code>FinsaberDataset</code>, runs <code>BuyAndHoldStrategy</code>, and prints total return.</p>
+<p>Use it to learn the required dictionary shape before writing a custom loader.</p>
 <h2 id="research-experiment-launchers">Research Experiment Launchers</h2>
 <p>These scripts are repository examples and are not included in the package wheel.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>examples/experiments/run_baselines_exp.py<span class="w"> </span>--setup<span class="w"> </span>selected_4<span class="w"> </span>--include<span class="w"> </span>BuyAndHoldStrategy
@@ -1060,6 +1144,15 @@
 <a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="p">}</span>
 <a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="n">results</span> <span class="o">=</span> <span class="n">FINSABERBt</span><span class="p">(</span><span class="n">config</span><span class="p">)</span><span class="o">.</span><span class="n">run_iterative_tickers</span><span class="p">(</span><span class="n">BuyAndHoldStrategy</span><span class="p">)</span>
 </code></pre></div>
+<h2 id="recommended-learning-sequence">Recommended Learning Sequence</h2>
+<ol>
+<li>Run the minimal package usage example with one ticker.</li>
+<li>Enable <code>save_results=True</code> and inspect <code>run_summary.csv</code>.</li>
+<li>Add <code>slippage_perc</code> and <code>liquidity_cap_pct</code>.</li>
+<li>Replace <code>BuyAndHoldStrategy</code> with a simple moving-average strategy.</li>
+<li>Replace <code>FinsaberParquetDataset</code> with your own <code>TradingData</code> implementation.</li>
+<li>Only then run LLM or RL research launchers.</li>
+</ol>
 
 
 
@@ -1097,7 +1190,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../quickstart/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Quick Start">
+          <a href="../configuration/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Configuration">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1107,7 +1200,7 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                Quick Start
+                Configuration
               </div>
             </div>
           </a>

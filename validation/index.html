@@ -400,6 +400,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -480,6 +484,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backtesting Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../quickstart/" class="md-nav__link">
         
   
@@ -488,6 +520,34 @@
     
   
     Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
   
 
     
@@ -897,10 +957,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#what-to-validate-before-a-large-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What To Validate Before A Large Run
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#recommended-data-policy" class="md-nav__link">
     <span class="md-ellipsis">
       
         Recommended Data Policy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#temporary-scripts-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Temporary Scripts Policy
       
     </span>
   </a>
@@ -999,10 +1081,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#what-to-validate-before-a-large-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What To Validate Before A Large Run
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#recommended-data-policy" class="md-nav__link">
     <span class="md-ellipsis">
       
         Recommended Data Policy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#temporary-scripts-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Temporary Scripts Policy
       
     </span>
   </a>
@@ -1030,6 +1134,7 @@
 
 
 <h1 id="validation">Validation</h1>
+<p>Validation answers two separate questions: "Does the code still work?" and "Is the financial dataset suitable for a fair backtest?"</p>
 <h2 id="test-suite">Test Suite</h2>
 <p>Run:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>-q<span class="w"> </span>tests
@@ -1058,6 +1163,41 @@
 <li>duplicate filing accessions from ticker alias mappings</li>
 <li>news and filing rows that do not exactly align to price date/symbol keys</li>
 </ul>
+<h2 id="what-to-validate-before-a-large-run">What To Validate Before A Large Run</h2>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Why it matters</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nonpositive prices</td>
+<td>A zero or negative execution price breaks return and cost calculations.</td>
+</tr>
+<tr>
+<td>Adjusted/raw consistency</td>
+<td>Bad adjustment factors create fake crashes or rallies.</td>
+</tr>
+<tr>
+<td>Duplicate filings</td>
+<td>Repeated filings can overweight one event in text features.</td>
+</tr>
+<tr>
+<td>Ticker alignment</td>
+<td>News and filings must map to the correct tradable symbol.</td>
+</tr>
+<tr>
+<td>Missing dates</td>
+<td>Gaps can skip signals or leave pending orders without fills.</td>
+</tr>
+<tr>
+<td>Volume availability</td>
+<td>Liquidity caps need prior raw volume history.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="recommended-data-policy">Recommended Data Policy</h2>
 <ul>
 <li>Filter or correct zero-price rows before benchmark runs.</li>
@@ -1066,6 +1206,8 @@
 <li>Keep symbol-to-accession mappings separately if ticker aliases matter.</li>
 <li>Treat date-only news and filings as next-decision information unless timestamps are available.</li>
 </ul>
+<h2 id="temporary-scripts-policy">Temporary Scripts Policy</h2>
+<p>Put one-off validation scripts under <code>tmp/</code> and keep that directory ignored by Git. If a validation check becomes generally useful, convert it into a test under <code>tests/</code> or a documented utility before committing it.</p>
 
 
 

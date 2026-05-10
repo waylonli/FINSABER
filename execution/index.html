@@ -400,6 +400,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -480,6 +484,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backtesting Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../quickstart/" class="md-nav__link">
         
   
@@ -488,6 +520,34 @@
     
   
     Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
   
 
     
@@ -754,6 +814,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#one-trade-from-signal-to-fill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One Trade From Signal To Fill
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#timing" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -824,6 +895,17 @@
     <span class="md-ellipsis">
       
         LLM Cost
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rejected-orders" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rejected Orders
       
     </span>
   </a>
@@ -1021,6 +1103,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#one-trade-from-signal-to-fill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One Trade From Signal To Fill
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#timing" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1097,6 +1190,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#rejected-orders" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rejected Orders
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1119,6 +1223,46 @@
 
 <h1 id="execution-model">Execution Model</h1>
 <p>FINSABER makes execution assumptions explicit so result differences can be traced back to timing, price adjustment, and cost settings.</p>
+<h2 id="one-trade-from-signal-to-fill">One Trade From Signal To Fill</h2>
+<p>Assume the strategy sees Monday's data and decides to buy 100 shares.</p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Signal date</td>
+<td>Strategy reads Monday data and submits <code>buy("AAPL", 100)</code>.</td>
+</tr>
+<tr>
+<td>Timing rule</td>
+<td><code>next_open</code> delays the order until the next available trading day.</td>
+</tr>
+<tr>
+<td>Base price</td>
+<td>The engine uses Tuesday <code>adjusted_open</code>.</td>
+</tr>
+<tr>
+<td>Liquidity</td>
+<td>Quantity may be capped by prior average volume.</td>
+</tr>
+<tr>
+<td>Slippage</td>
+<td>Buy price is moved upward; sell price is moved downward.</td>
+</tr>
+<tr>
+<td>Commission</td>
+<td>Cash is reduced by trade value plus commission.</td>
+</tr>
+<tr>
+<td>Portfolio update</td>
+<td>Position, cash, trade history, and equity curve are updated.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="timing">Timing</h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="s2">&quot;execution_timing&quot;</span><span class="p">:</span> <span class="s2">&quot;next_open&quot;</span>
 </code></pre></div>
@@ -1128,6 +1272,27 @@
 <li><code>same_close</code>: order fills on the same adjusted close.</li>
 </ul>
 <p>Prefer <code>next_open</code> when features are date-level and exact intraday availability is unknown.</p>
+<table>
+<thead>
+<tr>
+<th>Timing</th>
+<th>When to use</th>
+<th>Main risk</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>next_open</code></td>
+<td>Daily bars, news, filings, LLM summaries, uncertain timestamps.</td>
+<td>May be less optimistic because the market can move overnight.</td>
+</tr>
+<tr>
+<td><code>same_close</code></td>
+<td>Features known before close, such as intraday signals or pre-close data.</td>
+<td>Easy to misuse with after-close or date-only information.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="order-lifecycle">Order Lifecycle</h2>
 <p>For Python-native strategies, the execution path is:</p>
 <ol>
@@ -1147,41 +1312,90 @@
 </code></pre></div>
 <p>Raw OHLC can produce false price jumps around splits. Use adjusted OHLC for portfolio valuation and execution prices.</p>
 <p>If only <code>close</code> and <code>adjusted_close</code> are available, the loader derives adjusted open/high/low by multiplying raw OHLC by <code>adjusted_close / close</code>. This keeps split adjustments internally consistent while preserving raw volume.</p>
+<p>Example: if a split makes raw close <code>50</code> while adjusted close is <code>25</code>, the adjustment factor is <code>0.5</code>. A raw open of <code>52</code> becomes an adjusted open of <code>26</code>.</p>
 <h2 id="commission">Commission</h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="s2">&quot;commission_per_share&quot;</span><span class="p">:</span> <span class="mf">0.0049</span><span class="p">,</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="s2">&quot;min_commission&quot;</span><span class="p">:</span> <span class="mf">0.99</span><span class="p">,</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="s2">&quot;max_commission_rate&quot;</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">,</span>
 </code></pre></div>
 <p>Commission is bounded by per-share, minimum commission, and maximum transaction-rate settings.</p>
+<p>The commission calculation is:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>commission = min(
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    max(abs(quantity) * commission_per_share, min_commission),
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    abs(quantity) * price * max_commission_rate
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>)
+</code></pre></div>
 <h2 id="slippage">Slippage</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="s2">&quot;slippage_perc&quot;</span><span class="p">:</span> <span class="mf">0.0005</span><span class="p">,</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="s2">&quot;slippage_impact&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="s2">&quot;slippage_perc&quot;</span><span class="p">:</span> <span class="mf">0.0005</span><span class="p">,</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="s2">&quot;slippage_impact&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
 </code></pre></div>
 <p>The Python engine applies:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>slippage_rate = slippage_perc + slippage_impact * participation_rate^2
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>slippage_rate = slippage_perc + slippage_impact * participation_rate^2
 </code></pre></div>
 <p>Buy fills are worsened upward; sell fills are worsened downward.</p>
+<p>Example with <code>price=100</code>, <code>slippage_perc=0.0005</code>, and no impact term:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>buy fill  = 100 * (1 + 0.0005) = 100.05
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>sell fill = 100 * (1 - 0.0005) = 99.95
+</code></pre></div>
 <h2 id="liquidity-cap">Liquidity Cap</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="s2">&quot;liquidity_lookback_days&quot;</span><span class="p">:</span> <span class="mi">20</span><span class="p">,</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="s2">&quot;liquidity_min_history_days&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="s2">&quot;liquidity_cap_pct&quot;</span><span class="p">:</span> <span class="mf">0.025</span><span class="p">,</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="s2">&quot;liquidity_lookback_days&quot;</span><span class="p">:</span> <span class="mi">20</span><span class="p">,</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="s2">&quot;liquidity_min_history_days&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="s2">&quot;liquidity_cap_pct&quot;</span><span class="p">:</span> <span class="mf">0.025</span><span class="p">,</span>
 </code></pre></div>
 <p>Orders are capped to:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>floor(average_prior_volume * liquidity_cap_pct)
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>floor(average_prior_volume * liquidity_cap_pct)
 </code></pre></div>
 <p>Volume history uses prior bars only. If a cap is enabled but insufficient prior volume history exists, the Python engine rejects the order instead of silently filling it uncapped.</p>
 <p>This cap is a participation-rate control, not a full market-impact model. For large-order simulations, combine it with nonzero <code>slippage_impact</code>.</p>
+<p>Example: if the prior 20-day average volume is <code>1,000,000</code> shares and <code>liquidity_cap_pct=0.025</code>, the largest order is <code>25,000</code> shares. A request for <code>100,000</code> shares is reduced to <code>25,000</code>.</p>
 <h2 id="llm-cost">LLM Cost</h2>
 <p>LLM costs can be recorded and included in trading cost:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="s2">&quot;llm_cost_as_trade_cost&quot;</span><span class="p">:</span> <span class="kc">True</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="s2">&quot;llm_cost_as_trade_cost&quot;</span><span class="p">:</span> <span class="kc">True</span>
 </code></pre></div>
 <p>Use:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest.toolkit.llm_cost_monitor</span><span class="w"> </span><span class="kn">import</span> <span class="n">add_openai_cost_from_response</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">add_openai_cost_from_response</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest.toolkit.llm_cost_monitor</span><span class="w"> </span><span class="kn">import</span> <span class="n">add_openai_cost_from_response</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">add_openai_cost_from_response</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
 </code></pre></div>
 <p>The result artifact <code>llm_costs.csv</code> stores the cost ledger when present.</p>
 <p>LLM cost is deliberately tracked through a small framework utility rather than by parsing every external agent implementation. External strategies should call the monitor around provider requests so model, token usage, provider, and metadata are saved with the run.</p>
+<h2 id="rejected-orders">Rejected Orders</h2>
+<p>Orders can be rejected or reduced. This is expected behavior, not necessarily an engine failure.</p>
+<table>
+<thead>
+<tr>
+<th>Reason</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>invalid_price</code></td>
+<td>No usable execution price was available.</td>
+</tr>
+<tr>
+<td><code>insufficient_liquidity_history</code></td>
+<td>Liquidity cap is enabled but not enough prior volume exists.</td>
+</tr>
+<tr>
+<td><code>zero_quantity</code></td>
+<td>Requested size becomes zero after holdings, cash, or liquidity checks.</td>
+</tr>
+<tr>
+<td><code>insufficient_cash</code></td>
+<td>The account cannot afford even one share after costs.</td>
+</tr>
+<tr>
+<td><code>insufficient_holdings</code></td>
+<td>A sell order exceeds current position.</td>
+</tr>
+<tr>
+<td><code>no_future_bar</code></td>
+<td>A pending <code>next_open</code> order has no later bar to execute on.</td>
+</tr>
+</tbody>
+</table>
+<p>Inspect <code>rejected_orders.csv</code> before trusting a backtest. A strategy with many rejected orders may be testing an unrealistic sizing rule.</p>
 
 
 

@@ -400,6 +400,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -480,6 +484,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backtesting Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../quickstart/" class="md-nav__link">
         
   
@@ -488,6 +520,34 @@
     
   
     Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
   
 
     
@@ -726,6 +786,28 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#strategy-responsibilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strategy Responsibilities
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision Checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#backtrader-strategies" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -752,6 +834,17 @@
     <span class="md-ellipsis">
       
         Selector Strategies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#strategy-testing-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strategy Testing Pattern
       
     </span>
   </a>
@@ -977,6 +1070,28 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#strategy-responsibilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strategy Responsibilities
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision Checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#backtrader-strategies" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1009,6 +1124,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#strategy-testing-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strategy Testing Pattern
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1031,6 +1157,49 @@
 
 <h1 id="strategies">Strategies</h1>
 <p>FINSABER supports two strategy styles: Backtrader strategies for conventional event-driven backtests, and Python-native strategies for agents that operate directly on date-level dictionaries.</p>
+<h2 id="strategy-responsibilities">Strategy Responsibilities</h2>
+<p>A strategy should answer only one question: "Given the information available now, what order should I request?"</p>
+<p>The framework handles:</p>
+<ul>
+<li>Fill timing.</li>
+<li>Adjusted execution prices.</li>
+<li>Cash and position updates.</li>
+<li>Commission, slippage, liquidity caps, and LLM costs.</li>
+<li>Result artifacts and metrics.</li>
+</ul>
+<p>Do not manually edit cash, positions, or result files inside a strategy.</p>
+<h2 id="decision-checklist">Decision Checklist</h2>
+<p>Before submitting an order, a strategy should know:</p>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>What ticker am I trading?</td>
+<td><code>AAPL</code></td>
+</tr>
+<tr>
+<td>What data is visible today?</td>
+<td>today's price bar, news list, filing text</td>
+</tr>
+<tr>
+<td>What is the signal?</td>
+<td>buy, sell, hold</td>
+</tr>
+<tr>
+<td>What size do I want?</td>
+<td>fixed shares, all-in, target weight</td>
+</tr>
+<tr>
+<td>What timing will the framework apply?</td>
+<td><code>next_open</code> or <code>same_close</code></td>
+</tr>
+</tbody>
+</table>
 <h2 id="backtrader-strategies">Backtrader Strategies</h2>
 <p>Backtrader strategies run through <code>FINSABERBt</code>. Subclass <code>BaseStrategy</code> and implement <code>next()</code>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">backtrader</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bt</span>
@@ -1061,6 +1230,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">FINSABERBt</span><span class="p">(</span><span class="n">config</span><span class="p">)</span><span class="o">.</span><span class="n">run_iterative_tickers</span><span class="p">(</span><span class="n">MovingAverageCross</span><span class="p">)</span>
 </code></pre></div>
 <p>Backtrader strategies should call <code>self.post_next_actions()</code> at the end of <code>next()</code> so framework-level bookkeeping stays consistent.</p>
+<p>Use Backtrader strategies when you need built-in indicators, Backtrader analyzers, or an event loop that resembles existing Backtrader code.</p>
 <h2 id="llm-style-strategies">LLM-Style Strategies</h2>
 <p>LLM-style strategies run through <code>FINSABER</code>. They receive all data for a date and trade through the framework object.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest.strategy.timing_llm</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseStrategyIso</span>
@@ -1088,6 +1258,7 @@
 <a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="p">)</span>
 </code></pre></div>
 <p>Use <code>framework.buy(date, ticker, reference_price, quantity)</code> and <code>framework.sell(...)</code> instead of mutating cash or positions directly. Pass <code>quantity=-1</code> for all-in or full-exit behavior; the execution framework will still apply costs, liquidity, and cash checks.</p>
+<p>The <code>reference_price</code> is stored for audit and used as a fallback if the execution bar is unavailable. Under normal <code>next_open</code> execution, the actual fill uses the next adjusted open from the data loader.</p>
 <h2 id="selector-strategies">Selector Strategies</h2>
 <p>Selection strategies choose tickers for rolling-window runs.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">backtest.strategy.selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseSelector</span>
@@ -1112,6 +1283,15 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">config</span><span class="p">[</span><span class="s2">&quot;selection_strategy&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">TopVolumeSelector</span><span class="p">(</span><span class="n">top_k</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
 </code></pre></div>
 <p>Selectors should use only data inside the allowed training window. Avoid computing ranks from the full backtest period because that introduces universe-selection look-ahead bias.</p>
+<h2 id="strategy-testing-pattern">Strategy Testing Pattern</h2>
+<ol>
+<li>Test one ticker over a few weeks with <code>silence=False</code>.</li>
+<li>Confirm trades appear in <code>orders.csv</code> or <code>trades.csv</code>.</li>
+<li>Check <code>rejected_orders.csv</code>.</li>
+<li>Expand to a longer date range.</li>
+<li>Expand to multiple tickers.</li>
+<li>Only then add LLM calls or expensive feature construction.</li>
+</ol>
 
 
 
