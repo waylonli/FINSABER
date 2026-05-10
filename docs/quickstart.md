@@ -2,31 +2,60 @@
 
 ## Buy And Hold On Parquet Data
 
-```python
-from backtest import FINSABERBt, FinsaberParquetDataset
-from backtest.strategy.timing import BuyAndHoldStrategy
+=== "Backtrader engine"
 
-data = FinsaberParquetDataset(r"I:\Data\finsaber2\sp500_2000_2025_parquet")
+    ```python
+    from backtest import FINSABERBt, FinsaberParquetDataset
+    from backtest.strategy.timing import BuyAndHoldStrategy
 
-config = {
-    "data_loader": data,
-    "tickers": ["AAPL"],
-    "date_from": "2024-01-02",
-    "date_to": "2024-01-10",
-    "setup_name": "buy_hold_aapl",
-    "cash": 100_000,
-    "execution_timing": "next_open",
-    "commission_per_share": 0.0049,
-    "min_commission": 0.99,
-    "slippage_perc": 0.0005,
-    "liquidity_cap_pct": 0.025,
-    "save_results": True,
-    "silence": True,
-}
+    data = FinsaberParquetDataset(r"I:\Data\finsaber2\sp500_2000_2025_parquet")
 
-results = FINSABERBt(config).run_iterative_tickers(BuyAndHoldStrategy)
-print(results["AAPL"]["total_return"])
-```
+    config = {
+        "data_loader": data,
+        "tickers": ["AAPL"],
+        "date_from": "2024-01-02",
+        "date_to": "2024-01-10",
+        "setup_name": "buy_hold_aapl",
+        "cash": 100_000,
+        "execution_timing": "next_open",
+        "commission_per_share": 0.0049,
+        "min_commission": 0.99,
+        "slippage_perc": 0.0005,
+        "liquidity_cap_pct": 0.025,
+        "save_results": True,
+        "silence": True,
+    }
+
+    results = FINSABERBt(config).run_iterative_tickers(BuyAndHoldStrategy)
+    print(results["AAPL"]["total_return"])
+    ```
+
+=== "Python-native engine"
+
+    ```python
+    from backtest import FINSABER, FinsaberParquetDataset
+    from backtest.strategy.timing_llm import BaseStrategyIso
+
+    class BuyOnce(BaseStrategyIso):
+        def on_data(self, date, today_data, framework):
+            bar = today_data["price"]["AAPL"]
+            if "AAPL" not in framework.portfolio:
+                framework.buy(date, "AAPL", bar["adjusted_close"], -1)
+
+    data = FinsaberParquetDataset(r"I:\Data\finsaber2\sp500_2000_2025_parquet")
+    config = {
+        "data_loader": data,
+        "tickers": ["AAPL"],
+        "date_from": "2024-01-02",
+        "date_to": "2024-01-10",
+        "setup_name": "buy_once_aapl",
+        "execution_timing": "next_open",
+        "save_results": True,
+        "silence": True,
+    }
+
+    results = FINSABER(config).run_iterative_tickers(BuyOnce)
+    ```
 
 This run uses adjusted prices for fills and valuation, applies commission, caps orders to `2.5%` of prior average volume, and writes metrics and CSV artifacts under `backtest/output/buy_hold_aapl/BuyAndHoldStrategy/`.
 

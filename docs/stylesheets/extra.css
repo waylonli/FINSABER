@@ -1,0 +1,209 @@
+:root {
+  --md-primary-fg-color: #0b1f2a;
+  --md-primary-fg-color--light: #173c4b;
+  --md-primary-fg-color--dark: #07151d;
+  --md-accent-fg-color: #d99f2b;
+  --finsaber-ink: #0b1f2a;
+  --finsaber-muted: #58707a;
+  --finsaber-card: #ffffff;
+  --finsaber-border: rgba(11, 31, 42, 0.12);
+  --finsaber-gold: #d99f2b;
+  --finsaber-teal: #15616d;
+}
+
+.md-header,
+.md-tabs {
+  background: linear-gradient(135deg, #07151d 0%, #0b1f2a 52%, #15616d 100%);
+}
+
+.md-main__inner {
+  margin-top: 1.1rem;
+}
+
+.md-typeset h1,
+.md-typeset h2 {
+  color: var(--finsaber-ink);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.md-typeset h1 {
+  margin-bottom: 0.9rem;
+}
+
+.md-typeset .finsaber-hero {
+  position: relative;
+  overflow: hidden;
+  margin: -0.4rem 0 2rem;
+  padding: 3.5rem 3rem;
+  border-radius: 28px;
+  color: #fff7e6;
+  background:
+    radial-gradient(circle at 85% 18%, rgba(217, 159, 43, 0.42), transparent 24rem),
+    radial-gradient(circle at 12% 82%, rgba(21, 97, 109, 0.55), transparent 22rem),
+    linear-gradient(135deg, #07151d 0%, #0b1f2a 55%, #143d47 100%);
+  box-shadow: 0 28px 70px rgba(11, 31, 42, 0.22);
+}
+
+.md-typeset .finsaber-hero::after {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(120deg, transparent, #000 18%, transparent 78%);
+}
+
+.md-typeset .finsaber-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.md-typeset .finsaber-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid rgba(255, 247, 230, 0.35);
+  border-radius: 999px;
+  color: #ffe2a6;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.md-typeset .finsaber-hero h1 {
+  max-width: 880px;
+  margin: 0;
+  color: #fff7e6;
+  font-size: clamp(2rem, 5vw, 4.2rem);
+  line-height: 0.98;
+}
+
+.md-typeset .finsaber-hero p {
+  max-width: 760px;
+  margin-top: 1.2rem;
+  color: rgba(255, 247, 230, 0.82);
+  font-size: 1.05rem;
+}
+
+.md-typeset .finsaber-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: 1.5rem;
+}
+
+.md-typeset .finsaber-actions .md-button {
+  border-radius: 999px;
+}
+
+.md-typeset .finsaber-actions .md-button--primary {
+  border-color: var(--finsaber-gold);
+  background: var(--finsaber-gold);
+  color: #07151d;
+}
+
+.md-typeset .finsaber-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 1rem;
+  margin: 1.8rem 0;
+}
+
+.md-typeset .finsaber-card {
+  display: block;
+  height: 100%;
+  padding: 1.25rem;
+  border: 1px solid var(--finsaber-border);
+  border-radius: 20px;
+  background: var(--finsaber-card);
+  box-shadow: 0 14px 40px rgba(11, 31, 42, 0.07);
+  color: inherit;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.md-typeset .finsaber-card:hover {
+  border-color: rgba(217, 159, 43, 0.65);
+  box-shadow: 0 18px 55px rgba(11, 31, 42, 0.13);
+  transform: translateY(-3px);
+}
+
+.md-typeset .finsaber-card h3 {
+  margin: 0 0 0.45rem;
+  color: var(--finsaber-ink);
+  font-size: 1.05rem;
+}
+
+.md-typeset .finsaber-card p {
+  margin: 0;
+  color: var(--finsaber-muted);
+  font-size: 0.78rem;
+}
+
+.md-typeset .finsaber-card code {
+  color: var(--finsaber-teal);
+  background: rgba(21, 97, 109, 0.08);
+}
+
+.md-typeset .finsaber-metric-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.8rem;
+  margin: 1.5rem 0;
+}
+
+.md-typeset .finsaber-metric {
+  padding: 1rem;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #f7fbfb, #eef5f4);
+  border: 1px solid rgba(21, 97, 109, 0.12);
+}
+
+.md-typeset .finsaber-metric strong {
+  display: block;
+  color: var(--finsaber-teal);
+  font-size: 1.3rem;
+}
+
+.md-typeset .finsaber-metric span {
+  color: var(--finsaber-muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.md-typeset .admonition,
+.md-typeset details {
+  border-radius: 14px;
+}
+
+.md-typeset .highlight,
+.md-typeset pre {
+  border-radius: 14px;
+}
+
+.md-typeset .mermaid {
+  display: flex;
+  justify-content: center;
+  margin: 1.6rem 0;
+  padding: 1rem;
+  border: 1px solid var(--finsaber-border);
+  border-radius: 20px;
+  background: #fbfdfd;
+}
+
+@media screen and (max-width: 760px) {
+  .md-typeset .finsaber-hero {
+    padding: 2.3rem 1.25rem;
+    border-radius: 20px;
+  }
+
+  .md-typeset .finsaber-hero h1 {
+    font-size: 2.15rem;
+  }
+}
