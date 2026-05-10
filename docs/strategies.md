@@ -1,5 +1,7 @@
 # Strategies
 
+FINSABER supports two strategy styles: Backtrader strategies for conventional event-driven backtests, and Python-native strategies for agents that operate directly on date-level dictionaries.
+
 ## Backtrader Strategies
 
 Backtrader strategies run through `FINSABERBt`. Subclass `BaseStrategy` and implement `next()`.
@@ -36,6 +38,8 @@ Run:
 results = FINSABERBt(config).run_iterative_tickers(MovingAverageCross)
 ```
 
+Backtrader strategies should call `self.post_next_actions()` at the end of `next()` so framework-level bookkeeping stays consistent.
+
 ## LLM-Style Strategies
 
 LLM-style strategies run through `FINSABER`. They receive all data for a date and trade through the framework object.
@@ -69,6 +73,8 @@ results = FINSABER(config).run_iterative_tickers(
 )
 ```
 
+Use `framework.buy(date, ticker, reference_price, quantity)` and `framework.sell(...)` instead of mutating cash or positions directly. Pass `quantity=-1` for all-in or full-exit behavior; the execution framework will still apply costs, liquidity, and cash checks.
+
 ## Selector Strategies
 
 Selection strategies choose tickers for rolling-window runs.
@@ -98,3 +104,5 @@ Pass it in config:
 ```python
 config["selection_strategy"] = TopVolumeSelector(top_k=10)
 ```
+
+Selectors should use only data inside the allowed training window. Avoid computing ranks from the full backtest period because that introduces universe-selection look-ahead bias.

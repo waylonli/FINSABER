@@ -40,11 +40,13 @@ After changing the Pages source, re-run the workflow from the GitHub **Actions**
 
 The workflow installs `.[docs]`, runs `mkdocs build --strict`, uploads the generated `site/` artifact, and publishes it to Pages.
 
-The expected public URL is:
+For this repository, the expected public URL is:
 
 ```text
-https://waylonli.github.io/FINSABER-2/
+https://waylonli.github.io/FINSABER/
 ```
+
+While the upgraded framework is staged on `v2.0`, the workflow also runs on pushes to `v2.0`. After `v2.0` replaces `main`, the same workflow continues to deploy from `main`.
 
 If you prefer manual branch deployment, run:
 

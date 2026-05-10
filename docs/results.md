@@ -1,6 +1,6 @@
 # Results
 
-When `save_results=True`, FINSABER-2 writes structured artifacts under:
+When `save_results=True`, FINSABER writes structured artifacts under:
 
 ```text
 backtest/output/<setup_name>/<strategy_name>/
@@ -28,6 +28,8 @@ run_summary.csv
 
 Only files with available data are written.
 
+`run_config.json` captures the resolved `TradeConfig`. `run_manifest.json` records generated artifacts and helps downstream scripts discover output files without hard-coding paths. `run_summary.csv` is the first file to inspect for comparing tickers, windows, and strategies.
+
 ## Important Metrics
 
 - `total_return`
@@ -49,3 +51,7 @@ Start with `run_summary.csv` for a flat overview. Then inspect per-ticker files:
 - `trades.csv`: Python-engine trades.
 - `rejected_orders.csv`: insufficient liquidity, invalid price, insufficient cash, or missing future bars.
 - `equity_curve.csv`: portfolio value through time.
+
+## Presentation Guidelines
+
+For paper tables or dashboards, aggregate from `run_summary.csv` rather than scraping console logs. Console output is for progress monitoring; CSV and JSON artifacts are the stable interface for analysis.

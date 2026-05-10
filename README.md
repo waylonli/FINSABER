@@ -32,6 +32,9 @@ pip install finsaber-backtest
 For local development:
 
 ```bash
+git clone https://github.com/waylonli/FINSABER
+cd FINSABER
+git checkout v2.0
 conda activate trading
 pip install -e ".[dev,research]"
 ```
@@ -44,14 +47,18 @@ python -m build --wheel
 
 ## Documentation
 
-The FINSABER-2 documentation source is in `docs/` and is built with MkDocs Material.
+The documentation source is in `docs/` and is built with MkDocs Material. The public site for this repository is expected at:
+
+```text
+https://waylonli.github.io/FINSABER/
+```
 
 ```bash
 pip install -e ".[docs]"
 mkdocs serve
 ```
 
-Open `http://127.0.0.1:8000` for local preview. GitHub Pages deployment is handled by `.github/workflows/docs.yml`; enable Pages with **Source: GitHub Actions**, then pushes to `main` rebuild and publish the documentation.
+Open `http://127.0.0.1:8000` for local preview. GitHub Pages deployment is handled by `.github/workflows/docs.yml`; enable Pages with **Source: GitHub Actions**. While the upgraded framework is staged on `v2.0`, pushes to `v2.0` rebuild and publish the documentation; after `v2.0` replaces `main`, pushes to `main` will do the same.
 
 ```bash
 mkdocs build --strict
@@ -59,7 +66,7 @@ mkdocs build --strict
 
 ## Quick Start
 
-Run a Buy-and-Hold backtest on the FINSABER-2 parquet dataset:
+Run a Buy-and-Hold backtest on the parquet dataset:
 
 ```python
 from backtest import FINSABERBt, FinsaberParquetDataset
@@ -94,7 +101,7 @@ Outputs are written under `backtest/output/<setup>/<strategy>/` by default:
 
 ## Data
 
-FINSABER-2 expects pluggable data loaders that implement `TradingData`. The built-in parquet loader reads this layout:
+FINSABER expects pluggable data loaders that implement `TradingData`. The built-in parquet loader reads this layout:
 
 ```text
 sp500_2000_2025_parquet/

@@ -11,13 +11,26 @@ The package installs the reusable backtesting framework only.
 ## Local Development
 
 ```bash
-git clone https://github.com/waylonli/FINSABER-2
-cd FINSABER-2
+git clone https://github.com/waylonli/FINSABER
+cd FINSABER
+git checkout v2.0
 conda activate trading
 pip install -e ".[dev,research]"
 ```
 
 The `research` extra includes optional dependencies for baseline research strategies, such as `statsmodels`, `xgboost`, `datasets`, and `pandas-datareader`.
+
+The documentation dependencies are separate:
+
+```bash
+pip install -e ".[docs]"
+```
+
+For full local development, install all extras:
+
+```bash
+pip install -e ".[dev,research,docs]"
+```
 
 ## Build A Wheel
 

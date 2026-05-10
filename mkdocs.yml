@@ -1,8 +1,8 @@
-site_name: FINSABER-2
+site_name: FINSABER
 site_description: Package-oriented financial backtesting framework for price, news, filings, and extensible market data.
-site_url: https://waylonli.github.io/FINSABER-2/
-repo_url: https://github.com/waylonli/FINSABER-2
-repo_name: waylonli/FINSABER-2
+site_url: https://waylonli.github.io/FINSABER/
+repo_url: https://github.com/waylonli/FINSABER
+repo_name: waylonli/FINSABER
 
 theme:
   name: material
@@ -20,6 +20,7 @@ theme:
 nav:
   - Home: index.md
   - Installation: installation.md
+  - Architecture: architecture.md
   - Quick Start: quickstart.md
   - Data: data.md
   - Strategies: strategies.md

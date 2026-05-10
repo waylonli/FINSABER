@@ -1,6 +1,6 @@
 # Quick Start
 
-## Buy And Hold On FINSABER-2 Parquet Data
+## Buy And Hold On Parquet Data
 
 ```python
 from backtest import FINSABERBt, FinsaberParquetDataset
@@ -28,6 +28,19 @@ results = FINSABERBt(config).run_iterative_tickers(BuyAndHoldStrategy)
 print(results["AAPL"]["total_return"])
 ```
 
+This run uses adjusted prices for fills and valuation, applies commission, caps orders to `2.5%` of prior average volume, and writes metrics and CSV artifacts under `backtest/output/buy_hold_aapl/BuyAndHoldStrategy/`.
+
+## Configuration Checklist
+
+Every run should specify:
+
+- `data_loader`: a `TradingData` implementation.
+- `tickers`: a ticker list or `"all"`.
+- `date_from` and `date_to`: inclusive backtest dates.
+- `execution_timing`: usually `"next_open"` for date-level features.
+- `setup_name`: a stable run name for output paths.
+- Cost controls such as `commission_per_share`, `slippage_perc`, and `liquidity_cap_pct`.
+
 ## In-Memory Dataset
 
 For small experiments, wrap a date-keyed dictionary with `FinsaberDataset`.
@@ -52,6 +65,8 @@ loader = FinsaberDataset(data={
     }
 })
 ```
+
+Use this format for unit tests, toy examples, or custom pipelines that already produce Python dictionaries. Use `FinsaberParquetDataset` for large historical runs.
 
 See `examples/custom_dataset_example.py` for a runnable custom data example.
 

@@ -1,12 +1,12 @@
-# FINSABER-2
+# FINSABER
 
-FINSABER-2 is the package-oriented backtesting framework for evaluating financial trading strategies over price, news, filings, and extensible market data. It is designed to support both traditional Backtrader strategies and LLM-style decision loops while keeping execution assumptions explicit.
+FINSABER is a research framework for evaluating financial trading strategies over price, news, filings, and extensible market data. The `v2.0` branch upgrades the original FINSABER code into a package-oriented backtesting framework with explicit execution assumptions and structured result artifacts.
 
 ## What Is Included
 
-- A reusable Python package, `finsaber-backtest`, containing core backtesting code only.
+- A reusable Python package, `finsaber-backtest`, containing core backtesting code.
 - Pluggable data interfaces through `TradingData`.
-- Built-in loaders for FINSABER dictionary data and FINSABER-2 partitioned parquet data.
+- Built-in loaders for dictionary-style data and partitioned parquet data.
 - Explicit execution timing with `next_open` and `same_close`.
 - Adjusted OHLC handling for split-adjusted simulation.
 - Commission, slippage, liquidity-cap, and LLM-cost accounting.
@@ -21,7 +21,17 @@ The wheel intentionally excludes paper-specific agent and RL implementations:
 - experiment runner scripts
 - generated outputs and private datasets
 
-Those integrations remain available in the repository for research experiments, but the package focuses on the reusable backtesting framework.
+Those integrations remain available in the repository for research experiments, but the package focuses on reusable backtesting infrastructure.
+
+## How The Framework Works
+
+FINSABER follows a simple pipeline:
+
+```text
+dataset -> configuration -> engine -> strategy -> execution model -> results
+```
+
+The dataset implements `TradingData`, the config defines the market universe and execution assumptions, the engine iterates through dates and tickers, the strategy emits decisions, and the execution layer applies fills, costs, liquidity constraints, and metrics. See [Architecture](architecture.md) for the detailed lifecycle.
 
 ## Typical Workflow
 
