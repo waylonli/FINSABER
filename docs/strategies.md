@@ -2,6 +2,32 @@
 
 FINSABER supports two strategy styles: Backtrader strategies for conventional event-driven backtests, and Python-native strategies for agents that operate directly on date-level dictionaries.
 
+## Strategy Responsibilities
+
+A strategy should answer only one question: "Given the information available now, what order should I request?"
+
+The framework handles:
+
+- Fill timing.
+- Adjusted execution prices.
+- Cash and position updates.
+- Commission, slippage, liquidity caps, and LLM costs.
+- Result artifacts and metrics.
+
+Do not manually edit cash, positions, or result files inside a strategy.
+
+## Decision Checklist
+
+Before submitting an order, a strategy should know:
+
+| Question | Example |
+| --- | --- |
+| What ticker am I trading? | `AAPL` |
+| What data is visible today? | today's price bar, news list, filing text |
+| What is the signal? | buy, sell, hold |
+| What size do I want? | fixed shares, all-in, target weight |
+| What timing will the framework apply? | `next_open` or `same_close` |
+
 ## Backtrader Strategies
 
 Backtrader strategies run through `FINSABERBt`. Subclass `BaseStrategy` and implement `next()`.
@@ -40,6 +66,8 @@ results = FINSABERBt(config).run_iterative_tickers(MovingAverageCross)
 
 Backtrader strategies should call `self.post_next_actions()` at the end of `next()` so framework-level bookkeeping stays consistent.
 
+Use Backtrader strategies when you need built-in indicators, Backtrader analyzers, or an event loop that resembles existing Backtrader code.
+
 ## LLM-Style Strategies
 
 LLM-style strategies run through `FINSABER`. They receive all data for a date and trade through the framework object.
@@ -75,6 +103,8 @@ results = FINSABER(config).run_iterative_tickers(
 
 Use `framework.buy(date, ticker, reference_price, quantity)` and `framework.sell(...)` instead of mutating cash or positions directly. Pass `quantity=-1` for all-in or full-exit behavior; the execution framework will still apply costs, liquidity, and cash checks.
 
+The `reference_price` is stored for audit and used as a fallback if the execution bar is unavailable. Under normal `next_open` execution, the actual fill uses the next adjusted open from the data loader.
+
 ## Selector Strategies
 
 Selection strategies choose tickers for rolling-window runs.
@@ -106,3 +136,12 @@ config["selection_strategy"] = TopVolumeSelector(top_k=10)
 ```
 
 Selectors should use only data inside the allowed training window. Avoid computing ranks from the full backtest period because that introduces universe-selection look-ahead bias.
+
+## Strategy Testing Pattern
+
+1. Test one ticker over a few weeks with `silence=False`.
+2. Confirm trades appear in `orders.csv` or `trades.csv`.
+3. Check `rejected_orders.csv`.
+4. Expand to a longer date range.
+5. Expand to multiple tickers.
+6. Only then add LLM calls or expensive feature construction.

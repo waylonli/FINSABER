@@ -35,7 +35,9 @@ nav:
   - Home: index.md
   - Get Started:
       - Installation: installation.md
+      - Backtesting Concepts: concepts.md
       - Quick Start: quickstart.md
+      - Configuration: configuration.md
       - Examples: examples.md
   - Framework:
       - Architecture: architecture.md

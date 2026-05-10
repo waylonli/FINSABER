@@ -26,6 +26,10 @@ FINSABER is a research framework for evaluating financial trading strategies ove
 ## Framework Highlights
 
 <div class="finsaber-grid">
+  <a class="finsaber-card" href="concepts/">
+    <h3>Beginner concepts</h3>
+    <p>Learn signals, orders, fills, positions, equity curves, timing, and common backtesting biases.</p>
+  </a>
   <a class="finsaber-card" href="data/">
     <h3>Pluggable market data</h3>
     <p>Use the built-in parquet and dictionary loaders, or implement <code>TradingData</code> for private datasets.</p>
@@ -43,6 +47,16 @@ FINSABER is a research framework for evaluating financial trading strategies ove
     <p>Analyze stable CSV and JSON artifacts for metrics, trades, orders, equity curves, rejected orders, and costs.</p>
   </a>
 </div>
+
+## Recommended Reading Path
+
+If you are new to the framework, read in this order:
+
+1. [Backtesting Concepts](concepts.md) for finance and backtesting vocabulary.
+2. [Quick Start](quickstart.md) to run a short buy-and-hold example.
+3. [Configuration](configuration.md) to understand every important run setting.
+4. [Data](data.md) and [Strategies](strategies.md) when plugging in your own dataset or model.
+5. [Execution Model](execution.md) and [Results](results.md) before interpreting performance.
 
 The installable wheel intentionally focuses on reusable backtesting infrastructure. Paper-specific FinMem, FinAgent, FinCon, and FinRL integrations remain available in the repository, but the package exports data loaders, execution models, metrics, result writers, selectors, and strategy interfaces.
 

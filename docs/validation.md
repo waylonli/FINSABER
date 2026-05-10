@@ -1,5 +1,7 @@
 # Validation
 
+Validation answers two separate questions: "Does the code still work?" and "Is the financial dataset suitable for a fair backtest?"
+
 ## Test Suite
 
 Run:
@@ -37,6 +39,17 @@ Current validation flags:
 - duplicate filing accessions from ticker alias mappings
 - news and filing rows that do not exactly align to price date/symbol keys
 
+## What To Validate Before A Large Run
+
+| Check | Why it matters |
+| --- | --- |
+| Nonpositive prices | A zero or negative execution price breaks return and cost calculations. |
+| Adjusted/raw consistency | Bad adjustment factors create fake crashes or rallies. |
+| Duplicate filings | Repeated filings can overweight one event in text features. |
+| Ticker alignment | News and filings must map to the correct tradable symbol. |
+| Missing dates | Gaps can skip signals or leave pending orders without fills. |
+| Volume availability | Liquidity caps need prior raw volume history. |
+
 ## Recommended Data Policy
 
 - Filter or correct zero-price rows before benchmark runs.
@@ -44,3 +57,7 @@ Current validation flags:
 - Deduplicate filing text by accession for feature construction.
 - Keep symbol-to-accession mappings separately if ticker aliases matter.
 - Treat date-only news and filings as next-decision information unless timestamps are available.
+
+## Temporary Scripts Policy
+
+Put one-off validation scripts under `tmp/` and keep that directory ignored by Git. If a validation check becomes generally useful, convert it into a test under `tests/` or a documented utility before committing it.

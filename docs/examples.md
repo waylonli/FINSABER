@@ -1,5 +1,7 @@
 # Examples
 
+Examples are ordered from simplest to most research-specific. Start with package examples before running paper-specific agents.
+
 ## Custom Dataset
 
 Run:
@@ -9,6 +11,8 @@ python examples/custom_dataset_example.py
 ```
 
 This example creates an in-memory `FinsaberDataset`, runs `BuyAndHoldStrategy`, and prints total return.
+
+Use it to learn the required dictionary shape before writing a custom loader.
 
 ## Research Experiment Launchers
 
@@ -43,3 +47,12 @@ config = {
 }
 results = FINSABERBt(config).run_iterative_tickers(BuyAndHoldStrategy)
 ```
+
+## Recommended Learning Sequence
+
+1. Run the minimal package usage example with one ticker.
+2. Enable `save_results=True` and inspect `run_summary.csv`.
+3. Add `slippage_perc` and `liquidity_cap_pct`.
+4. Replace `BuyAndHoldStrategy` with a simple moving-average strategy.
+5. Replace `FinsaberParquetDataset` with your own `TradingData` implementation.
+6. Only then run LLM or RL research launchers.

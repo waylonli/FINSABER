@@ -1,5 +1,27 @@
 # Data
 
+Data is the most important part of a backtest. A good strategy can look bad on broken data, and a bad strategy can look good if future information leaks into the past.
+
+## Mental Model
+
+FINSABER expects data to be organized by date:
+
+```text
+date
+  price
+    ticker -> OHLCV bar
+  news
+    ticker -> list of articles
+  filing_k
+    ticker -> annual filing text
+  filing_q
+    ticker -> quarterly filing text
+  optional extra modality
+    ticker -> payload
+```
+
+The engine asks the loader: "What could the strategy know on this date?" The strategy should not query future dates directly.
+
 ## Data Interface
 
 All loaders should implement `TradingData`. Engines depend on this interface instead of a specific storage format, so users can plug in local parquet, database-backed loaders, or enriched datasets with extra modalities.
@@ -22,6 +44,22 @@ Required methods:
 - `get_date_range()`
 
 The contract is date-first. A loader returns all available modalities for one date, and each modality is keyed by ticker where applicable. This keeps strategies from accidentally scanning future rows.
+
+## Price Field Requirements
+
+The minimum useful daily bar is:
+
+| Field | Required | Use |
+| --- | --- | --- |
+| `open` | Yes | Raw open. Used to derive adjusted open. |
+| `high` | Yes | Raw high. Used to derive adjusted high. |
+| `low` | Yes | Raw low. Used to derive adjusted low. |
+| `close` | Yes | Raw close. Used with adjusted close to compute adjustment factor. |
+| `adjusted_close` | Strongly recommended | Split/dividend-adjusted close. |
+| `volume` | Strongly recommended | Raw share volume for liquidity caps. |
+| `cik` | Optional | Useful for SEC filing alignment. |
+
+If `adjusted_close` is missing, raw prices may create false jumps around stock splits. For serious historical equity tests, prefer adjusted OHLC for price simulation and raw volume for liquidity.
 
 ## Parquet Layout
 
@@ -86,6 +124,18 @@ You may add extra modalities such as:
 
 Keep the daily shape consistent: modality name, ticker key, payload.
 
+## Alignment Policy
+
+Price, news, and filings do not always align perfectly. The loader should preserve what is known and avoid guessing aggressively.
+
+| Situation | Recommended behavior |
+| --- | --- |
+| Price exists, no news | Return an empty or missing `news` entry for that ticker/date. |
+| News exists, no price | Keep it for feature construction only if the strategy can handle missing tradable price. |
+| Filing appears under ticker alias | Deduplicate by accession or CIK before feature construction. |
+| Date-only text timestamp | Treat as available from the next decision point unless timestamps prove otherwise. |
+| Delisted ticker has no future price | Let the engine skip or reject fills with missing future bars. |
+
 ## Implementing A Custom Loader
 
 ```python
@@ -107,6 +157,16 @@ class MyDataset(TradingData):
 ```
 
 Implement the remaining abstract methods by filtering the same underlying source. If a modality is unavailable for a date, return an empty dictionary rather than leaking data from another date.
+
+## Custom Dataset Checklist
+
+- Implement all `TradingData` methods.
+- Return Python `date` keys or normalize date strings consistently.
+- Keep ticker symbols consistent across price, news, and filings.
+- Include `adjusted_close` when possible.
+- Keep raw `volume` unadjusted for liquidity calculations.
+- Make `get_subset_by_time_range` and `get_ticker_subset_by_time_range` return a smaller loader, not a future-aware object.
+- Add tests with a tiny in-memory dataset before using a full private dataset.
 
 ## Avoiding Look-Ahead Bias
 
