@@ -1,4 +1,4 @@
-from backtest.strategy.selection import BaseSelector
+from backtest.strategy.selection.base_selector import BaseSelector
 
 class FinMemSelector(BaseSelector):
     def __init__(self):

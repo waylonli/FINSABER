@@ -1,7 +1,7 @@
-from dataclasses import dataclass, field, asdict
-from typing import Union, List
+from dataclasses import dataclass, field, fields
+from typing import Any, Union, List
 import os
-from backtest.strategy.selection import BaseSelector
+from backtest.strategy.selection.base_selector import BaseSelector
 import sys
 
 @dataclass
@@ -11,6 +11,16 @@ class TradeConfig:
     date_to: str = "2024-01-01"
     cash: float = 100000.0
     risk_free_rate: float = 0.03
+    commission_per_share: float = 0.0049
+    min_commission: float = 0.99
+    max_commission_rate: float = 0.01
+    execution_timing: str = "next_open"
+    slippage_perc: float = 0.0
+    slippage_impact: float = 0.0
+    liquidity_lookback_days: int = 20
+    liquidity_min_history_days: int = 1
+    liquidity_cap_pct: float = 0.0
+    llm_cost_as_trade_cost: bool = True
     print_trades_table: bool = False
     silence: bool = False
     rolling_window_size: int = 2
@@ -21,7 +31,7 @@ class TradeConfig:
     result_filename: str = None
     save_results: bool = True
     log_base_dir: str = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "output")
-    data_loader: str = None
+    data_loader: Any = None
 
     def __post_init__(self):
         # Validate and manage the tickers field
@@ -35,15 +45,33 @@ class TradeConfig:
         if self.date_from > self.date_to:
             raise ValueError("date_from must be earlier than date_to")
 
+        if self.execution_timing not in {"same_close", "next_open"}:
+            raise ValueError("execution_timing must be one of: same_close, next_open")
+
+        if self.slippage_perc < 0 or self.slippage_impact < 0:
+            raise ValueError("slippage_perc and slippage_impact must be non-negative")
+
+        if not 0 <= self.liquidity_cap_pct <= 1:
+            raise ValueError("liquidity_cap_pct must be between 0 and 1")
+
+        if self.liquidity_lookback_days < 1:
+            raise ValueError("liquidity_lookback_days must be at least 1")
+
+        if not 1 <= self.liquidity_min_history_days <= self.liquidity_lookback_days:
+            raise ValueError("liquidity_min_history_days must be between 1 and liquidity_lookback_days")
+
 
     @classmethod
     def from_dict(cls, config_dict):
         """ Initialize a TradeConfig object from a dictionary """
+        config_dict = dict(config_dict)
+        if "commission" in config_dict and "commission_per_share" not in config_dict:
+            config_dict["commission_per_share"] = config_dict.pop("commission")
         return cls(**config_dict)
 
     def to_dict(self):
         """ Convert the TradeConfig object to a dictionary """
-        return asdict(self)
+        return {item.name: getattr(self, item.name) for item in fields(self)}
 
 
 if __name__ == "__main__":

@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "finsaber-backtest"
+version = "0.1.0"
+description = "Reusable FINSABER backtesting framework and data adapters."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "backtrader>=1.9.78",
+    "colorlog>=6.0",
+    "matplotlib>=3.8",
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "pyarrow>=14",
+    "python-dotenv>=1.0",
+    "rich>=13",
+    "tabulate>=0.9",
+    "tqdm>=4.66",
+]
+
+[project.optional-dependencies]
+research = [
+    "datasets>=3.0",
+    "pandas-datareader>=0.10",
+    "statsmodels>=0.14",
+    "xgboost>=2.0",
+]
+dev = [
+    "build>=1.2",
+    "pytest>=8.0",
+]
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.25",
+    "pymdown-extensions>=10.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["backtest*"]
+exclude = [
+    "backtest.output*",
+    "llm_traders*",
+    "rl_traders*",
+    "tmp*",
+]
+
+[tool.pytest.ini_options]
+addopts = "-p no:anyio -p no:Faker -p no:cacheprovider"
+testpaths = ["tests"]

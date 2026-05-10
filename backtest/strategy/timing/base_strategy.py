@@ -9,6 +9,7 @@ class BaseStrategy(bt.Strategy):
         self.trade_returns = []
         self.buys = []
         self.sells = []
+        self.executed_orders = []
         self.equity = []
         self.equity_date = []
         self.peak_equity = 0
@@ -26,6 +27,14 @@ class BaseStrategy(bt.Strategy):
 
         # 等待订单完成
         if order.status in [order.Completed]:
+            self.executed_orders.append({
+                "date": pd.to_datetime(self.data.datetime.date(0)),
+                "is_buy": order.isbuy(),
+                "price": order.executed.price,
+                "size": order.executed.size,
+                "value": order.executed.value,
+                "commission": order.executed.comm,
+            })
             if order.isbuy():
                 self.log(
                     'Buy，Price: %.2f, Share: %.2f, Cost: %.2f, Commission %.2f' %

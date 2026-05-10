@@ -2,7 +2,7 @@ import os
 import pickle
 import pandas as pd
 import numpy as np
-from backtest.strategy.selection import BaseSelector
+from backtest.strategy.selection.base_selector import BaseSelector
 
 class LowVolatilitySP500Selector(BaseSelector):
     def __init__(self, num_tickers=5, lookback_period=21, training_period=2):

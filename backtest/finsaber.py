@@ -13,7 +13,8 @@ from backtest.toolkit.custom_exceptions import InsufficientTrainingDataException
 from backtest.toolkit.trade_config import TradeConfig
 from backtest.toolkit.backtest_framework_iso import FINSABERFrameworkHelper
 from backtest.toolkit.operation_utils import aggregate_results_one_strategy
-from backtest.toolkit.llm_cost_monitor import reset_llm_cost, get_llm_cost
+from backtest.toolkit.llm_cost_monitor import reset_llm_cost, get_llm_cost, get_llm_cost_ledger
+from backtest.toolkit.result_writer import write_result_artifacts
 
 
 class FINSABER:
@@ -22,8 +23,15 @@ class FINSABER:
         self.framework = FINSABERFrameworkHelper(
             initial_cash=self.trade_config.cash,
             risk_free_rate=self.trade_config.risk_free_rate,
-            commission_per_share=self.trade_config.__dict__.get("commission", 0.0049),
-            min_commission=self.trade_config.__dict__.get("min_commission", 0.99)
+            commission_per_share=self.trade_config.commission_per_share,
+            min_commission=self.trade_config.min_commission,
+            max_commission_rate=self.trade_config.max_commission_rate,
+            execution_timing=self.trade_config.execution_timing,
+            slippage_perc=self.trade_config.slippage_perc,
+            slippage_impact=self.trade_config.slippage_impact,
+            liquidity_lookback_days=self.trade_config.liquidity_lookback_days,
+            liquidity_min_history_days=self.trade_config.liquidity_min_history_days,
+            liquidity_cap_pct=self.trade_config.liquidity_cap_pct,
         )
         self.data_loader = self.trade_config.data_loader
 
@@ -47,7 +55,8 @@ class FINSABER:
             end_date = f"{start_year + i + rolling_window_size}-01-01"
             rolling_windows.append((start_date, end_date))
 
-        print(rolling_windows)
+        if not self.trade_config.silence:
+            print(f"Rolling windows: {rolling_windows}")
 
         if self.trade_config.setup_name in ["selected_4", "selected_5", "cherry_pick_both_finmem"]:
             stock_selector = FinMemSelector()
@@ -57,13 +66,14 @@ class FINSABER:
 
 
         eval_metrics = {}
-        for window in tqdm(rolling_windows):
+        for window in tqdm(rolling_windows, disable=self.trade_config.silence):
             #
             # subset_data = {date: self.all_data[date] for date in window}
             strat_params["date_from"] = window[0]
             strat_params["date_to"] = window[-1]
             self.trade_config.tickers = stock_selector.select(self.trade_config.data_loader, window[0], window[1])
-            print(f"Selected tickers for the period {window[0]} to {window[1]}: {self.trade_config.tickers}")
+            if not self.trade_config.silence:
+                print(f"Selected tickers for the period {window[0]} to {window[1]}: {self.trade_config.tickers}")
 
             self.trade_config.date_from = window[0]
             self.trade_config.date_to = window[-1]
@@ -75,12 +85,16 @@ class FINSABER:
 
         # Save results if required
         if self.trade_config.save_results:
-            output_dir = os.path.join(self.trade_config.log_base_dir,
-                                      self.trade_config.setup_name.replace(":", "_"), strategy_class.__name__)
+            output_dir = os.path.join(
+                self.trade_config.log_base_dir,
+                self.trade_config.setup_name.replace(":", "_"),
+                strategy_class.__name__,
+            )
             filename = f"{date_from.date()}_{date_to.date()}.pkl" if self.trade_config.result_filename is None else self.trade_config.result_filename
             os.makedirs(output_dir, exist_ok=True)
             with open(os.path.join(output_dir, filename), "wb") as f:
                 pickle.dump(eval_metrics, f)
+            write_result_artifacts(output_dir, self.trade_config.to_dict(), eval_metrics)
 
         return eval_metrics
 
@@ -92,6 +106,8 @@ class FINSABER:
         sharpe_ratio = metrics.get("sharpe_ratio", 0)
         sortino_ratio = metrics.get("sortino_ratio", 0)
         total_commission = metrics.get("total_commission", 0)
+        total_slippage = metrics.get("total_slippage", 0)
+        total_llm_cost = metrics.get("total_llm_cost", 0)
 
         print("\n" + "=" * 50)
         print(f"Ticker: {ticker}")
@@ -102,6 +118,8 @@ class FINSABER:
         print(f"Sharpe Ratio: {sharpe_ratio:.3f}")
         print(f"Sortino Ratio: {sortino_ratio:.3f}")
         print(f"Total Commission: ${total_commission:.3f}")
+        print(f"Total Slippage: ${total_slippage:.3f}")
+        print(f"Total LLM Cost: ${total_llm_cost:.3f}")
         print("=" * 50)
 
     def _plot_equity_curve(self, equity_with_time, ticker):
@@ -123,6 +141,8 @@ class FINSABER:
         with Progress() as progress:  # Use Progress
             task = progress.add_task("Iterative Tickers Backtesting", total=len(tickers))
             for ticker in tickers:
+                llm_cost_before = get_llm_cost()
+                llm_ledger_start = len(get_llm_cost_ledger())
                 progress.update(task,
                                 description=f"Backtesting {ticker} on {self.trade_config.date_from} to {self.trade_config.date_to}")
 
@@ -131,11 +151,13 @@ class FINSABER:
                 # check if the ticker is in the data
                 try:
                     first_day = subset_data.get_date_range()[0]
-                except:
-                    print(f"No data found for the period {self.trade_config.date_from} to {self.trade_config.date_to}. Skipping...")
-                    import pdb; pdb.set_trace()
+                except (AttributeError, IndexError):
+                    if not self.trade_config.silence:
+                        print(f"No data found for the period {self.trade_config.date_from} to {self.trade_config.date_to}. Skipping...")
+                    continue
                 if ticker not in subset_data.get_tickers_list():
-                    print(f"Ticker {ticker} not in the data for the period {self.trade_config.date_from} to {self.trade_config.date_to}. Skipping...")
+                    if not self.trade_config.silence:
+                        print(f"Ticker {ticker} not in the data for the period {self.trade_config.date_from} to {self.trade_config.date_to}. Skipping...")
                     continue
 
                 self.framework.reset()
@@ -147,7 +169,8 @@ class FINSABER:
                 )
 
                 if not success_or_not:
-                    print(f"Ticker {ticker} not in the data for the period {self.trade_config.date_from} to {self.trade_config.date_to}. Skipping...")
+                    if not self.trade_config.silence:
+                        print(f"Ticker {ticker} not in the data for the period {self.trade_config.date_from} to {self.trade_config.date_to}. Skipping...")
                     continue
 
                 resolved_params = self.auto_resolve_params(
@@ -163,32 +186,38 @@ class FINSABER:
                 try:
                     strategy = strategy_class(**resolved_params)
                 except InsufficientTrainingDataException as e:
-                    print(f"Insufficient training data for {ticker} in the period {self.trade_config.date_from} to {self.trade_config.date_to}. Skipping...")
+                    if not self.trade_config.silence:
+                        print(f"Insufficient training data for {ticker} in the period {self.trade_config.date_from} to {self.trade_config.date_to}. Skipping...")
                     continue
 
                 # detect if it is because of the insufficient training data
                 try:
                     strategy.train() if hasattr(strategy, "train") else None
                 except InsufficientTrainingDataException as e:
-                    print(f"Insufficient training data for {ticker} in the period {self.trade_config.date_from} to {self.trade_config.date_to}. Skipping...")
+                    if not self.trade_config.silence:
+                        print(f"Insufficient training data for {ticker} in the period {self.trade_config.date_from} to {self.trade_config.date_to}. Skipping...")
                     continue
 
                 status = self.framework.run(strategy, delist_check=delist_check)
 
                 if not status:
-                    print(f"Skipping {ticker}...")
+                    if not self.trade_config.silence:
+                        print(f"Skipping {ticker}...")
                     continue
 
                 metrics = self.framework.evaluate(strategy)
-                try:
-                    equity_with_time = pd.DataFrame({
-                        "datetime": strategy.equity_date,
-                        "equity": strategy.equity
-                    })
-                except:
-                    print(len(strategy.equity_date), len(strategy.equity))
-                    import pdb; pdb.set_trace()
+                total_llm_cost = get_llm_cost() - llm_cost_before
+                metrics["total_llm_cost"] = total_llm_cost
+                metrics["llm_cost_records"] = pd.DataFrame(get_llm_cost_ledger()[llm_ledger_start:])
+                if self.trade_config.llm_cost_as_trade_cost:
+                    metrics["total_trading_cost"] = metrics.get("total_trading_cost", 0) + total_llm_cost
+                equity_with_time = pd.DataFrame({
+                    "datetime": strategy.equity_date,
+                    "equity": strategy.equity
+                })
                 metrics["equity_with_time"] = equity_with_time
+                metrics["trades"] = pd.DataFrame(self.framework.history)
+                metrics["rejected_orders"] = pd.DataFrame(self.framework.rejected_orders)
                 eval_metrics[ticker] = metrics
 
                 if not self.trade_config.silence:
@@ -198,16 +227,22 @@ class FINSABER:
 
         if self.trade_config.save_results:
             eval_metrics = {f"{self.trade_config.date_from}_{self.trade_config.date_to}": eval_metrics}
-            output_dir = os.path.join(self.trade_config.log_base_dir, self.trade_config.setup_name.replace(":", "_"), strategy.__class__.__name__)
+            output_dir = os.path.join(
+                self.trade_config.log_base_dir,
+                self.trade_config.setup_name.replace(":", "_"),
+                strategy_class.__name__,
+            )
             filename = f"{self.trade_config.date_from}_{self.trade_config.date_to}.pkl" if self.trade_config.result_filename is None else self.trade_config.result_filename
             os.makedirs(output_dir, exist_ok=True)
             with open(os.path.join(output_dir, filename), "wb") as f:
                 pickle.dump(eval_metrics, f)
+            write_result_artifacts(output_dir, self.trade_config.to_dict(), eval_metrics)
 
             aggregate_results_one_strategy(self.trade_config.setup_name.replace(":", "_"), strategy_class.__name__)
 
         # print the estimated cost
-        print(f"Finish backtesting period {self.trade_config.date_from} to {self.trade_config.date_to}. Estimated cost: ${get_llm_cost()}")
+        if not self.trade_config.silence:
+            print(f"Finish backtesting period {self.trade_config.date_from} to {self.trade_config.date_to}. Estimated cost: ${get_llm_cost()}")
         return eval_metrics
 
     def auto_resolve_params(self, strat_params, trade_config):

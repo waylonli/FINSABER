@@ -3,7 +3,7 @@ import pickle
 import pandas as pd
 import random
 from backtest.toolkit.operation_utils import get_tickers_price
-from backtest.strategy.selection import BaseSelector
+from backtest.strategy.selection.base_selector import BaseSelector
 
 class RandomSP500Selector(BaseSelector):
     def __init__(self, num_tickers: int = 10, random_seed_setting: str = None, training_period: int = 3):

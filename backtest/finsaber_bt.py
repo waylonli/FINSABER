@@ -5,8 +5,9 @@ import pandas as pd
 from tqdm import tqdm
 from tabulate import tabulate
 from backtest.toolkit.trade_config import TradeConfig
-from backtest.toolkit.operation_utils import add_tickers_data, get_tickers_price
-from backtest.strategy.selection import *
+from backtest.toolkit.operation_utils import add_tickers_data, get_tickers_price, get_tickers_price_from_data_loader
+from backtest.toolkit.result_writer import write_result_artifacts
+from backtest.strategy.selection import FinMemSelector
 import warnings
 import pickle
 import matplotlib.pyplot as plt
@@ -26,6 +27,7 @@ class FINSABERBt:
         :param config: The configuration for the trade operator
         """
         self.trade_config = TradeConfig.from_dict(config)
+        self._price_data_cache = {}
 
 
     def run_rolling_window(self, strategy: bt.Strategy, process: callable = None, **kwargs):
@@ -58,7 +60,7 @@ class FINSABERBt:
             date_from += pd.DateOffset(years=rolling_window_step)
 
         eval_metrics = {}
-        windows_loop = tqdm(rolling_windows)
+        windows_loop = tqdm(rolling_windows, disable=self.trade_config.silence)
 
         for window in windows_loop:
             windows_loop.set_description(f"Processing window {window[0].strftime('%Y')} to {window[1].strftime('%Y')}")
@@ -68,7 +70,8 @@ class FINSABERBt:
                 window[0].strftime("%Y-%m-%d"),
                 window[1].strftime("%Y-%m-%d")
             )
-            print(f"Selected tickers for the period {window[0].strftime('%Y')} to {window[1].strftime('%Y')}: {self.trade_config.tickers}")
+            if not self.trade_config.silence:
+                print(f"Selected tickers for the period {window[0].strftime('%Y')} to {window[1].strftime('%Y')}: {self.trade_config.tickers}")
 
             test_config = self.trade_config.to_dict()
             test_config["date_from"] = window[0].strftime("%Y-%m-%d")
@@ -84,7 +87,7 @@ class FINSABERBt:
             os.makedirs(output_dir, exist_ok=True)
             with open(os.path.join(output_dir, filename), "wb") as f:
                 pickle.dump(eval_metrics, f)
-            f.close()
+            write_result_artifacts(output_dir, self.trade_config.to_dict(), eval_metrics)
 
         return eval_metrics
 
@@ -104,7 +107,13 @@ class FINSABERBt:
 
         eval_metrics = {}
 
-        tickers_loop = test_config.tickers if test_config.tickers != "all" else get_tickers_price("all")["symbol"].unique()
+        tickers_loop = (
+            test_config.data_loader.get_tickers_list()
+            if test_config.tickers == "all" and test_config.data_loader is not None
+            else test_config.tickers
+        )
+        if test_config.tickers == "all" and test_config.data_loader is None:
+            tickers_loop = get_tickers_price("all", return_original=True)["symbol"].unique()
 
         for ticker in tickers_loop:
 
@@ -112,13 +121,19 @@ class FINSABERBt:
 
             cerebro = bt.Cerebro()
 
-            pd_data = get_tickers_price(ticker, date_from=test_config.date_from, date_to=test_config.date_to)
+            pd_data = self._get_ticker_price_data(
+                ticker=ticker,
+                date_from=test_config.date_from,
+                date_to=test_config.date_to,
+                test_config=test_config,
+            )
             train_data = None
+            strategy_kwargs = dict(kwargs)
 
-            for additional_arg in kwargs:
+            for additional_arg in strategy_kwargs:
                 # if it is callable, call it
-                if callable(kwargs[additional_arg]):
-                    kwargs[additional_arg] = kwargs[additional_arg](pd_data)
+                if callable(strategy_kwargs[additional_arg]):
+                    strategy_kwargs[additional_arg] = strategy_kwargs[additional_arg](pd_data)
 
             if "prior_period" in vars(strategy.params).keys():
                 if test_config.training_years is not None:
@@ -128,18 +143,21 @@ class FINSABERBt:
                     raise ValueError("prior_period must be a multiple of 252")
 
                 prior_year = strategy.params.prior_period // 252
-                prior_data = get_tickers_price(
+                prior_data = self._get_ticker_price_data(
                     ticker,
                     date_from=(pd.to_datetime(test_config.date_from) - pd.DateOffset(years=prior_year)).strftime("%Y-%m-%d"),
-                    date_to=(pd.to_datetime(test_config.date_from) - pd.DateOffset(days=1)).strftime("%Y-%m-%d")
+                    date_to=(pd.to_datetime(test_config.date_from) - pd.DateOffset(days=1)).strftime("%Y-%m-%d"),
+                    test_config=test_config,
                 )
 
                 if prior_data is not None:
                     if prior_data.index.min().year > pd.to_datetime(test_config.date_from).year - prior_year:
-                        print(f"Prior data for {ticker} is not enough at year {pd.to_datetime(test_config.date_from).year}")
+                        if not test_config.silence:
+                            print(f"Prior data for {ticker} is not enough at year {pd.to_datetime(test_config.date_from).year}")
                         continue
                 else:
-                    print(f"No prior data for {ticker} at year {pd.to_datetime(test_config.date_from).year}")
+                    if not test_config.silence:
+                        print(f"No prior data for {ticker} at year {pd.to_datetime(test_config.date_from).year}")
                     continue
 
             # if the model needs to be trained, set the training data that are not used for backtesting
@@ -151,23 +169,27 @@ class FINSABERBt:
                     raise ValueError("train_period must be a multiple of 252")
 
                 train_year = strategy.params.train_period // 252
-                train_data = get_tickers_price(
+                train_data = self._get_ticker_price_data(
                     ticker,
                     date_from=(pd.to_datetime(test_config.date_from) - pd.DateOffset(years=train_year)).strftime("%Y-%m-%d"),
-                    date_to=(pd.to_datetime(test_config.date_from) - pd.DateOffset(days=1)).strftime("%Y-%m-%d")
+                    date_to=(pd.to_datetime(test_config.date_from) - pd.DateOffset(days=1)).strftime("%Y-%m-%d"),
+                    test_config=test_config,
                 )
 
-                kwargs["train_data"] = train_data
+                strategy_kwargs["train_data"] = train_data
 
-            # skip if no data or data is not start from January
-            if (pd_data is None or pd_data.index.min().month != 1 or len(pd_data) < 21) and ("cherry_pick" not in test_config.setup_name):
-                # print(f"No data in the period {test_config.date_from} to {test_config.date_to} for {ticker}")
+            # Explicit backtests should not require January-start windows; only require enough bars.
+            min_bars = 2
+            if pd_data is None or pd_data.empty or len(pd_data) < min_bars:
+                if not test_config.silence:
+                    print(f"No usable data in the period {test_config.date_from} to {test_config.date_to} for {ticker}")
                 continue
 
             # skip if no enough data for training
             if train_data is not None:
                 if train_data.index.min().year > pd.to_datetime(test_config.date_from).year - train_year:
-                    print(f"Train data for {ticker} is not enough at year {pd.to_datetime(test_config.date_from).year}")
+                    if not test_config.silence:
+                        print(f"Train data for {ticker} is not enough at year {pd.to_datetime(test_config.date_from).year}")
                     continue
 
             # detect if the stock is delisted in the middle of the period, if it is, assign 0 price to the missing dates
@@ -179,28 +201,51 @@ class FINSABERBt:
 
             if last_data_date < last_expected_date - pd.DateOffset(days=3):
                 # If the last data date is more than 3 days before the last expected date (avoid weekend or holidays), we assume the stock is delisted
-                print(
-                    f"{ticker} appears to be delisted on {last_data_date.strftime('%Y-%m-%d')}, applying 7 days delisting announcement period.")
+                if not test_config.silence:
+                    print(
+                        f"{ticker} appears to be delisted on {last_data_date.strftime('%Y-%m-%d')}, applying 7 days delisting announcement period.")
 
                 # remove the last 7 days of data
                 pd_data = pd_data[pd_data.index <= last_data_date - pd.DateOffset(days=7)]
 
-            # check again
-            if ((pd_data is None or pd_data.index.min().month != 1 or len(pd_data) < 21) and (
-                    "cherry_pick" not in test_config.setup_name)):
-                print(f"Not enough data in the period {test_config.date_from} to {test_config.date_to} for {ticker}")
+            # check again after potential delisting truncation
+            if pd_data is None or pd_data.empty or len(pd_data) < min_bars:
+                if not test_config.silence:
+                    print(f"Not enough data in the period {test_config.date_from} to {test_config.date_to} for {ticker}")
                 continue
 
             add_tickers_data(cerebro, pd_data)
 
             # Add a strategy
-            cerebro.addstrategy(strategy, total_days=len(set(pd_data.index.tolist())), **kwargs)
+            cerebro.addstrategy(strategy, total_days=len(set(pd_data.index.tolist())), **strategy_kwargs)
 
             # Set our desired cash start
             cerebro.broker.setcash(test_config.cash)
-            commission_scheme = USStockCommission()
+            commission_scheme = USStockCommission(
+                commission_per_share=test_config.commission_per_share,
+                min_commission=test_config.min_commission,
+                max_commission_rate=test_config.max_commission_rate,
+            )
             cerebro.broker.addcommissioninfo(commission_scheme)
             cerebro.broker.set_shortcash(False)
+            if test_config.execution_timing == "same_close":
+                cerebro.broker.set_coc(True)
+            if test_config.slippage_perc > 0:
+                cerebro.broker.set_slippage_perc(
+                    test_config.slippage_perc,
+                    slip_open=True,
+                    slip_limit=True,
+                    slip_match=True,
+                    slip_out=False,
+                )
+            if test_config.liquidity_cap_pct > 0:
+                cerebro.broker.set_filler(
+                    MovingAverageVolumePercFiller(
+                        cap_pct=test_config.liquidity_cap_pct,
+                        lookback_days=test_config.liquidity_lookback_days,
+                        min_history_days=test_config.liquidity_min_history_days,
+                    )
+                )
 
             # Add observers
             cerebro.addobserver(bt.observers.Value)
@@ -260,9 +305,28 @@ class FINSABERBt:
             filename = f"{test_config.date_from}_{test_config.date_to}.pkl" if test_config.result_filename is None else test_config.result_filename
             os.makedirs(output_dir, exist_ok=True)
             with open(os.path.join(output_dir, filename), "wb") as f:
-                pickle.dump({f"{test_config.date_from}_{test_config.date_to}": eval_metrics}, f)
-            f.close()
+                output_results = {f"{test_config.date_from}_{test_config.date_to}": eval_metrics}
+                pickle.dump(output_results, f)
+            write_result_artifacts(output_dir, test_config.to_dict(), output_results)
         return eval_metrics
+
+    def _get_ticker_price_data(self, ticker, date_from, date_to, test_config):
+        cache_key = (ticker, date_from, date_to, id(test_config.data_loader))
+        if cache_key in self._price_data_cache:
+            return self._price_data_cache[cache_key]
+
+        if test_config.data_loader is not None:
+            price_data = get_tickers_price_from_data_loader(
+                test_config.data_loader,
+                ticker,
+                date_from=date_from,
+                date_to=date_to,
+            )
+        else:
+            price_data = get_tickers_price(ticker, date_from=date_from, date_to=date_to)
+
+        self._price_data_cache[cache_key] = price_data
+        return price_data
 
 
 
@@ -283,6 +347,7 @@ class FINSABERBt:
         max_drawdown = strategy.analyzers.mydrawdown.get_analysis().max.drawdown
         total_return = strategy.broker.getvalue() / test_config.cash - 1
         total_return_cash = strategy.broker.getvalue() - test_config.cash
+        total_commission = sum(order.get("commission", 0) for order in getattr(strategy, "executed_orders", []))
         annual_metrics = self._calculate_annualized_metrics(strategy, test_config=test_config)
 
         if print_details:
@@ -296,6 +361,7 @@ class FINSABERBt:
             print(f"Total return (%): {total_return:.2%}")
             print(f"Max drawdown (%): {max_drawdown:.2f}%")
             print(f"Number of trades: {len(strategy.trades)}")
+            print(f"Total commission: {total_commission:.2f}")
 
         if print_annual_metrics:
             print("-" * 50)
@@ -323,7 +389,11 @@ class FINSABERBt:
             'annual_volatility': annual_metrics['Annual Volatility'],
             'sortino_ratio': annual_metrics['Sortino Ratio'],
             'max_drawdown': max_drawdown,
-            'total_return': total_return
+            'total_return': total_return,
+            'total_commission': total_commission,
+            'total_slippage': 0.0,
+            'total_trading_cost': total_commission,
+            'executed_orders': pd.DataFrame(getattr(strategy, "executed_orders", [])),
         }
 
 
@@ -386,6 +456,7 @@ class USStockCommission(bt.CommInfoBase):
     params = (
         ('commission_per_share', 0.0049),  # $0.0049 per share
         ('min_commission', 0.99),  # Minimum $0.99 per order
+        ('max_commission_rate', 0.01),
         ('stocklike', True),
         ('commtype', bt.CommInfoBase.COMM_FIXED),  # Fixed commission per share
     )
@@ -398,4 +469,28 @@ class USStockCommission(bt.CommInfoBase):
         txn_amount = abs(size * price)
 
         # Apply both minimum and maximum constraints
-        return min(max(commission, self.p.min_commission), 0.01 * txn_amount)
+        return min(max(commission, self.p.min_commission), self.p.max_commission_rate * txn_amount)
+
+
+class MovingAverageVolumePercFiller:
+    def __init__(self, cap_pct=0.0, lookback_days=20, min_history_days=1):
+        self.cap_pct = cap_pct
+        self.lookback_days = lookback_days
+        self.min_history_days = min_history_days
+
+    def __call__(self, order, price, ago):
+        volumes = []
+        for offset in range(1, self.lookback_days + 1):
+            try:
+                volume = order.data.volume[ago - offset]
+            except IndexError:
+                continue
+            if volume and volume > 0:
+                volumes.append(volume)
+
+        if len(volumes) < self.min_history_days:
+            return 0
+
+        average_volume = sum(volumes) / len(volumes)
+        max_size = int(average_volume * self.cap_pct)
+        return min(max_size, abs(order.executed.remsize))

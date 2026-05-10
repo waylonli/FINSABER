@@ -1,19 +1,35 @@
 import datetime
 import os
-import backtrader as bt
-import datasets as ds
 import pandas as pd
 from tqdm import tqdm
-from dotenv import load_dotenv
-import pandas_datareader.data as web
 import pickle
+
+try:
+    import backtrader as bt
+except ImportError:
+    bt = None
+
+try:
+    import datasets as ds
+except ImportError:
+    ds = None
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = lambda: None
+
+try:
+    import pandas_datareader.data as web
+except ImportError:
+    web = None
+
 load_dotenv()
 HF_ACCESS_TOKEN = os.getenv("HF_ACCESS_TOKEN")
 try:
     import pwb_toolbox.datasets as pwb_ds
-except Exception as e:
-    # log a warning message
-    print(f"Warning: pwb_toolbox is not imported properly with error message: {e}")
+except Exception:
+    pwb_ds = None
 
 
 def load_price_dataset(
@@ -25,6 +41,8 @@ def load_price_dataset(
 ) -> pd.DataFrame:
 
     if dataset_type == "paperswithbacktest":
+        if pwb_ds is None:
+            raise ImportError("pwb_toolbox is required to load the paperswithbacktest dataset.")
         return pwb_ds.load_dataset(
             "Stocks-Daily-Price",
             symbols,
@@ -99,56 +117,134 @@ def get_tickers_price(
     df = df[(df["date"] >= pd.to_datetime(extended_date_from)) & (df["date"] < pd.to_datetime(date_to))]
     df = df.sort_values(["symbol", "date"])
 
-    # Function to compute indicators on a per-symbol basis
-    def compute_indicators(g):
-        g = g.sort_values("date")
+    return _prepare_price_frame(df, date_from=date_from, date_to=date_to, return_original=return_original)
 
-        # Simple moving averages
-        g["SMA_5"] = g["close"].rolling(5).mean()
-        g["SMA_10"] = g["close"].rolling(10).mean()
-        g["SMA_15"] = g["close"].rolling(15).mean()
-        g["SMA_30"] = g["close"].rolling(30).mean()
 
-        # Exponential moving average
-        g["EMA_9"] = g["close"].ewm(span=9, adjust=False).mean()
+def get_tickers_price_from_data_loader(
+    data_loader,
+    tickers: list[str] | str,
+    date_from: str = "2000-01-01",
+    date_to: str = "2024-01-01",
+    return_original: bool = False,
+    adjust: bool = True,
+) -> pd.DataFrame:
+    extended_date_from = (pd.to_datetime(date_from) - datetime.timedelta(days=30)).strftime("%Y-%m-%d")
 
-        # RSI
-        delta = g["close"].diff()
-        gain = delta.clip(lower=0)
-        loss = (-delta).clip(lower=0)
-        avg_gain = gain.rolling(window=14).mean()
-        avg_loss = loss.rolling(window=14).mean()
-        rs = avg_gain / avg_loss
-        g["RSI"] = 100 - (100 / (1 + rs))
+    if hasattr(data_loader, "get_price_dataframe"):
+        df = data_loader.get_price_dataframe(
+            tickers=tickers,
+            date_from=extended_date_from,
+            date_to=date_to,
+            adjust=adjust,
+        )
+    else:
+        df = _build_price_dataframe_from_trading_data(
+            data_loader=data_loader,
+            tickers=tickers,
+            date_from=extended_date_from,
+            date_to=date_to,
+            adjust=adjust,
+        )
 
-        # MACD
-        short_ema = g["close"].ewm(span=12, adjust=False).mean()
-        long_ema = g["close"].ewm(span=26, adjust=False).mean()
-        macd_line = short_ema - long_ema
-        signal_line = macd_line.ewm(span=9, adjust=False).mean()
-        g["MACD"] = macd_line
-        g["MACD_signal"] = signal_line
-        g["MACD_hist"] = macd_line - signal_line
+    if df is None or df.empty:
+        return None
 
-        return g
+    return _prepare_price_frame(df, date_from=date_from, date_to=date_to, return_original=return_original)
 
-    # Apply indicators per symbol
-    df = df.groupby("symbol", group_keys=False).apply(compute_indicators)
 
-    # Filter out rows earlier than original date_from
+def _build_price_dataframe_from_trading_data(data_loader, tickers, date_from, date_to, adjust=True):
+    ticker_set = set(data_loader.get_tickers_list() if tickers == "all" else ([tickers] if isinstance(tickers, str) else tickers))
+    subset = data_loader.get_subset_by_time_range(date_from, date_to)
+    if subset is None:
+        return None
+
+    records = []
+    for date in subset.get_date_range():
+        daily_prices = subset.get_data_by_date(date).get("price", {})
+        for symbol, price in daily_prices.items():
+            if symbol not in ticker_set:
+                continue
+            if isinstance(price, dict):
+                if adjust and "adjusted_close" in price and "close" in price:
+                    adjustment = 0 if price["close"] == 0 else price["adjusted_close"] / price["close"]
+                    open_price = price.get("adjusted_open", price.get("open", 0) * adjustment)
+                    high_price = price.get("adjusted_high", price.get("high", 0) * adjustment)
+                    low_price = price.get("adjusted_low", price.get("low", 0) * adjustment)
+                    close_price = price["adjusted_close"]
+                else:
+                    open_price = price.get("open", price.get("close", price.get("adjusted_close")))
+                    high_price = price.get("high", price.get("close", price.get("adjusted_close")))
+                    low_price = price.get("low", price.get("close", price.get("adjusted_close")))
+                    close_price = price.get("close", price.get("adjusted_close"))
+                volume = price.get("volume", 0)
+            else:
+                open_price = high_price = low_price = close_price = price
+                volume = 0
+            records.append({
+                "date": pd.to_datetime(date),
+                "symbol": symbol,
+                "open": open_price,
+                "high": high_price,
+                "low": low_price,
+                "close": close_price,
+                "volume": volume,
+            })
+
+    return pd.DataFrame.from_records(records)
+
+
+def _compute_indicators(g):
+    g = g.sort_values("date")
+
+    g["SMA_5"] = g["close"].rolling(5).mean()
+    g["SMA_10"] = g["close"].rolling(10).mean()
+    g["SMA_15"] = g["close"].rolling(15).mean()
+    g["SMA_30"] = g["close"].rolling(30).mean()
+
+    g["EMA_9"] = g["close"].ewm(span=9, adjust=False).mean()
+
+    delta = g["close"].diff()
+    gain = delta.clip(lower=0)
+    loss = (-delta).clip(lower=0)
+    avg_gain = gain.rolling(window=14).mean()
+    avg_loss = loss.rolling(window=14).mean()
+    rs = avg_gain / avg_loss
+    g["RSI"] = 100 - (100 / (1 + rs))
+
+    short_ema = g["close"].ewm(span=12, adjust=False).mean()
+    long_ema = g["close"].ewm(span=26, adjust=False).mean()
+    macd_line = short_ema - long_ema
+    signal_line = macd_line.ewm(span=9, adjust=False).mean()
+    g["MACD"] = macd_line
+    g["MACD_signal"] = signal_line
+    g["MACD_hist"] = macd_line - signal_line
+
+    return g
+
+
+def _prepare_price_frame(df: pd.DataFrame, date_from: str, date_to: str, return_original: bool = False) -> pd.DataFrame:
+    df = df.copy()
+    df["date"] = pd.to_datetime(df["date"])
+    df = df[(df["date"] >= pd.to_datetime(date_from) - datetime.timedelta(days=30)) & (df["date"] < pd.to_datetime(date_to))]
+    df = df.sort_values(["symbol", "date"])
+    df = pd.concat(
+        [_compute_indicators(group) for _, group in df.groupby("symbol", sort=False)],
+        ignore_index=True,
+    )
     df = df[df["date"] >= pd.to_datetime(date_from)]
 
-    # if df becomes empty, return None
     if df.empty:
         return None
 
-    # Pivot to have open, high, low, close, and indicators in columns
+    if return_original:
+        return df
+
     pivot_df = pd.pivot_table(
         df,
         index="date",
         columns="symbol",
         values=[
-            "open", "high", "low", "close",
+            "open", "high", "low", "close", "volume",
             "SMA_5", "SMA_10", "SMA_15", "SMA_30",
             "EMA_9", "RSI",
             "MACD", "MACD_signal", "MACD_hist"
@@ -167,10 +263,13 @@ def get_tickers_price(
     except Exception:
         return None
 
-    return pivot_df if not return_original else df
+    return pivot_df
 
 
-def add_tickers_data(cerebro: bt.Cerebro, pivot_df: pd.DataFrame):
+def add_tickers_data(cerebro, pivot_df: pd.DataFrame):
+    if bt is None:
+        raise ImportError("backtrader is required to add data feeds to Cerebro.")
+
     datas = []
     # Process data and add to Cerebro
     for symbol in pivot_df.columns.levels[1]:
@@ -214,6 +313,9 @@ def process_for_ff(df: pd.DataFrame):
     end_date = pd.to_datetime(end_date)
 
     # Fetch the Five-Factor data
+    if web is None:
+        raise ImportError("pandas_datareader is required to load Fama-French factors.")
+
     ff_factors = web.DataReader('F-F_Research_Data_5_Factors_2x3_daily', 'famafrench', start=start_date, end=end_date)[
         0]
 
@@ -233,6 +335,9 @@ def process_for_ff(df: pd.DataFrame):
 
 
 def get_indices_data():
+    if ds is None:
+        raise ImportError("datasets is required to load index data.")
+
     dataset = ds.load_dataset(
         "paperswithbacktest/Indices-Daily-Price", token=HF_ACCESS_TOKEN
     )
@@ -269,6 +374,9 @@ def get_indices_data():
 
 
 def get_etfs_data():
+    if ds is None:
+        raise ImportError("datasets is required to load ETF data.")
+
     dataset = ds.load_dataset(
         "paperswithbacktest/ETFs-Daily-Price", token=HF_ACCESS_TOKEN, cache_dir="data/hf/"
     )

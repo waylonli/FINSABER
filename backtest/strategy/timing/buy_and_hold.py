@@ -1,8 +1,4 @@
-from backtest.strategy.selection import RandomSP500Selector
 from backtest.strategy.timing.base_strategy import BaseStrategy
-from backtest.finsaber_bt import FINSABERBt
-from backtest.toolkit.operation_utils import aggregate_results_one_strategy
-from backtest.strategy.selection import *
 
 # Create a Strategy
 class BuyAndHoldStrategy(BaseStrategy):
@@ -31,6 +27,8 @@ class BuyAndHoldStrategy(BaseStrategy):
 
 
 if __name__ == '__main__':
+    from backtest.finsaber_bt import FINSABERBt
+    from backtest.strategy.selection import RandomSP500Selector
 
     # trade_config = {
     #     "tickers": [

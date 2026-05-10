@@ -6,9 +6,15 @@ llm_traders/finagent/workdir
 /llm_traders/finmem/.env
 /llm_traders/finmem/data
 /workdir
+/tmp/
+/build/
+/dist/
+/site/
+/*.egg-info/
 /scripts
 /backtest/scripts
 .cache
+.pytest_cache/
 .vscode
 .DS_Store
 /backtest/__pycache__/
@@ -56,3 +62,4 @@ backtest/output/.DS_Store
 backup
 *.pyc
 backtest/output/selected_5/FinMemStrategy/.DS_Store
+AGENTS.md

@@ -1,0 +1,52 @@
+site_name: FINSABER-2
+site_description: Package-oriented financial backtesting framework for price, news, filings, and extensible market data.
+site_url: https://waylonli.github.io/FINSABER-2/
+repo_url: https://github.com/waylonli/FINSABER-2
+repo_name: waylonli/FINSABER-2
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - content.code.copy
+    - content.tabs.link
+  palette:
+    - scheme: default
+      primary: blue grey
+      accent: teal
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Quick Start: quickstart.md
+  - Data: data.md
+  - Strategies: strategies.md
+  - Execution Model: execution.md
+  - Results: results.md
+  - Validation: validation.md
+  - Examples: examples.md
+  - API Reference: api.md
+  - Deployment: deployment.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: true
+            show_root_heading: true
+            docstring_style: google
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.tabbed:
+      alternate_style: true
