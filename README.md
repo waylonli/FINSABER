@@ -48,22 +48,7 @@ python -m build --wheel
 
 ## Documentation
 
-The documentation source is in `docs/` and is built with MkDocs Material. The public site for this repository is expected at:
-
-```text
-https://waylonli.github.io/FINSABER/
-```
-
-```bash
-pip install -e ".[docs]"
-mkdocs serve
-```
-
-Open `http://127.0.0.1:8000` for local preview. GitHub Pages deployment is handled by `.github/workflows/docs.yml`; enable Pages with **Source: GitHub Actions**. While the upgraded framework is staged on `v2.0`, pushes to `v2.0` rebuild and publish the documentation; after `v2.0` replaces `main`, pushes to `main` will do the same.
-
-```bash
-mkdocs build --strict
-```
+Read the FINSABER-2 documentation at [https://waylonli.github.io/FINSABER/](https://waylonli.github.io/FINSABER/).
 
 ## Quick Start
 
