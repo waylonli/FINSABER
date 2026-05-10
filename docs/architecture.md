@@ -2,6 +2,10 @@
 
 FINSABER separates the reusable backtesting framework from research strategy implementations. The package boundary is the `backtest` package; examples, LLM agents, RL agents, and experiment launchers remain repository-level research code.
 
+## Framework Figure
+
+![FINSABER framework pipeline](assets/framework.png){ .finsaber-figure }
+
 ## Core Flow
 
 ```mermaid

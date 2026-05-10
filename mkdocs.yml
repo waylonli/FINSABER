@@ -6,8 +6,8 @@ repo_name: waylonli/FINSABER
 
 theme:
   name: material
-  logo: assets/logo.svg
-  favicon: assets/logo.svg
+  logo: assets/finsaber-logo-light.png
+  favicon: assets/finsaber-logo-light.png
   features:
     - navigation.tabs
     - navigation.sections
@@ -33,17 +33,19 @@ extra_javascript:
 
 nav:
   - Home: index.md
-  - Installation: installation.md
-  - Architecture: architecture.md
-  - Quick Start: quickstart.md
-  - Data: data.md
-  - Strategies: strategies.md
-  - Execution Model: execution.md
-  - Results: results.md
-  - Validation: validation.md
-  - Examples: examples.md
+  - Get Started:
+      - Installation: installation.md
+      - Quick Start: quickstart.md
+      - Examples: examples.md
+  - Framework:
+      - Architecture: architecture.md
+      - Data: data.md
+      - Strategies: strategies.md
+      - Execution Model: execution.md
+  - Evaluation:
+      - Results: results.md
+      - Validation: validation.md
   - API Reference: api.md
-  - Deployment: deployment.md
 
 plugins:
   - search

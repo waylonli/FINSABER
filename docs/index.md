@@ -1,9 +1,9 @@
 <section class="finsaber-hero">
   <span class="finsaber-eyebrow">FINSABER v2.0</span>
-  <h1>Backtesting financial strategies with explicit data, execution, and cost assumptions.</h1>
+  <h1>Financial backtesting, made explicit.</h1>
   <p>
-    FINSABER upgrades the original research code into a package-oriented framework for evaluating
-    price, news, filings, and extensible market data without hiding timing, adjustment, or trading-cost rules.
+    A package-oriented framework for evaluating strategies over prices, news, filings, and extensible market data
+    with clear timing, adjustment, liquidity, slippage, and LLM-cost assumptions.
   </p>
   <div class="finsaber-actions">
     <a class="md-button md-button--primary" href="quickstart/">Run a backtest</a>
@@ -23,7 +23,7 @@ FINSABER is a research framework for evaluating financial trading strategies ove
   <div class="finsaber-metric"><strong>CSV/JSON</strong><span>Result artifacts</span></div>
 </div>
 
-## What Is Included
+## Framework Highlights
 
 <div class="finsaber-grid">
   <a class="finsaber-card" href="data/">
@@ -44,20 +44,15 @@ FINSABER is a research framework for evaluating financial trading strategies ove
   </a>
 </div>
 
-## Package Boundary
+The installable wheel intentionally focuses on reusable backtesting infrastructure. Paper-specific FinMem, FinAgent, FinCon, and FinRL integrations remain available in the repository, but the package exports data loaders, execution models, metrics, result writers, selectors, and strategy interfaces.
 
-The wheel intentionally excludes paper-specific agent and RL implementations:
+## Workflow
 
-- `llm_traders/`
-- `rl_traders/`
-- experiment runner scripts
-- generated outputs and private datasets
+The repository includes the original FINSABER pipeline figure:
 
-Those integrations remain available in the repository for research experiments, but the package focuses on reusable backtesting infrastructure.
+![FINSABER framework pipeline](assets/framework.png){ .finsaber-figure }
 
-## How The Framework Works
-
-FINSABER follows a simple pipeline:
+At the framework level, the upgraded backtesting path follows this lifecycle:
 
 ```mermaid
 flowchart LR
@@ -73,7 +68,7 @@ flowchart LR
 
 The dataset implements `TradingData`, the config defines the market universe and execution assumptions, the engine iterates through dates and tickers, the strategy emits decisions, and the execution layer applies fills, costs, liquidity constraints, and metrics. See [Architecture](architecture.md) for the detailed lifecycle.
 
-## Typical Workflow
+## Start Quickly
 
 === "Package usage"
 
@@ -119,30 +114,7 @@ The dataset implements `TradingData`, the config defines the market universe and
             framework.buy(date, "AAPL", price, -1)
     ```
 
-## Minimal Example
-
-```python
-from backtest import FINSABERBt, FinsaberParquetDataset
-from backtest.strategy.timing import BuyAndHoldStrategy
-
-data = FinsaberParquetDataset(r"I:\Data\finsaber2\sp500_2000_2025_parquet")
-
-config = {
-    "data_loader": data,
-    "tickers": ["AAPL"],
-    "date_from": "2024-01-02",
-    "date_to": "2024-01-10",
-    "setup_name": "demo",
-    "execution_timing": "next_open",
-    "save_results": True,
-    "silence": True,
-}
-
-results = FINSABERBt(config).run_iterative_tickers(BuyAndHoldStrategy)
-print(results["AAPL"]["total_return"])
-```
-
-## When To Use Each Engine
+## Engines
 
 Use `FINSABERBt` for Backtrader-compatible timing strategies and baseline technical strategies.
 

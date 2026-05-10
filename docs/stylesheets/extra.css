@@ -34,9 +34,9 @@
 .md-typeset .finsaber-hero {
   position: relative;
   overflow: hidden;
-  margin: -0.4rem 0 2rem;
-  padding: 3.5rem 3rem;
-  border-radius: 28px;
+  margin: -0.2rem 0 1.6rem;
+  padding: 2.35rem 2.4rem;
+  border-radius: 24px;
   color: #fff7e6;
   background:
     radial-gradient(circle at 85% 18%, rgba(217, 159, 43, 0.42), transparent 24rem),
@@ -77,18 +77,18 @@
 }
 
 .md-typeset .finsaber-hero h1 {
-  max-width: 880px;
+  max-width: 720px;
   margin: 0;
   color: #fff7e6;
-  font-size: clamp(2rem, 5vw, 4.2rem);
-  line-height: 0.98;
+  font-size: clamp(1.9rem, 3.6vw, 3.2rem);
+  line-height: 1.03;
 }
 
 .md-typeset .finsaber-hero p {
-  max-width: 760px;
-  margin-top: 1.2rem;
+  max-width: 720px;
+  margin-top: 0.9rem;
   color: rgba(255, 247, 230, 0.82);
-  font-size: 1.05rem;
+  font-size: 0.95rem;
 }
 
 .md-typeset .finsaber-actions {
@@ -197,13 +197,24 @@
   background: #fbfdfd;
 }
 
+.md-typeset .finsaber-figure {
+  display: block;
+  width: 100%;
+  max-width: 980px;
+  margin: 1.3rem auto 1.8rem;
+  border: 1px solid var(--finsaber-border);
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 18px 52px rgba(11, 31, 42, 0.12);
+}
+
 @media screen and (max-width: 760px) {
   .md-typeset .finsaber-hero {
-    padding: 2.3rem 1.25rem;
+    padding: 2rem 1.2rem;
     border-radius: 20px;
   }
 
   .md-typeset .finsaber-hero h1 {
-    font-size: 2.15rem;
+    font-size: 2rem;
   }
 }
