@@ -10,7 +10,7 @@
 
 ## News
 
-- **[2026]** FINSABER has been upgraded to **FINSABER-2**. The backtesting framework is now package-oriented, supports the new parquet dataset format, and includes explicit execution timing, adjusted OHLC handling, slippage, liquidity caps, structured result artifacts, and LLM cost accounting.
+- **[11/05/2026]** FINSABER has been upgraded to **FINSABER-2**. The backtesting framework is now package-oriented, supports the new parquet dataset format, and includes explicit execution timing, adjusted OHLC handling, slippage, liquidity caps, structured result artifacts, and LLM cost accounting.
 - **[24/11/2025]** We are excited to announce that FINSABER has been accepted to **KDD 2026**.
 - **[19/06/2025]** Code and initial benchmarks released.
 
