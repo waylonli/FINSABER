@@ -14,7 +14,7 @@ The example buys and holds `AAPL` over a short date range. It is intentionally s
 ```python
 from finsaber import FinsaberParquetDataset
 
-data = FinsaberParquetDataset(r"I:\Data\finsaber2\sp500_2000_2025_parquet")
+data = FinsaberParquetDataset("/path/to/sp500_2000_2025_parquet")
 ```
 
 The loader reads daily prices plus optional news and filings. It returns data through the common `TradingData` interface, so the engine does not need to know whether the source is parquet, memory, or a custom database.
@@ -51,7 +51,7 @@ The important financial choice is `execution_timing="next_open"`. The strategy o
     from finsaber import FINSABERBt, FinsaberParquetDataset
     from finsaber.strategy.timing import BuyAndHoldStrategy
 
-    data = FinsaberParquetDataset(r"I:\Data\finsaber2\sp500_2000_2025_parquet")
+    data = FinsaberParquetDataset("/path/to/sp500_2000_2025_parquet")
 
     config = {
         "data_loader": data,
@@ -85,7 +85,7 @@ The important financial choice is `execution_timing="next_open"`. The strategy o
             if "AAPL" not in framework.portfolio:
                 framework.buy(date, "AAPL", bar["adjusted_close"], -1)
 
-    data = FinsaberParquetDataset(r"I:\Data\finsaber2\sp500_2000_2025_parquet")
+    data = FinsaberParquetDataset("/path/to/sp500_2000_2025_parquet")
     config = {
         "data_loader": data,
         "tickers": ["AAPL"],
