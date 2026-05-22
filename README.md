@@ -296,15 +296,6 @@ python examples/experiments/run_llm_traders_exp.py --setup selected_4 --strategy
 
 FinMem, FinAgent, FinCon, and FinRL integrations remain in `llm_traders/` and `rl_traders/` for repository experiments.
 
-## Validation
-
-Run tests:
-
-```bash
-python -m pytest -q tests
-```
-
-The local FINSABER-2 parquet validation report is generated from an ignored script under `tmp/` and should not be committed. Current validation flags a small number of zero-price/OHLC issues, extreme adjustment factors, and duplicate filing accessions that should be filtered or corrected before large-scale production runs.
 
 ## Citation
 
