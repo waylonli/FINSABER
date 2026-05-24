@@ -68,7 +68,7 @@ Non-LLM baseline experiments do not require an OpenAI key.
 The paper uses aggregated price, news, and filing data hosted at:
 
 ```text
-https://huggingface.co/datasets/waylonli/FINSABER-data
+https://huggingface.co/datasets/finsaber-team/FINSABER-reproduce
 ```
 
 The runners download the required files automatically when the data is missing locally. The first full run can download several gigabytes, so start with `selected_4` before running the larger S&P 500 setups.
