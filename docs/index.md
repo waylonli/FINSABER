@@ -1,5 +1,5 @@
 <section class="finsaber-hero">
-  <span class="finsaber-eyebrow">FINSABER v2.0</span>
+  <span class="finsaber-eyebrow">FINSABER-2</span>
   <h1>Financial backtesting, made explicit.</h1>
   <p>
     A package-oriented framework for evaluating strategies over prices, news, filings, and extensible market data
@@ -14,7 +14,7 @@
 
 # FINSABER
 
-FINSABER is a research framework for evaluating financial trading strategies over price, news, filings, and extensible market data. The `v2.0` branch upgrades the original FINSABER code into a package-oriented backtesting framework with explicit execution assumptions and structured result artifacts.
+FINSABER is a research framework for evaluating financial trading strategies over price, news, filings, and extensible market data. FINSABER-2 upgrades the original FINSABER code into a package-oriented backtesting framework with explicit execution assumptions and structured result artifacts.
 
 <div class="finsaber-metric-row">
   <div class="finsaber-metric"><strong>2</strong><span>Backtest engines</span></div>

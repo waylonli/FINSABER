@@ -2,7 +2,7 @@
 
 [![Arxiv link](https://img.shields.io/static/v1?label=arXiv&message=2505.07078&color=red&logo=arxiv)](https://arxiv.org/abs/2505.07078)
 <a href="https://pypi.org/project/finsaber/"><img alt="PyPI" src="https://img.shields.io/pypi/v/finsaber"></a>
-[![Documentation](https://img.shields.io/badge/docs-FINSABER%20v2.0-15616d?logo=readthedocs&logoColor=white)](https://waylonli.github.io/FINSABER/)
+[![Documentation](https://img.shields.io/badge/docs-FINSABER--2-15616d?logo=readthedocs&logoColor=white)](https://waylonli.github.io/FINSABER/)
 [![Dataset](https://img.shields.io/badge/HuggingFace-FINSABER--V2--Data-yellow?logo=huggingface)](https://huggingface.co/datasets/finsaber-team/FINSABER-V2-Data)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/waylonli/FINSABER?style=social)]()
@@ -30,7 +30,6 @@ Use the branch that matches your workflow and dataset:
 | Branch | Use case | Dataset |
 | --- | --- | --- |
 | `main` | Current FINSABER-2 package workflow and active development | [FINSABER-V2-Data](https://huggingface.co/datasets/finsaber-team/FINSABER-V2-Data) |
-| `v2.0` | FINSABER-2 staging branch retained for development history | [FINSABER-V2-Data](https://huggingface.co/datasets/finsaber-team/FINSABER-V2-Data) |
 | `reproduce` | Reproduce FINSABER-1 experimental results with the v1.0 framework | [FINSABER-reproduce](https://huggingface.co/datasets/finsaber-team/FINSABER-reproduce) |
 
 If your goal is to reproduce the original paper experiments on the legacy FINSABER dataset, use the `reproduce` branch. Use `main` for new FINSABER-2 package development.

@@ -6,8 +6,8 @@ Use the branch that matches your workflow and dataset:
 
 | Branch | Use case | Dataset |
 | --- | --- | --- |
-| `v2.0` | FINSABER-2 package workflow (parquet layout) | [https://huggingface.co/datasets/finsaber-team/FINSABER-V2-Data](https://huggingface.co/datasets/finsaber-team/FINSABER-V2-Data) |
-| `main` | Legacy reproduction pipeline | [https://huggingface.co/datasets/finsaber-team/FINSABER-reproduce](https://huggingface.co/datasets/finsaber-team/FINSABER-reproduce) |
+| `main` | Current FINSABER-2 package workflow and active development | [https://huggingface.co/datasets/finsaber-team/FINSABER-V2-Data](https://huggingface.co/datasets/finsaber-team/FINSABER-V2-Data) |
+| `reproduce` | Reproduce FINSABER-1 experimental results with the v1.0 framework | [https://huggingface.co/datasets/finsaber-team/FINSABER-reproduce](https://huggingface.co/datasets/finsaber-team/FINSABER-reproduce) |
 
 ## Package Install
 
@@ -22,7 +22,6 @@ The package installs the reusable backtesting framework only.
 ```bash
 git clone https://github.com/waylonli/FINSABER
 cd FINSABER
-git checkout v2.0
 conda create -n trading python=3.10 -y
 conda activate trading
 python -m pip install -U pip setuptools wheel
