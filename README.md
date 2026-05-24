@@ -3,18 +3,19 @@
 [![Arxiv link](https://img.shields.io/static/v1?label=arXiv&message=2505.07078&color=red&logo=arxiv)](https://arxiv.org/abs/2505.07078)
 <a href="https://pypi.org/project/finsaber/"><img alt="PyPI" src="https://img.shields.io/pypi/v/finsaber"></a>
 [![Documentation](https://img.shields.io/badge/docs-FINSABER%20v2.0-15616d?logo=readthedocs&logoColor=white)](https://waylonli.github.io/FINSABER/)
+[![Dataset](https://img.shields.io/badge/HuggingFace-FINSABER--V2--Data-yellow?logo=huggingface)](https://huggingface.co/datasets/finsaber-team/FINSABER-V2-Data)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/waylonli/FINSABER?style=social)]()
 
 **Official implementation for the KDD 2026 paper: "Can LLM-based Financial Investing Strategies Outperform the Market in Long Run?"**
 
-## News
+## 📣 News
 
 - **[11/05/2026]** FINSABER has been upgraded to **FINSABER-2**. The backtesting framework is now package-oriented, supports the new parquet dataset format, and includes explicit execution timing, adjusted OHLC handling, slippage, liquidity caps, structured result artifacts, and LLM cost accounting.
 - **[24/11/2025]** We are excited to announce that FINSABER has been accepted to **KDD 2026**.
 - **[19/06/2025]** Code and initial benchmarks released.
 
-## Overview
+## 📖 Overview
 
 FINSABER is a framework for evaluating financial trading strategies, including traditional technical analysis, machine learning methods, and LLM-based agents. FINSABER-2 focuses on a cleaner reusable backtesting package over price, news, filings, and extensible market data.
 
@@ -28,8 +29,11 @@ Use the branch that matches your workflow and dataset:
 
 | Branch | Use case | Dataset |
 | --- | --- | --- |
-| `v2.0` | FINSABER-2 package workflow (parquet layout) | [https://huggingface.co/datasets/finsaber-team/FINSABER-V2-Data](https://huggingface.co/datasets/finsaber-team/FINSABER-V2-Data) |
-| `main` | Legacy reproduction pipeline | [https://huggingface.co/datasets/finsaber-team/FINSABER-reproduce](https://huggingface.co/datasets/finsaber-team/FINSABER-reproduce) |
+| `main` | Current FINSABER-2 package workflow and active development | [FINSABER-V2-Data](https://huggingface.co/datasets/finsaber-team/FINSABER-V2-Data) |
+| `v2.0` | FINSABER-2 staging branch retained for development history | [FINSABER-V2-Data](https://huggingface.co/datasets/finsaber-team/FINSABER-V2-Data) |
+| `reproduce` | Reproduce FINSABER-1 experimental results with the v1.0 framework | [FINSABER-reproduce](https://huggingface.co/datasets/finsaber-team/FINSABER-reproduce) |
+
+If your goal is to reproduce the original paper experiments on the legacy FINSABER dataset, use the `reproduce` branch. Use `main` for new FINSABER-2 package development.
 
 ## Install
 
@@ -39,12 +43,11 @@ For framework use:
 pip install finsaber
 ```
 
-For local development on `v2.0`:
+For local development on FINSABER-2:
 
 ```bash
 git clone https://github.com/waylonli/FINSABER
 cd FINSABER
-git checkout v2.0
 conda create -n trading python=3.10 -y
 conda activate trading
 python -m pip install -U pip setuptools wheel
@@ -296,6 +299,15 @@ python examples/experiments/run_llm_traders_exp.py --setup selected_4 --strategy
 
 FinMem, FinAgent, FinCon, and FinRL integrations remain in `llm_traders/` and `rl_traders/` for repository experiments.
 
+## Reproducing FINSABER-1 Results
+
+The original FINSABER-1 reproduction workflow is preserved on the `reproduce` branch:
+
+```bash
+git checkout reproduce
+```
+
+Use that branch if you want to reproduce the experimental results in the original paper using the v1.0 framework and the legacy aggregated FINSABER dataset. The `reproduce` README contains the environment setup, dataset links, and exact experiment commands for the original benchmark pipeline.
 
 ## Citation
 
@@ -310,3 +322,7 @@ FinMem, FinAgent, FinCon, and FinRL integrations remain in `llm_traders/` and `r
       url={https://arxiv.org/abs/2505.07078},
 }
 ```
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=waylonli/FINSABER&type=date&legend=top-left)](https://www.star-history.com/#waylonli/FINSABER&type=date&legend=top-left)
