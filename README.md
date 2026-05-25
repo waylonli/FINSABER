@@ -312,14 +312,21 @@ Use that branch if you want to reproduce the experimental results in the origina
 ## Citation
 
 ```bibtex
-@misc{li2025llmbasedfinancialinvestingstrategies,
-      title={Can LLM-based Financial Investing Strategies Outperform the Market in Long Run?},
-      author={Weixian Waylon Li and Hyeonjun Kim and Mihai Cucuringu and Tiejun Ma},
-      year={2025},
-      eprint={2505.07078},
-      archivePrefix={arXiv},
-      primaryClass={q-fin.TR},
-      url={https://arxiv.org/abs/2505.07078},
+@inproceedings{10.1145/3770854.3785702,
+    author = {Li, Weixian Waylon and Kim, Hyeonjun and Cucuringu, Mihai and Ma, Tiejun},
+    title = {Can LLM-based Financial Investing Strategies Outperform the Market in Long Run?},
+    year = {2026},
+    isbn = {9798400722585},
+    publisher = {Association for Computing Machinery},
+    address = {New York, NY, USA},
+    url = {https://doi.org/10.1145/3770854.3785702},
+    doi = {10.1145/3770854.3785702},
+    booktitle = {Proceedings of the 32nd ACM SIGKDD Conference on Knowledge Discovery and Data Mining V.1},
+    pages = {2711–2722},
+    numpages = {12},
+    keywords = {automated trading, llm investors, backtest, benchmark},
+    location = {Republic of Korea},
+    series = {KDD '26}
 }
 ```
 
