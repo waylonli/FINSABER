@@ -1,5 +1,6 @@
 # FINSABER
 
+[![ACM](https://img.shields.io/static/v1?label=ACM&message=10.1145/3770854.3785702&color=blue&logo=acm)](https://dl.acm.org/doi/10.1145/3770854.3785702)
 [![Arxiv link](https://img.shields.io/static/v1?label=arXiv&message=2505.07078&color=red&logo=arxiv)](https://arxiv.org/abs/2505.07078)
 <a href="https://pypi.org/project/finsaber/"><img alt="PyPI" src="https://img.shields.io/pypi/v/finsaber"></a>
 [![Documentation](https://img.shields.io/badge/docs-FINSABER--2-15616d?logo=readthedocs&logoColor=white)](https://waylonli.github.io/FINSABER/)
