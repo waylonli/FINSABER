@@ -6,13 +6,11 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from backtest.data_util.download import ensure_datasets  # noqa: E402
 from experiment_runner import ExperimentRunner  # noqa: E402
 
 
 def run_llm_strategies(args):
-    ensure_datasets()
-    runner = ExperimentRunner(output_dir=args.output_dir)
+    runner = ExperimentRunner(output_dir=args.output_dir, data_root=args.data_root)
 
     custom_trade_config = {
         "date_from": args.date_from,
@@ -51,4 +49,5 @@ if __name__ == "__main__":
     parser.add_argument("--date_to", type=str, default="2024-01-01")
     parser.add_argument("--rolling_window_size", type=int, default=1)
     parser.add_argument("--rolling_window_step", type=int, default=1)
+    parser.add_argument("--data_root", type=str, default=None)
     run_llm_strategies(parser.parse_args())

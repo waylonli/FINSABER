@@ -15,7 +15,7 @@ def run_timing_strategies(args):
     exclude_strats = args.exclude.split(",") if args.exclude else []
     include_strats = args.include.split(",") if args.include else []
     strat_namespace = sys.modules["backtest.strategy.timing"]
-    runner = ExperimentRunner(output_dir=args.output_dir)
+    runner = ExperimentRunner(output_dir=args.output_dir, data_root=args.data_root)
 
     custom_trade_config = {
         "rolling_window_size": args.rolling_window_size,
@@ -52,4 +52,5 @@ if __name__ == "__main__":
     parser.add_argument("--training_years", type=int, default=None)
     parser.add_argument("--date_from", type=str, default="2005-01-01")
     parser.add_argument("--date_to", type=str, default="2007-01-01")
+    parser.add_argument("--data_root", type=str, default=None)
     run_timing_strategies(parser.parse_args())

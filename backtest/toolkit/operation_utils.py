@@ -3,6 +3,7 @@ import os
 import pandas as pd
 from tqdm import tqdm
 import pickle
+from backtest.data_util import create_finsaber2_data_loader
 
 try:
     import backtrader as bt
@@ -34,7 +35,7 @@ except Exception:
 
 def load_price_dataset(
         symbols=None,
-        dataset_type: str="sp500",
+        dataset_type: str="finsaber2",
         adjust=True,
         extend=False,
         rate_to_price=True,
@@ -51,8 +52,17 @@ def load_price_dataset(
             rate_to_price=rate_to_price,
             cache_dir=os.path.join("data", "hf")
         )
+    elif dataset_type in {"finsaber2", "sp500"}:
+        data_loader = create_finsaber2_data_loader(
+            tickers=symbols,
+            modalities=("price",),
+        )
+        return data_loader.get_price_dataframe(
+            tickers=symbols if symbols is not None else "all",
+            adjust=adjust,
+        )
     else:
-        df = pd.read_csv(os.path.join("data", "price", "all_sp500_prices_2000_2024_delisted_include.csv")) if dataset_type == "sp500" else pd.read_parquet(os.path.join("data", "price", "stock_price_daily.parquet"))
+        df = pd.read_csv(os.path.join("data", "price", "all_sp500_prices_2000_2024_delisted_include.csv")) if dataset_type == "legacy_sp500" else pd.read_parquet(os.path.join("data", "price", "stock_price_daily.parquet"))
 
         df["date"] = pd.to_datetime(df["date"])
 

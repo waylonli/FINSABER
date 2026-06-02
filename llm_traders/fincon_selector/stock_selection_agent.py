@@ -558,13 +558,17 @@ Provide a concise summary of how you will adjust your portfolio selection approa
 
 
 if __name__ == "__main__":
-    import pandas as pd
-    stock_data = pd.read_csv("data/all_sp500_prices_2000_2024_delisted_include.csv")
+    from backtest.data_util import create_finsaber2_data_loader
 
-    # Group by symbol, create a dict: key is symbol, value is DataFrame
+    target_symbols = ["AAPL", "MSFT", "NFLX", "AMZN", "TSLA"]
+    data_loader = create_finsaber2_data_loader(tickers=target_symbols)
+    stock_data = data_loader.get_price_dataframe(tickers=target_symbols, adjust=True)
+    stock_data["adjusted_close"] = stock_data["close"]
+
+    # Group by symbol, create a dict: key is symbol, value is DataFrame.
     market_data = {sym: sub_df.reset_index(drop=True) for sym, sub_df in stock_data.groupby('symbol')}
 
-    selection_agent = StockSelectionAgent("stock_selection_agent", target_symbols=["AAPL", "MSFT", "NFLX", "AMZN", "TSLA"])
+    selection_agent = StockSelectionAgent("stock_selection_agent", target_symbols=target_symbols)
     print(selection_agent.process(market_data, num_stocks=3)['selected_stocks'])
 
     # Selected

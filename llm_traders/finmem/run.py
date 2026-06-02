@@ -2,12 +2,12 @@ import os
 import toml
 import typer
 import logging
-import pickle
 import warnings
 from tqdm import tqdm
 from dotenv import load_dotenv
 from datetime import datetime
 from typing import Union
+from backtest.data_util import resolve_trading_data, trading_data_to_env_dict
 from puppy import MarketEnvironment, LLMAgent, RunMode
 
 
@@ -19,11 +19,17 @@ warnings.filterwarnings("ignore")
 
 @app.command("sim", help="Start Simulation", rich_help_panel="Simulation")
 def sim_func(
-    market_data_info_path: str = typer.Option(
-        os.path.join("data", "03_model_input", "amzn.pkl"),
+    market_data_root: Union[str, None] = typer.Option(
+        None,
+        "-mdr",
+        "--market-data-root",
+        help="FINSABER-2 parquet dataset root. Defaults to FINSABER_DATA_ROOT.",
+    ),
+    market_data_info_path: Union[str, None] = typer.Option(
+        None,
         "-mdp",
         "--market-data-path",
-        help="The environment data pickle path",
+        help="Deprecated legacy environment pickle path.",
     ),
     start_time: str = typer.Option(
         "2022-08-16", "-st", "--start-time", help="The start time"
@@ -87,11 +93,21 @@ def sim_func(
     else:
         raise ValueError("Run mode must be train or test")
     # create environment
-    with open(market_data_info_path, "rb") as f:
-        env_data_pkl = pickle.load(f)
+    symbol = config["general"]["trading_symbol"]
+    data_loader = resolve_trading_data(
+        market_data_root=market_data_root,
+        market_data_info_path=market_data_info_path,
+        tickers=[symbol],
+    )
+    env_data_pkl = trading_data_to_env_dict(
+        data_loader,
+        start_date=start_time,
+        end_date=end_time,
+        tickers=[symbol],
+    )
 
     environment = MarketEnvironment(
-        symbol=config["general"]["trading_symbol"],
+        symbol=symbol,
         env_data_pkl=env_data_pkl,
         start_date=datetime.strptime(start_time, "%Y-%m-%d").date(),
         end_date=datetime.strptime(end_time, "%Y-%m-%d").date(),

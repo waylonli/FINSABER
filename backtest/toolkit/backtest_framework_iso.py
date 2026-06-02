@@ -355,7 +355,6 @@ class FINSABERFrameworkHelper:
 #                 framework.sell(date, ticker, price, 10)
 #
 # # Example usage:
-# data = pickle.load(open("data/finmem_data/03_model_input/synthetic_dataset.pkl", "rb"))
 # framework = FINSABERBtFrameworkHelper()
 # framework.load_data(data)
 # strategy = SampleStrategy()

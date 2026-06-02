@@ -1,9 +1,9 @@
 from backtest.strategy.timing_llm.base_strategy_iso import BaseStrategyIso
 from backtest.toolkit.backtest_framework_iso import FINSABERFrameworkHelper
 import toml
-import pickle
 import warnings
 import os
+from backtest.data_util import resolve_trading_data, trading_data_to_env_dict
 from backtest.toolkit.custom_exceptions import InsufficientTrainingDataException
 
 warnings.filterwarnings("ignore")
@@ -18,9 +18,11 @@ class FinMemStrategy(BaseStrategyIso):
             self,
             symbol,
             config_path,
-            market_data_info_path,
             date_from,
             date_to,
+            market_data_info_path=None,
+            market_data_root=None,
+            data_loader=None,
             training_period=2,  # 2 years of daily data for training
     ):
         super().__init__()
@@ -28,9 +30,6 @@ class FinMemStrategy(BaseStrategyIso):
         self.config = toml.load(config_path)
         self.config["general"]["trading_symbol"] = symbol
         self.config["general"]["character_string"] = symbol
-
-        with open(market_data_info_path, "rb") as f:
-            env_data_pkl = pickle.load(f)
 
         if type(training_period) == float or type(training_period) == int:
             train_start_date = datetime.strptime(date_from, "%Y-%m-%d").date() - timedelta(
@@ -40,8 +39,25 @@ class FinMemStrategy(BaseStrategyIso):
         elif type(training_period) == tuple or type(training_period) == list:
             train_start_date = datetime.strptime(training_period[0], "%Y-%m-%d").date() if type(training_period[0]) == str else training_period[0]
             train_end_date = datetime.strptime(training_period[1], "%Y-%m-%d").date() if type(training_period[1]) == str else training_period[1]
+        else:
+            raise ValueError("Invalid training_period type.")
         self.logger.info(f"Training period: {train_start_date} to {train_end_date}")
 
+        test_start_date = datetime.strptime(date_from, "%Y-%m-%d").date() if type(date_from) == str else date_from
+        test_end_date = datetime.strptime(date_to, "%Y-%m-%d").date() if type(date_to) == str else date_to
+
+        market_data = resolve_trading_data(
+            data_loader=data_loader,
+            market_data_root=market_data_root,
+            market_data_info_path=market_data_info_path,
+            tickers=[symbol],
+        )
+        env_data_pkl = trading_data_to_env_dict(
+            market_data,
+            start_date=min(train_start_date, test_start_date),
+            end_date=test_end_date,
+            tickers=[symbol],
+        )
         train_env_data_pkl = {k: v for k, v in env_data_pkl.items() if k >= train_start_date and k <= train_end_date and symbol in v["price"]}
 
         if len(train_env_data_pkl.keys()) == 0:
@@ -64,8 +80,6 @@ class FinMemStrategy(BaseStrategyIso):
             end_date=train_end_date,
         )
 
-        test_start_date = datetime.strptime(date_from, "%Y-%m-%d").date() if type(date_from) == str else date_from
-        test_end_date = datetime.strptime(date_to, "%Y-%m-%d").date() if type(date_to) == str else date_to
         self.logger.info(f"Testing period: {test_start_date} to {test_end_date}")
 
         test_env_data_pkl = {k: v for k, v in env_data_pkl.items() if k >= test_start_date and k <= test_end_date}
@@ -160,7 +174,7 @@ class FinMemStrategy(BaseStrategyIso):
         # environment.save_checkpoint(path=result_path, force=True)
 
 if __name__ == "__main__":
-    from backtest.data_util import FinMemDataset
+    from backtest.data_util import create_finsaber2_data_loader
     from backtest.finsaber import FINSABER
 
     # empty the log dir llm_traders/finmem/data/04_model_output_log/*.log
@@ -170,6 +184,7 @@ if __name__ == "__main__":
     for f in glob.glob(os.path.join(log_dir, "*.log")):
         os.remove(f)
 
+    data = create_finsaber2_data_loader(tickers=["TSLA"])
     trade_config = {
         # "tickers": ["COIN","TSLA", "NFLX", "AMZN", "MSFT",],
         "tickers": ["TSLA"],
@@ -177,30 +192,16 @@ if __name__ == "__main__":
         "setup_name": "debug",
         "date_from": "2012-01-01",
         "date_to": "2014-01-01",
-        "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_cherrypick_2000_2024.pkl"),
+        "data_loader": data,
         # "date_from": "2022-10-06",
         # "date_to": "2023-04-10"
     }
-
-    # trade_config = {
-    #     "tickers": "all",
-    #     "silence": True,
-    #     "setup_name": "random_sp500_5",
-    #     "date_from": "2016-01-01",
-    #     "date_to": "2024-01-01",
-    #     "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_sp500_2000_2024.pkl"),
-    #     "selection_strategy": RandomSP500Selector(
-    #         num_tickers=5,
-    #         random_seed_setting="year"
-    #     )
-    # }
-
 
     engine = FINSABER(trade_config)
 
     strat_params = {
         "config_path": "strats_configs/finmem_gpt_config.toml",
-        "market_data_info_path": "data/finmem_data/stock_data_cherrypick_2000_2024.pkl",
+        "data_loader": "$data_loader",
         "date_from": "$date_from", # auto calculate inside the backtest engine,
         "date_to": "$date_to", # auto calculate inside the backtest engine,
         "symbol": "$symbol",

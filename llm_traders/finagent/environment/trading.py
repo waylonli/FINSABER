@@ -78,16 +78,16 @@ class EnvironmentTrading(gym.Env):
         self.init_day = self.prices_df[self.prices_df["timestamp"] >= start_date].index.values[0]
         self.end_day = self.prices_df[self.prices_df["timestamp"] <= end_date].index.values[-1]
 
-        self.prices_df = self.prices_df.set_index("timestamp")
-        self.news_df = self.news_df.set_index("timestamp")
+        self.prices_df = self.prices_df.set_index("timestamp", drop=False)
+        self.news_df = self.news_df.set_index("timestamp", drop=False)
 
 
         if self.guidances_df is not None:
-            self.guidances_df = self.guidances_df.set_index("timestamp")
+            self.guidances_df = self.guidances_df.set_index("timestamp", drop=False)
         if self.sentiments_df is not None:
-            self.sentiments_df = self.sentiments_df.set_index("timestamp")
+            self.sentiments_df = self.sentiments_df.set_index("timestamp", drop=False)
         if self.economics_df is not None:
-            self.economics_df = self.economics_df.set_index("timestamp")
+            self.economics_df = self.economics_df.set_index("timestamp", drop=False)
 
         self.day = self.init_day
         self.value = self.initial_amount

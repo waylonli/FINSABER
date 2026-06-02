@@ -1,6 +1,7 @@
 import math
 import os
 import backoff
+import pandas as pd
 from typing import Dict, List, Any
 from copy import deepcopy
 
@@ -42,12 +43,13 @@ class LatestMarketIntelligenceSummaryTrading(Prompt):
         asset_description = asset_info["description"]
         asset_type = info["asset_type"]
         current_date = info["date"]
+        current_date_key = pd.to_datetime(current_date).date()
 
         price = deepcopy(state["price"])
         news = deepcopy(state["news"])
 
-        price = price[price.index == current_date]
-        news = news[news.index == current_date]
+        price = price[price.index == current_date_key]
+        news = news[news.index == current_date_key]
 
         if len(news) > 20:
             news = news.sample(n=20)
@@ -130,13 +132,14 @@ class LatestMarketIntelligenceSummaryTrading(Prompt):
         response_dict = deepcopy(res["response_dict"])
 
         current_date = info["date"]
+        current_date_key = pd.to_datetime(current_date).date()
         stock_symbol = info["symbol"]
         
         price = deepcopy(state["price"])
         news = deepcopy(state["news"])
 
-        price = price[price.index == current_date]
-        news = news[news.index == current_date]
+        price = price[price.index == current_date_key]
+        news = news[news.index == current_date_key]
 
         if len(price) > 0:
             open = price["open"].values[0]

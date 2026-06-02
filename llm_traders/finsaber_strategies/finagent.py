@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from datetime import datetime, timedelta
 from llm_traders.finagent.registry import DATASET, ENVIRONMENT, MEMORY, PROVIDER, PROMPT, PLOTS
 from llm_traders.finagent.asset import ASSET
+from llm_traders.finagent.environment import EnvironmentTrading  # noqa: F401
 from backtest.toolkit.llm_cost_monitor import get_llm_cost
 from llm_traders.finagent.query import DiverseQuery
 from llm_traders.finagent.prompt import (prepare_latest_market_intelligence_params,
@@ -17,6 +18,7 @@ from llm_traders.finagent.prompt import (prepare_latest_market_intelligence_para
 from llm_traders.finagent.tools import StrategyAgents
 from backtest.strategy.timing_llm.base_strategy_iso import BaseStrategyIso
 from backtest.toolkit.backtest_framework_iso import FINSABERFrameworkHelper
+from llm_traders.finsaber_strategies.finagent_data_adapter import FinsaberTradingDataDataset  # noqa: F401
 from dotenv import load_dotenv
 
 warnings.filterwarnings("ignore")
@@ -24,7 +26,16 @@ load_dotenv()
 
 
 class FinAgentStrategy(BaseStrategyIso):
-    def __init__(self, symbol, market_data_info_path, date_from, date_to, training_period=3):
+    def __init__(
+        self,
+        symbol,
+        date_from,
+        date_to,
+        market_data_info_path=None,
+        market_data_root=None,
+        data_loader=None,
+        training_period=3,
+    ):
         super().__init__()
         self.logger.info("Initialising FinAgentStrategy.")
 
@@ -72,11 +83,14 @@ class FinAgentStrategy(BaseStrategyIso):
             "llm_traders/finagent/res/prompts/template/train/trading/high_level_reflection.html")
         self.train_decision_template = self._read_template("llm_traders/finagent/res/prompts/template/train/trading/decision.html")
 
-        # Build dataset from the aggregated pkl file
+        # Build dataset from FINSABER-2 TradingData. Legacy pickle paths are
+        # still accepted by the adapter only for backwards compatibility.
         self.dataset = DATASET.build(cfg={
-            "type": "PklDataset",
+            "type": "FinsaberTradingDataDataset",
             "asset": [self.selected_asset],
-            "pkl_path": market_data_info_path,
+            "data_loader": data_loader,
+            "market_data_root": market_data_root,
+            "market_data_info_path": market_data_info_path,
             "workdir": self.workdir,
             "tag": self.tag
         })
@@ -85,8 +99,9 @@ class FinAgentStrategy(BaseStrategyIso):
         env_data = self.dataset.raw_data
 
         if isinstance(training_period, (int, float)):
-            train_start_date = datetime.strptime(date_from, "%Y-%m-%d").date() - timedelta(days=365 * training_period)
-            train_end_date = datetime.strptime(date_from, "%Y-%m-%d").date() - timedelta(days=1)
+            test_start_date = self._to_date(date_from)
+            train_start_date = test_start_date - timedelta(days=365 * training_period)
+            train_end_date = test_start_date - timedelta(days=1)
         elif isinstance(training_period, (tuple, list)):
             train_start_date = datetime.strptime(training_period[0], "%Y-%m-%d").date() if isinstance(
                 training_period[0], str) else training_period[0]
@@ -115,8 +130,8 @@ class FinAgentStrategy(BaseStrategyIso):
         self.logger.info(f"Training period: {train_start_date} to {train_end_date}")
 
 
-        test_start_date = datetime.strptime(date_from, "%Y-%m-%d").date()
-        test_end_date = datetime.strptime(date_to, "%Y-%m-%d").date()
+        test_start_date = self._to_date(date_from)
+        test_end_date = self._to_date(date_to)
         self.logger.info(f"Testing period for {self.selected_asset}: {test_start_date} to {test_end_date}")
 
         # Build environments using the dates above
@@ -235,6 +250,12 @@ class FinAgentStrategy(BaseStrategyIso):
             "action": [],
             "reasoning": [],
         }
+
+    @staticmethod
+    def _to_date(value):
+        if isinstance(value, str):
+            return datetime.strptime(value, "%Y-%m-%d").date()
+        return value
 
     def _read_template(self, path):
         with open(path, 'r') as f:
@@ -395,9 +416,10 @@ class FinAgentStrategy(BaseStrategyIso):
 
 
 if __name__ == "__main__":
-    from backtest.data_util import FinMemDataset
+    from backtest.data_util import create_finsaber2_data_loader
     from backtest.finsaber import FINSABER
 
+    data = create_finsaber2_data_loader(tickers=["TSLA"])
     trade_config = {
         "tickers": [
             "TSLA",
@@ -410,7 +432,7 @@ if __name__ == "__main__":
         "setup_name": "selected_4",
         "date_from": "2012-01-01",
         "date_to": "2014-01-01",
-        "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_cherrypick_2000_2024.pkl"),
+        "data_loader": data,
         # "date_from": "2022-10-06",
         # "date_to": "2023-04-10"
     }
@@ -420,21 +442,9 @@ if __name__ == "__main__":
     # date_to = sys.argv[2]
 
 
-    # trade_config = {
-    #     "tickers": "all",
-    #     "silence": True,
-    #     "setup_name": "random_sp500_5",
-    #     "date_from": date_from,
-    #     "date_to": date_to,
-    #     "data_loader": FinMemDataset(pickle_file="data/finmem_data/stock_data_sp500_2000_2024.pkl"),
-    #     "selection_strategy": RandomSP500Selector(
-    #         num_tickers=5,
-    #         random_seed_setting="year"
-    #     )
-    # }
     engine = FINSABER(trade_config)
     strat_params = {
-        "market_data_info_path": "data/finmem_data/stock_data_cherrypick_2000_2024.pkl",
+        "data_loader": "$data_loader",
         "date_from": "$date_from",  # auto calculate inside the backtest engine,
         "date_to": "$date_to",  # auto calculate inside the backtest engine,
         "symbol": "$symbol",

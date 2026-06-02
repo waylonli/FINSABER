@@ -1,63 +1,41 @@
-"""Download FINSABER dataset files from HuggingFace if they are missing locally."""
+"""Helpers for obtaining the public FINSABER-2 dataset from HuggingFace."""
+
+from __future__ import annotations
 
 import os
+from pathlib import Path
 
-HF_REPO_ID = "waylonli/FINSABER-data"
-
-# Files to download: (path_in_repo, local_path)
-DATASET_FILES = [
-    ("data/finmem_data/stock_data_cherrypick_2000_2024.pkl",
-     os.path.join("data", "finmem_data", "stock_data_cherrypick_2000_2024.pkl")),
-    ("data/finmem_data/stock_data_sp500_2000_2024.pkl",
-     os.path.join("data", "finmem_data", "stock_data_sp500_2000_2024.pkl")),
-]
+from backtest.data_util.dataset_factory import get_finsaber2_data_root
 
 
-def ensure_datasets(files=None):
-    """Check that required dataset files exist; download from HuggingFace if missing.
+HF_REPO_ID = "finsaber-team/FINSABER-V2-Data"
 
-    Args:
-        files: Optional list of (repo_path, local_path) tuples.
-               Defaults to DATASET_FILES.
+
+def ensure_datasets(local_dir: str | os.PathLike | None = None):
+    """Download the FINSABER-2 parquet dataset snapshot if it is missing.
+
+    The preferred workflow is to set ``FINSABER_DATA_ROOT`` to an existing
+    parquet dataset root. This helper is provided for scripts that want to
+    fetch the public HuggingFace snapshot into that location.
     """
-    files = files or DATASET_FILES
-    missing = [(repo_path, local_path) for repo_path, local_path in files
-               if not os.path.exists(local_path)]
 
-    if not missing:
-        return
+    data_root = Path(local_dir) if local_dir is not None else get_finsaber2_data_root()
+    if (data_root / "price_daily").exists():
+        return data_root
 
     try:
-        from huggingface_hub import hf_hub_download
-    except ImportError:
-        print("Warning: huggingface_hub is not installed. Cannot download missing datasets.")
-        print("Install with: pip install huggingface_hub")
-        print("Missing files:")
-        for _, local_path in missing:
-            print(f"  - {local_path}")
-        return
+        from huggingface_hub import snapshot_download
+    except ImportError as exc:
+        raise ImportError(
+            "huggingface_hub is required to download FINSABER-2 data. "
+            "Install it with: pip install huggingface_hub"
+        ) from exc
 
-    failed = []
-    for repo_path, local_path in missing:
-        os.makedirs(os.path.dirname(local_path), exist_ok=True)
-        print(f"Downloading {repo_path} from {HF_REPO_ID} ...")
-        try:
-            hf_hub_download(
-                repo_id=HF_REPO_ID,
-                filename=repo_path,
-                repo_type="dataset",
-                local_dir=".",
-            )
-            print(f"  Saved to {local_path}")
-        except Exception as e:
-            print(f"  Failed to download {repo_path}: {e}")
-            failed.append(local_path)
-
-    if failed:
-        print("\nWarning: Some dataset files could not be downloaded:")
-        for path in failed:
-            print(f"  - {path}")
-        print("You may need to download them manually from "
-              f"https://huggingface.co/datasets/{HF_REPO_ID}")
-    else:
-        print("Dataset download complete.")
+    data_root.mkdir(parents=True, exist_ok=True)
+    snapshot_download(
+        repo_id=HF_REPO_ID,
+        repo_type="dataset",
+        local_dir=str(data_root),
+        local_dir_use_symlinks=False,
+    )
+    return data_root

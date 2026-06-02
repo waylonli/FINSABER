@@ -178,7 +178,9 @@ class FINSABER:
                     {
                         "date_from": self.trade_config.date_from,
                         "date_to": self.trade_config.date_to,
-                        "symbol": ticker
+                        "symbol": ticker,
+                        "data_loader": self.data_loader,
+                        "tickers": self.trade_config.tickers,
                     }
                 )
 

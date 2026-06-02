@@ -11,27 +11,25 @@ class MomentumSP500Selector(BaseSelector):
         self.skip_period = skip_period  # Days to skip (most recent period) in the return calculation.
         self.num_tickers = num_tickers  # Determines the number of stocks to select.
         self.training_period = training_period
-        self.stock_prices = pd.read_csv(
-            os.path.join("data", "price", "all_sp500_prices_2000_2024_delisted_include.csv")
-        )
-        if not pd.api.types.is_datetime64_any_dtype(self.stock_prices["date"]):
-            self.stock_prices["date"] = pd.to_datetime(self.stock_prices["date"])
-        self.SP500_TICKERS = self.initialise_with_training_period()
+        self.stock_prices = self._load_legacy_stock_prices()
+        self.SP500_TICKERS = self.initialise_with_training_period() if not self.stock_prices.empty else {}
 
     def select(self, data, start_date, end_date):
-        # check if there's a cache file
-        cache_file = os.path.join("data", "selection_cache", "momentum", f"{self.num_tickers}_tickers_{self.momentum_period}_momentumperiod_{self.skip_period}_skipperiod_{self.training_period}_trainingperiod.pkl")
-        if os.path.exists(cache_file):
-            with open(cache_file, "rb") as f:
-                cache = pickle.load(f)
-            if f"{start_date}" in cache:
-                return cache[f"{start_date}"]
-            else:
-                raise ValueError(f"Cache file does not contain data for {start_date}.")
-
         # Determine the backtest year.
         year = start_date.split("-")[0] if isinstance(start_date, str) else start_date.year
-        candidate_tickers = self.SP500_TICKERS.get(str(year), [])
+        if data is not None:
+            self.stock_prices = self._price_frame_from_loader(data, start_date)
+            candidate_tickers = sorted(self.stock_prices["symbol"].unique().tolist())
+        else:
+            cache_file = os.path.join("data", "selection_cache", "momentum", f"{self.num_tickers}_tickers_{self.momentum_period}_momentumperiod_{self.skip_period}_skipperiod_{self.training_period}_trainingperiod.pkl")
+            if os.path.exists(cache_file):
+                with open(cache_file, "rb") as f:
+                    cache = pickle.load(f)
+                if f"{start_date}" in cache:
+                    return cache[f"{start_date}"]
+                else:
+                    raise ValueError(f"Cache file does not contain data for {start_date}.")
+            candidate_tickers = self.SP500_TICKERS.get(str(year), [])
 
         perf = {}
         for ticker in tqdm(candidate_tickers, desc="Calculating momentum scores", unit="ticker"):
@@ -59,6 +57,30 @@ class MomentumSP500Selector(BaseSelector):
             return []
 
         return long_tickers
+
+    @staticmethod
+    def _load_legacy_stock_prices():
+        csv_path = os.path.join("data", "price", "all_sp500_prices_2000_2024_delisted_include.csv")
+        if not os.path.exists(csv_path):
+            return pd.DataFrame(columns=["date", "symbol", "open", "close"])
+        stock_prices = pd.read_csv(csv_path)
+        if not pd.api.types.is_datetime64_any_dtype(stock_prices["date"]):
+            stock_prices["date"] = pd.to_datetime(stock_prices["date"])
+        return stock_prices
+
+    def _price_frame_from_loader(self, data, start_date):
+        cutoff = pd.to_datetime(start_date)
+        lookback_days = max(self.momentum_period + self.skip_period + 30, 252 * self.training_period)
+        frame = data.get_price_dataframe(
+            tickers="all",
+            date_from=cutoff - pd.Timedelta(days=lookback_days),
+            date_to=cutoff - pd.Timedelta(days=1),
+            adjust=True,
+        )
+        if frame.empty:
+            return pd.DataFrame(columns=["date", "symbol", "close"])
+        frame["date"] = pd.to_datetime(frame["date"])
+        return frame
 
     def initialise_with_training_period(self):
         SP500_TICKERS = {

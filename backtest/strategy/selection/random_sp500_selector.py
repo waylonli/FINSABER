@@ -1,16 +1,14 @@
-import os.path
+import os
 import pickle
 import pandas as pd
 import random
-from backtest.toolkit.operation_utils import get_tickers_price
 from backtest.strategy.selection.base_selector import BaseSelector
 
 class RandomSP500Selector(BaseSelector):
     def __init__(self, num_tickers: int = 10, random_seed_setting: str = None, training_period: int = 3):
-        self.stock_prices = pd.read_csv(
-            os.path.join("data", "price", "all_sp500_prices_2000_2024_delisted_include.csv"))
         self.training_period = training_period
-        self.SP500_TICKERS = self.initialise_with_training_period()
+        self.stock_prices = self._load_legacy_stock_prices()
+        self.SP500_TICKERS = self.initialise_with_training_period() if not self.stock_prices.empty else {}
         self.num_tickers = num_tickers
         self.random_seed_setting = random_seed_setting if random_seed_setting is not None else "random"
         assert self.random_seed_setting in ["fixed", "year", "random"]
@@ -20,8 +18,13 @@ class RandomSP500Selector(BaseSelector):
 
         # get the year from the start_date
         year = start_date.split("-")[0] if type(start_date) == str else start_date.year
-        # get the list of tickers for the year
-        tickers = self.SP500_TICKERS[str(year)]
+        if data is not None:
+            tickers = self._available_tickers_from_loader(data, start_date)
+        else:
+            tickers = self.SP500_TICKERS.get(str(year), [])
+
+        if len(tickers) < self.num_tickers:
+            return []
 
         if self.random_seed_setting == "fixed":
             random.seed(0)
@@ -35,6 +38,29 @@ class RandomSP500Selector(BaseSelector):
         # import pdb; pdb.set_trace()
 
         return selected_tickers
+
+    @staticmethod
+    def _load_legacy_stock_prices():
+        csv_path = os.path.join("data", "price", "all_sp500_prices_2000_2024_delisted_include.csv")
+        if not os.path.exists(csv_path):
+            return pd.DataFrame(columns=["date", "symbol", "open", "close"])
+        stock_prices = pd.read_csv(csv_path)
+        if not pd.api.types.is_datetime64_any_dtype(stock_prices["date"]):
+            stock_prices["date"] = pd.to_datetime(stock_prices["date"])
+        return stock_prices
+
+    def _available_tickers_from_loader(self, data, start_date):
+        cutoff = pd.to_datetime(start_date)
+        train_start = cutoff - pd.DateOffset(years=self.training_period)
+        prices = data.get_price_dataframe(
+            tickers="all",
+            date_from=train_start,
+            date_to=cutoff - pd.Timedelta(days=1),
+            adjust=True,
+        )
+        if prices.empty:
+            return []
+        return sorted(prices.groupby("symbol").size().loc[lambda count: count >= 30].index.tolist())
 
     def initialise_with_training_period(self):
         SP500_TICKERS = {

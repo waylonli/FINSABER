@@ -12,29 +12,27 @@ class FinConSP500Selector(BaseSelector):
         self.num_tickers = num_tickers
         self.lookback_years = lookback_years
         self.training_period = training_period
-        self.stock_prices = pd.read_csv(
-            os.path.join("data", "price", "all_sp500_prices_2000_2024_delisted_include.csv")
-        )
-        if not pd.api.types.is_datetime64_any_dtype(self.stock_prices["date"]):
-            self.stock_prices["date"] = pd.to_datetime(self.stock_prices["date"])
-
-        self.SP500_TICKERS = self.initialise_with_training_period()
+        self.stock_prices = self._load_legacy_stock_prices()
+        self.SP500_TICKERS = self.initialise_with_training_period() if not self.stock_prices.empty else {}
 
     def select(self, data, start_date, end_date):
-        cache_file = os.path.join("data", "selection_cache", "fincon_selector",
-                                  f"{self.num_tickers}_tickers_{self.lookback_years}yr_lookback_{self.training_period}_trainingperiod.pkl")
-        if os.path.exists(cache_file):
-            with open(cache_file, "rb") as f:
-                cache = pickle.load(f)
-            if f"{start_date}" in cache:
-                return cache[f"{start_date}"]
-            else:
-                raise ValueError(f"Cache file does not contain data for {start_date}.")
-
         year = pd.to_datetime(start_date).year
-        tickers = self.SP500_TICKERS.get(str(year), [])
         cutoff = pd.to_datetime(start_date)
         train_start = cutoff - pd.DateOffset(years=self.lookback_years)
+        if data is not None:
+            self.stock_prices = self._price_frame_from_loader(data, train_start, cutoff)
+            tickers = sorted(self.stock_prices["symbol"].unique().tolist())
+        else:
+            cache_file = os.path.join("data", "selection_cache", "fincon_selector",
+                                      f"{self.num_tickers}_tickers_{self.lookback_years}yr_lookback_{self.training_period}_trainingperiod.pkl")
+            if os.path.exists(cache_file):
+                with open(cache_file, "rb") as f:
+                    cache = pickle.load(f)
+                if f"{start_date}" in cache:
+                    return cache[f"{start_date}"]
+                else:
+                    raise ValueError(f"Cache file does not contain data for {start_date}.")
+            tickers = self.SP500_TICKERS.get(str(year), [])
         # Gather historical data for only these tickers, only in the lookback window
         market_data = {}
 
@@ -52,6 +50,32 @@ class FinConSP500Selector(BaseSelector):
         agent = StockSelectionAgent(agent_id="fincon_selector", target_symbols=list(market_data.keys()))
         result = agent.process(market_data, num_stocks=self.num_tickers)
         return result["selected_stocks"]
+
+    @staticmethod
+    def _load_legacy_stock_prices():
+        csv_path = os.path.join("data", "price", "all_sp500_prices_2000_2024_delisted_include.csv")
+        if not os.path.exists(csv_path):
+            return pd.DataFrame(columns=["date", "symbol", "open", "close", "adjusted_close"])
+        stock_prices = pd.read_csv(csv_path)
+        if not pd.api.types.is_datetime64_any_dtype(stock_prices["date"]):
+            stock_prices["date"] = pd.to_datetime(stock_prices["date"])
+        if "adjusted_close" not in stock_prices.columns:
+            stock_prices["adjusted_close"] = stock_prices["close"]
+        return stock_prices
+
+    @staticmethod
+    def _price_frame_from_loader(data, train_start, cutoff):
+        frame = data.get_price_dataframe(
+            tickers="all",
+            date_from=train_start,
+            date_to=cutoff - pd.Timedelta(days=1),
+            adjust=True,
+        )
+        if frame.empty:
+            return pd.DataFrame(columns=["date", "symbol", "open", "close", "adjusted_close"])
+        frame["date"] = pd.to_datetime(frame["date"])
+        frame["adjusted_close"] = frame["close"]
+        return frame
 
     def initialise_with_training_period(self):
         SP500_TICKERS = {
