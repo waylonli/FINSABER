@@ -647,6 +647,73 @@ Current findings from the code review after `Phase 3`:
   - current benchmark-side local data is closer to raw filings/news text than
     to ready-made balance sheet / cashflow / income-statement tables
 
+### Code-level online-path audit
+
+This section is the main design answer for `Phase 4`.
+
+#### Role-by-role data map
+
+| Role | Reads | Default source in TA | Phase 4 status |
+|---|---|---|---|
+| Market Analyst | OHLCV, indicators, verified snapshot | `yfinance` + `stockstats` | Must be replaced for local benchmark runs |
+| News Analyst | ticker news, macro news, insider transactions | `yfinance` news / search | Must be replaced or trimmed |
+| Sentiment Analyst | news, StockTwits, Reddit | `yfinance` + public web | Disable in the first pass |
+| Fundamentals Analyst | fundamentals, balance sheet, cashflow, income statement | `yfinance` financials | Disable in the first pass |
+| Research Manager | debate history | local LLM state | Fine as-is |
+| Trader | investment plan | local LLM state | Fine as-is |
+| Portfolio Manager | risk debate + past context + trader proposal | local LLM state + memory log | Fine, but memory log needs an offline decision |
+
+#### Hidden online paths
+
+- `TradingAgentsGraph.resolve_instrument_context()` calls `resolve_instrument_identity()`, which does a live `yfinance.Ticker(...).info` lookup before the graph starts.
+- `TradingAgentsGraph._resolve_pending_entries()` calls `_fetch_returns()`, which uses `yfinance.Ticker(...).history(...)` to resolve prior decisions and write reflections.
+- `load_ohlcv()` in `stockstats_utils.py` downloads market data with `yfinance.download(...)` and caches it locally. `get_stock_data`, `get_indicators`, and `get_verified_market_snapshot` all inherit that path.
+- `get_news_yfinance()` and `get_global_news_yfinance()` use `yfinance` news/search APIs.
+- `get_fundamentals()`, `get_balance_sheet()`, `get_cashflow()`, `get_income_statement()`, and `get_insider_transactions()` all use `yfinance`.
+- `fetch_stocktwits_messages()` and `fetch_reddit_posts()` call public web endpoints directly, even though they do not require API keys.
+- `cli/announcements.py` fetches `https://api.tauric.ai/v1/announcements` on CLI startup.
+- `cli/utils.py` fetches `https://openrouter.ai/api/v1/models` when the user selects OpenRouter in the CLI.
+- `alpha_vantage_common.py` uses `requests.get(...)` against Alpha Vantage if that vendor is selected.
+- `create_llm_client()` is lazy, so Anthropic / Google are only loaded when selected, but they are still live network providers if used.
+
+#### What can be closed without code changes
+
+- Do not use the CLI in the benchmark loop. That avoids announcements and OpenRouter model discovery entirely.
+- Keep `llm_provider=openai` and do not select Anthropic, Google, OpenRouter, or other provider routes.
+- Select only `["market", "news"]` for the first graph runs; that already disables the `social` and `fundamentals` analyst nodes.
+- If we want to remove cross-window memory coupling for the first benchmark pass, set `memory_log_path` to an empty value so `TradingMemoryLog` becomes a no-op.
+
+#### What still requires code changes
+
+- `resolve_instrument_identity()` must stop calling `yfinance` and instead read identity metadata from the local dataset or return `{}`.
+- `load_ohlcv()` must be backed by local benchmark prices instead of Yahoo Finance if we want a strict offline run.
+- `_fetch_returns()` must use the same local price source as the benchmark, otherwise memory reflection keeps calling Yahoo Finance in the background.
+- `get_news_yfinance()` and `get_global_news_yfinance()` need local news adapters if the news analyst is to remain enabled.
+- `get_fundamentals()` and its statement helpers need a filings-backed adapter if we ever want the fundamentals analyst back in play.
+- `fetch_stocktwits_messages()` and `fetch_reddit_posts()` should stay disabled unless we intentionally add social data to the local dataset.
+
+#### What breaks if each path is closed
+
+- Closing `resolve_instrument_identity()` only removes resolved company metadata; the graph still works with ticker-only context.
+- Closing the memory log removes past reflections and cross-window lessons; the first run still works, but later runs stop accumulating history.
+- Closing the market/news yfinance paths without replacements breaks the first two analysts, so the graph can no longer generate a meaningful first-pass report.
+- Closing `social` and `fundamentals` is acceptable for the first benchmark version because they are already outside the planned initial scope.
+- Closing CLI-only online calls has no effect on the programmatic benchmark path.
+
+#### How to re-enable later
+
+- Keep the current graph layout, but switch the data backend back to the remote path or vendor route once local adapters are ready.
+- Re-enable `social` only after we have a real local social dataset, otherwise it will keep being a web-crawl dependency.
+- Re-enable `fundamentals` only after filings are split into a structured tool-friendly format.
+- Re-enable memory only when we want cross-window accumulation and are prepared to accept the shared-log semantics again.
+
+#### Recommendation for Phase 4
+
+- Treat `market + news` as the only first-pass analysts.
+- Add a local-data adapter layer for prices, news, and benchmark returns before trying to restore any of the social or fundamentals chains.
+- Keep CLI paths out of the benchmark loop.
+- Keep provider selection on OpenAI only until the benchmark adapter is stable.
+
 Implication for `Phase 4`:
 
 - first adapter target should remain `market + news`
