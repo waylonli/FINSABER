@@ -714,6 +714,69 @@ This section is the main design answer for `Phase 4`.
 - Keep CLI paths out of the benchmark loop.
 - Keep provider selection on OpenAI only until the benchmark adapter is stable.
 
+#### Code change checklist
+
+This is the concrete change list for the hidden online paths.
+
+- `tradingagents/graph/trading_graph.py`
+  - Replace the hard `yfinance.Ticker(...).info` identity lookup in `resolve_instrument_context()` with an injected identity source or a pure ticker-only fallback for benchmark mode.
+  - Replace the hard `yfinance.Ticker(...).history(...)` lookup in `_fetch_returns()` with a pluggable price provider backed by the local `TradingData` loader.
+  - Keep the current yfinance fallback only as a live-mode compatibility path, not as the benchmark default.
+- `tradingagents/agents/utils/agent_utils.py`
+  - Split identity resolution from prompt formatting so `build_instrument_context()` stays pure and `resolve_instrument_identity()` becomes optional.
+  - Add a local identity resolver hook that can read company metadata from the benchmark dataset when it exists.
+- `tradingagents/dataflows/stockstats_utils.py`
+  - Make `load_ohlcv()` accept a local data loader or runtime provider instead of always downloading from Yahoo Finance.
+  - Keep the cache only as a live fallback, not as the benchmark source of truth.
+- `tradingagents/dataflows/y_finance.py`
+  - Add local/backtest implementations for stock data and indicators, or route these calls to a new local vendor.
+  - Stop relying on direct yfinance calls inside the benchmark path.
+- `tradingagents/dataflows/yfinance_news.py`
+  - Add a local news provider backed by FINSABER news items.
+  - Keep the yfinance path only for live runs.
+- `tradingagents/dataflows/interface.py`
+  - Add a `local` or `finsaber` vendor branch for `get_stock_data`, `get_indicators`, `get_news`, `get_global_news`, and `get_verified_market_snapshot`.
+  - Leave `alpha_vantage` as an optional remote fallback, not as the benchmark default.
+- `tradingagents/agents/analysts/sentiment_analyst.py`
+  - Leave disabled in the first benchmark pass.
+  - If we ever enable it, replace StockTwits/Reddit web fetches with a local social-data adapter.
+- `tradingagents/agents/analysts/fundamentals_analyst.py`
+  - Leave disabled in the first benchmark pass.
+  - If we ever enable it, back it with a filings adapter built from the local dataset or an edgartools-based preprocessing step.
+- `tradingagents/cli/announcements.py` and `tradingagents/cli/utils.py`
+  - No code change is needed if we never use CLI in the benchmark loop.
+  - If we want CLI-safe offline mode, guard the network calls behind an explicit opt-in.
+
+#### FINSABER 2.0 data-flow contract
+
+The benchmark side already has a clean local-data contract:
+
+1. `TradeConfig` resolves the run scope and injects `data_loader`.
+2. `resolve_trading_data()` normalizes that into a `TradingData` object.
+3. `trading_data_to_env_dict()` materializes the date-window dict shape expected by strategy code.
+4. `FINSABERFrameworkHelper.load_backtest_data_single_ticker()` slices the per-ticker window.
+5. `strategy.on_data(date, today_data, framework)` receives one day at a time.
+6. `framework.buy()/sell()` turn strategy intent into executable orders.
+7. `framework.run()` handles pending orders, liquidation at the end, and equity tracking.
+8. `framework.evaluate()` computes final metrics.
+9. `write_result_artifacts()` persists summary JSON/CSV outputs.
+
+The important consequence is that TA should not invent a second data pipeline. It should sit inside the existing FINSABER strategy slot and consume the same `TradingData` / `today_data` / `framework` objects that FinMem and FinAgent already use.
+
+#### TA integration shape
+
+The lowest-risk integration path is:
+
+- build a TA-specific strategy class under `llm_traders/finsaber_strategies`
+- give that strategy a FINSABER `data_loader` and run dates
+- create a small local adapter that serves TA tools from the same `TradingData`
+- instantiate `TradingAgentsGraph` once per ticker/run
+- call `graph.propagate(ticker, date)` inside `on_data`
+- fold the final `Buy / Overweight / Hold / Underweight / Sell` rating into FINSABER execution as `buy / hold / sell`
+- let the FINSABER framework own sizing, slippage, liquidity, commissions, and performance statistics
+
+That keeps TA's internal 5-tier reasoning intact while letting FINSABER remain the only execution and evaluation engine.
+
 Implication for `Phase 4`:
 
 - first adapter target should remain `market + news`
