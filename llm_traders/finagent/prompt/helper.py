@@ -267,6 +267,11 @@ def prepare_latest_market_intelligence_params(state: Dict,
     res_params = deepcopy(params)
 
     latest_market_intelligence_query = params["latest_market_intelligence_query"]
+    if isinstance(latest_market_intelligence_query, str):
+        latest_market_intelligence_query = {"plain_query": latest_market_intelligence_query}
+    elif not isinstance(latest_market_intelligence_query, dict):
+        latest_market_intelligence_query = {}
+
 
     query_res = {}
     for query_type, quey_text in latest_market_intelligence_query.items():
