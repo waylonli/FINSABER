@@ -138,6 +138,26 @@ def test_framework_rejects_cap_enabled_order_without_prior_volume_history():
     assert framework.rejected_orders[0]["reason"] == "insufficient_liquidity_history"
 
 
+def test_forced_final_liquidation_updates_last_equity_after_costs():
+    loader, _ = _sample_loader()
+    strategy = BuyOnFirstDateStrategy()
+    framework = FINSABERFrameworkHelper(
+        initial_cash=10_000,
+        commission_per_share=0.0,
+        min_commission=1.0,
+        execution_timing="same_close",
+    )
+    framework.load_backtest_data(loader)
+
+    assert framework.run(strategy, delist_check=False) is True
+    metrics = framework.evaluate(strategy)
+
+    assert framework.history[-1]["type"] == "sell"
+    assert framework.history[-1]["execution_date"] == loader.get_date_range()[-1]
+    assert strategy.equity[-1] == pytest.approx(metrics["final_value"])
+    assert metrics["total_commission"] == pytest.approx(2.0)
+
+
 def test_framework_external_cost_reduces_cash_equity_and_metrics():
     loader, _ = _sample_loader()
     cost_state = {"value": 0.0}

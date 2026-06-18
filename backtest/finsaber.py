@@ -108,6 +108,8 @@ class FINSABER:
         total_commission = metrics.get("total_commission", 0)
         total_slippage = metrics.get("total_slippage", 0)
         total_llm_cost = metrics.get("total_llm_cost", 0)
+        total_external_cost = metrics.get("total_external_cost", 0)
+        total_trading_cost = metrics.get("total_trading_cost", 0)
 
         print("\n" + "=" * 50)
         print(f"Ticker: {ticker}")
@@ -120,6 +122,8 @@ class FINSABER:
         print(f"Total Commission: ${total_commission:.3f}")
         print(f"Total Slippage: ${total_slippage:.3f}")
         print(f"Total LLM Cost: ${total_llm_cost:.3f}")
+        print(f"Total External Cost: ${total_external_cost:.3f}")
+        print(f"Total Trading Cost: ${total_trading_cost:.3f}")
         print("=" * 50)
 
     def _plot_equity_curve(self, equity_with_time, ticker):

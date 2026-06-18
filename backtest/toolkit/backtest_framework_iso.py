@@ -237,6 +237,19 @@ class FINSABERFrameworkHelper:
             self.rejected_orders.append({**order, "execution_date": None, "reason": reason})
         self.pending_orders = []
 
+    def _current_equity(self, date):
+        return self.cash + sum(
+            self.portfolio[ticker]["quantity"] * self.data_loader.get_ticker_price_by_date(ticker, date)
+            for ticker in self.portfolio
+        )
+
+    def _replace_last_equity_point(self, strategy, date):
+        if not hasattr(strategy, "equity") or not strategy.equity:
+            return
+        strategy.equity[-1] = self._current_equity(date)
+        if hasattr(strategy, "equity_date") and strategy.equity_date:
+            strategy.equity_date[-1] = date
+
     def run(self, strategy, delist_check=True, external_cost_getter=None, external_cost_offset=0.0, external_cost_reason="external_cost"):
         last_external_cost = float(external_cost_offset or 0.0)
         date_range = self.data_loader.get_date_range()
@@ -277,6 +290,7 @@ class FINSABERFrameworkHelper:
                 force=True,
             )
         self._reject_pending_orders("no_future_bar")
+        self._replace_last_equity_point(strategy, date_range[-1])
 
         return True
 
