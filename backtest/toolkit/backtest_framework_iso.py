@@ -34,6 +34,7 @@ class FINSABERFrameworkHelper:
         self.history = []
         self.rejected_orders = []
         self.pending_orders = []
+        self.external_costs = []
         self.risk_free_rate = risk_free_rate
         self.commission_per_share = commission_per_share
         self.min_commission = min_commission
@@ -219,12 +220,25 @@ class FINSABERFrameworkHelper:
         for order in pending:
             self._execute_order(date, order, price_field="adjusted_open")
 
+    def charge_external_cost(self, date, amount, reason="external_cost"):
+        amount = float(amount or 0.0)
+        if amount <= 0:
+            return 0.0
+        self.cash -= amount
+        self.external_costs.append({
+            "date": date,
+            "reason": reason,
+            "cost": amount,
+        })
+        return amount
+
     def _reject_pending_orders(self, reason):
         for order in self.pending_orders:
             self.rejected_orders.append({**order, "execution_date": None, "reason": reason})
         self.pending_orders = []
 
-    def run(self, strategy, delist_check=True):
+    def run(self, strategy, delist_check=True, external_cost_getter=None, external_cost_offset=0.0, external_cost_reason="external_cost"):
+        last_external_cost = float(external_cost_offset or 0.0)
         date_range = self.data_loader.get_date_range()
         last_data_date = date_range[-1]
         if delist_check and self.requested_end_date is not None:
@@ -242,6 +256,12 @@ class FINSABERFrameworkHelper:
         for date in date_range:
             self._execute_pending_orders(date)
             status = strategy.on_data(date, self.data_loader.get_data_by_date(date), self)
+            if external_cost_getter is not None:
+                current_external_cost = float(external_cost_getter() or 0.0)
+                incremental_cost = current_external_cost - last_external_cost
+                self.charge_external_cost(date, incremental_cost, reason=external_cost_reason)
+                last_external_cost = current_external_cost
+
             strategy.update_info(date, self.data_loader, self)
 
             if status == "done":
@@ -277,6 +297,7 @@ class FINSABERFrameworkHelper:
                 'sortino_ratio': 0.0,
                 'total_commission': 0.0,
                 'total_slippage': 0.0,
+                'total_external_cost': 0.0,
                 'total_trading_cost': 0.0,
                 'max_drawdown': 0.0
             }
@@ -296,6 +317,7 @@ class FINSABERFrameworkHelper:
         sortino_ratio = (daily_returns.mean() * 252 - self.risk_free_rate) / downside_deviation if downside_deviation > 0 else 0
 
         total_commission = sum([trade['commission'] for trade in self.history])
+        total_external_cost = sum([cost["cost"] for cost in self.external_costs])
         total_slippage = sum([trade.get('slippage_cost', 0) for trade in self.history])
 
         # Calculate maximum drawdown
@@ -313,7 +335,8 @@ class FINSABERFrameworkHelper:
             'sortino_ratio': sortino_ratio,
             'total_commission': total_commission,
             'total_slippage': total_slippage,
-            'total_trading_cost': total_commission + total_slippage,
+            'total_external_cost': total_external_cost,
+            'total_trading_cost': total_commission + total_slippage + total_external_cost,
             'max_drawdown': max_drawdown
         }
 
@@ -343,6 +366,7 @@ class FINSABERFrameworkHelper:
         self.history = []
         self.rejected_orders = []
         self.pending_orders = []
+        self.external_costs = []
         self.data_loader = None
         self.requested_end_date = None
 

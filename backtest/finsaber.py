@@ -200,7 +200,15 @@ class FINSABER:
                         print(f"Insufficient training data for {ticker} in the period {self.trade_config.date_from} to {self.trade_config.date_to}. Skipping...")
                     continue
 
-                status = self.framework.run(strategy, delist_check=delist_check)
+                external_cost_offset = get_llm_cost()
+                if self.trade_config.llm_cost_as_trade_cost:
+                    training_llm_cost = external_cost_offset - llm_cost_before
+                    self.framework.charge_external_cost(self.trade_config.date_from, training_llm_cost, reason="llm_training_cost")
+
+                status = self.framework.run(strategy, delist_check=delist_check,
+                                            external_cost_getter=get_llm_cost if self.trade_config.llm_cost_as_trade_cost else None,
+                                            external_cost_offset=external_cost_offset,
+                                            external_cost_reason="llm_inference_cost")
 
                 if not status:
                     if not self.trade_config.silence:
@@ -211,13 +219,12 @@ class FINSABER:
                 total_llm_cost = get_llm_cost() - llm_cost_before
                 metrics["total_llm_cost"] = total_llm_cost
                 metrics["llm_cost_records"] = pd.DataFrame(get_llm_cost_ledger()[llm_ledger_start:])
-                if self.trade_config.llm_cost_as_trade_cost:
-                    metrics["total_trading_cost"] = metrics.get("total_trading_cost", 0) + total_llm_cost
                 equity_with_time = pd.DataFrame({
                     "datetime": strategy.equity_date,
                     "equity": strategy.equity
                 })
                 metrics["equity_with_time"] = equity_with_time
+                metrics["external_costs"] = pd.DataFrame(self.framework.external_costs)
                 metrics["trades"] = pd.DataFrame(self.framework.history)
                 metrics["rejected_orders"] = pd.DataFrame(self.framework.rejected_orders)
                 eval_metrics[ticker] = metrics

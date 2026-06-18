@@ -19,6 +19,7 @@ METRIC_KEYS = {
     "total_slippage",
     "total_llm_cost",
     "total_trading_cost",
+    "total_external_cost",
 }
 
 
@@ -28,6 +29,7 @@ DATAFRAME_FILENAMES = {
     "executed_orders": "orders.csv",
     "rejected_orders": "rejected_orders.csv",
     "llm_cost_records": "llm_costs.csv",
+    "external_costs": "external_costs.csv",
 }
 
 
