@@ -265,7 +265,7 @@ class FinAgentStrategy(BaseStrategyIso):
         save_dir = mode
         params = {}
         # Plot kline and add to params
-        kline_path = self.plots.plot_kline(state=state, info=info, save_dir=save_dir)
+        kline_path = self.plots.plot_kline(state=state, info=info, save_dir=save_dir, mode=mode)
         params["kline_path"] = kline_path
 
         tool_dict = dict(
