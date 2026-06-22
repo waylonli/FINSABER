@@ -43,10 +43,10 @@ class PlotsInterface():
 
 
             price = price[["open", "high", "low", "close", "volume"]]
-            price = price.reset_index(drop=False)
             price = price.dropna(axis=0, how="any")
-            price = price.drop_duplicates(subset=["timestamp"], keep="first")
-            price = price.set_index("timestamp")
+            price.index = pd.to_datetime(price.index)
+            price = price[~price.index.duplicated(keep="first")]
+            price = price.sort_index()
 
             title = "{} kline of {}".format(info["date"], info["symbol"])
             kline_path = os.path.join(kline_dir, "kline_{}.{}".format(info["date"], self.suffix))
