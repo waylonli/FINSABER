@@ -237,6 +237,32 @@ class FinAgentStrategy(BaseStrategyIso):
             "reasoning": [],
         }
 
+    @staticmethod
+    def _to_date(value):
+        if isinstance(value, datetime):
+            return value.date()
+        if isinstance(value, str):
+            return datetime.strptime(value, "%Y-%m-%d").date()
+        if hasattr(value, "to_pydatetime"):
+            return value.to_pydatetime().date()
+        if hasattr(value, "date") and callable(value.date):
+            return value.date()
+        return value
+
+    def _sync_test_env_to_date(self, date):
+        """Align FinAgent's internal test environment with the backtest date."""
+
+        target_date = self._to_date(date)
+        for position, env_date in enumerate(self.test_env.prices_df.index):
+            if self._to_date(env_date) == target_date:
+                self.test_env.day = position
+                self.test_env.date = self.test_env.get_current_date()
+                self.test_env.price = self.test_env.get_current_price()
+                return
+        raise KeyError(
+            f"Date {target_date} is not available in FinAgent test environment for {self.selected_asset}."
+        )
+
     def _read_template(self, path):
         with open(path, 'r') as f:
             return f.read()
@@ -353,6 +379,7 @@ class FinAgentStrategy(BaseStrategyIso):
         return decision_res["response_dict"]["action"]
 
     def on_data(self, date: datetime.date, today_data: dict[str, float], framework: FINSABERFrameworkHelper):
+        self._sync_test_env_to_date(date)
         state = self.test_env.get_state()
         info = self.test_env.get_info()
 
