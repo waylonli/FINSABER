@@ -15,6 +15,7 @@ TASK_FILE=${TASK_FILE:?Set TASK_FILE to the generated TSV manifest.}
 OUT_ROOT=${OUT_ROOT:-runs/finagent_gpt4o_mini}
 MODEL_ID=${MODEL_ID:-gpt-4o-mini}
 CONDA_ENV=${CONDA_ENV:-trading}
+ENSURE_DATASETS=${ENSURE_DATASETS:-0}
 
 if [[ -z "${SLURM_ARRAY_TASK_ID:-}" ]]; then
   echo "This script is intended to run as a Slurm array job." >&2
@@ -51,6 +52,12 @@ if [[ -f .env ]]; then
   set +a
 fi
 
+extra_args=()
+if [[ "$ENSURE_DATASETS" != "1" ]]; then
+  # Avoid many array tasks trying to download/create dataset files at once.
+  extra_args+=(--skip-dataset-check)
+fi
+
 python slurm/finagent_one_window.py \
   --setup "$setup" \
   --date-from "$date_from" \
@@ -58,4 +65,5 @@ python slurm/finagent_one_window.py \
   --strat-config-path "$strat_config_path" \
   --tickers "$tickers" \
   --model-id "$MODEL_ID" \
-  --output-root "$OUT_ROOT"
+  --output-root "$OUT_ROOT" \
+  "${extra_args[@]}"
