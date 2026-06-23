@@ -25,7 +25,7 @@ load_dotenv()
 
 
 class FinAgentStrategy(BaseStrategyIso):
-    def __init__(self, symbol, market_data_info_path, date_from, date_to, training_period=3):
+    def __init__(self, symbol, market_data_info_path, date_from, date_to, training_period=3, llm_model_id="gpt-4o-mini"):
         super().__init__()
         self.logger.info("Initialising FinAgentStrategy.")
 
@@ -49,7 +49,7 @@ class FinAgentStrategy(BaseStrategyIso):
         self.look_back_days = self.long_term_past_date_range
         self.previous_action_look_back_days = 14
         self.top_k = 5
-        self.llm_model_id = "gpt-4o-mini"
+        self.llm_model_id = llm_model_id
 
         # Template paths for valid mode
         self.valid_latest_market_intelligence_template = self._read_template(

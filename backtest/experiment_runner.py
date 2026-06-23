@@ -113,7 +113,7 @@ class ExperimentRunner:
                 "setup_name": setup_name,
                 "selection_strategy": LowVolatilitySP500Selector(
                     num_tickers=int(setup_name.split("_")[-1]),
-                    lookback_period=21,
+                    lookback_period=100,
                     training_period=2
                 )
             }

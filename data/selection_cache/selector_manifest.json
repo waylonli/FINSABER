@@ -1,0 +1,973 @@
+{
+  "name": "FINSABER-1 selector reproducibility manifest",
+  "purpose": "Frozen yearly ticker selections for paper reruns on the reproduce branch.",
+  "branch": "reproduce",
+  "commit": "a22417775c60401c70559ab927dffa25134ead05",
+  "generated_at_utc": "2026-06-23T10:08:57+00:00",
+  "paper_period": {
+    "date_from": "2004-01-01",
+    "date_to": "2024-01-01",
+    "rolling_window": "1-year test windows with 2-year training lookback for composite selectors"
+  },
+  "source_data": {
+    "price_file": "data/price/all_sp500_prices_2000_2024_delisted_include.csv",
+    "price_file_sha256": "f67e3972dceefbbdf6c17b84b30957a7b83518401955fff8ae0bc4ae206fa83f",
+    "price_column_for_fincon": "adjusted_close"
+  },
+  "setups": {
+    "random_sp500_5": {
+      "selector": "RandomSP500Selector",
+      "parameters": {
+        "num_tickers": 5,
+        "random_seed_setting": "year",
+        "training_period": 3
+      },
+      "cache_file": null,
+      "reproducibility_note": "No pickle cache is used by code; selections are deterministic because random.seed(year) is applied for each test year.",
+      "years": 20,
+      "first_year": "2004-01-01",
+      "last_year": "2023-01-01",
+      "unique_ticker_count": 92,
+      "unique_tickers": [
+        "AAPL",
+        "ADBE",
+        "AEE",
+        "AIV",
+        "AMP",
+        "ANDW",
+        "APH",
+        "ATI",
+        "AVY",
+        "AXP",
+        "BBBY",
+        "BEN",
+        "BIIB",
+        "C",
+        "CAH",
+        "CB",
+        "CFG",
+        "COF",
+        "COL",
+        "CTAS",
+        "CXO",
+        "D",
+        "DALRQ",
+        "DF",
+        "DUK",
+        "DXCM",
+        "EMN",
+        "EOG",
+        "EXPE",
+        "FFIV",
+        "FISV",
+        "FITB",
+        "FSLR",
+        "GIS",
+        "GM",
+        "GOOGL",
+        "HAL",
+        "HBI",
+        "HON",
+        "HPQ",
+        "HSY",
+        "ICE",
+        "INTC",
+        "ITT",
+        "JCP",
+        "JEC",
+        "K",
+        "KO",
+        "LKQ",
+        "LMT",
+        "LNC",
+        "LUMN",
+        "LVS",
+        "MAR",
+        "MCO",
+        "MNST",
+        "MOLX",
+        "MRO",
+        "MTB",
+        "MU",
+        "NFLX",
+        "NKE",
+        "NLSN",
+        "NVDA",
+        "NWL",
+        "NWS",
+        "PCG",
+        "PCP",
+        "PDCO",
+        "PFE",
+        "PFG",
+        "PG",
+        "Q",
+        "RF",
+        "ROST",
+        "SANM",
+        "SCG",
+        "SEE",
+        "SJM",
+        "SLB",
+        "SYK",
+        "TIE",
+        "TJX",
+        "TRV",
+        "UAA",
+        "UNH",
+        "UNM",
+        "VFC",
+        "VZ",
+        "WFC",
+        "WY",
+        "WYNN"
+      ],
+      "selections": {
+        "2004-01-01": [
+          "NVDA",
+          "AAPL",
+          "RF",
+          "DALRQ",
+          "ITT"
+        ],
+        "2005-01-01": [
+          "MAR",
+          "ADBE",
+          "AXP",
+          "MRO",
+          "D"
+        ],
+        "2006-01-01": [
+          "NWL",
+          "JCP",
+          "ATI",
+          "SANM",
+          "ANDW"
+        ],
+        "2007-01-01": [
+          "CTAS",
+          "VZ",
+          "SEE",
+          "UNH",
+          "AVY"
+        ],
+        "2008-01-01": [
+          "CAH",
+          "MU",
+          "HPQ",
+          "BEN",
+          "AMP"
+        ],
+        "2009-01-01": [
+          "EMN",
+          "PG",
+          "TIE",
+          "Q",
+          "PDCO"
+        ],
+        "2010-01-01": [
+          "C",
+          "LNC",
+          "K",
+          "DF",
+          "PFG"
+        ],
+        "2011-01-01": [
+          "MCO",
+          "MOLX",
+          "PCG",
+          "DUK",
+          "UNM"
+        ],
+        "2012-01-01": [
+          "BBBY",
+          "KO",
+          "GOOGL",
+          "COL",
+          "FITB"
+        ],
+        "2013-01-01": [
+          "ICE",
+          "VFC",
+          "AMP",
+          "WFC",
+          "HON"
+        ],
+        "2014-01-01": [
+          "FFIV",
+          "NFLX",
+          "HPQ",
+          "COF",
+          "FSLR"
+        ],
+        "2015-01-01": [
+          "SCG",
+          "APH",
+          "PCP",
+          "PFE",
+          "AIV"
+        ],
+        "2016-01-01": [
+          "SJM",
+          "VZ",
+          "JEC",
+          "WY",
+          "MNST"
+        ],
+        "2017-01-01": [
+          "COF",
+          "INTC",
+          "FISV",
+          "SYK",
+          "EXPE"
+        ],
+        "2018-01-01": [
+          "LMT",
+          "BIIB",
+          "AEE",
+          "HAL",
+          "NKE"
+        ],
+        "2019-01-01": [
+          "TJX",
+          "CB",
+          "SLB",
+          "CXO",
+          "WYNN"
+        ],
+        "2020-01-01": [
+          "MTB",
+          "CFG",
+          "NWS",
+          "ROST",
+          "INTC"
+        ],
+        "2021-01-01": [
+          "TRV",
+          "HBI",
+          "UAA",
+          "NLSN",
+          "LVS"
+        ],
+        "2022-01-01": [
+          "LKQ",
+          "DXCM",
+          "HSY",
+          "LUMN",
+          "EOG"
+        ],
+        "2023-01-01": [
+          "GIS",
+          "PG",
+          "ICE",
+          "TJX",
+          "GM"
+        ]
+      }
+    },
+    "momentum_sp500_5": {
+      "selector": "MomentumSP500Selector",
+      "parameters": {
+        "num_tickers": 5,
+        "momentum_period": 100,
+        "skip_period": 21,
+        "training_period": 2
+      },
+      "cache_file": "data/selection_cache/momentum/5_tickers_100_momentumperiod_21_skipperiod_2_trainingperiod.pkl",
+      "cache_file_sha256": "73f27c7a6cb00c203ab9a870f2b0fa01b2dc9fa99c4d645e91e7656036a8f61a",
+      "years": 20,
+      "first_year": "2004-01-01",
+      "last_year": "2023-01-01",
+      "unique_ticker_count": 84,
+      "unique_tickers": [
+        "A",
+        "AABA",
+        "AAPL",
+        "AET",
+        "ALGN",
+        "AMD",
+        "AMZN",
+        "ANF",
+        "APA",
+        "APCC",
+        "APOL",
+        "ARG",
+        "ATVI",
+        "AYE",
+        "BDK",
+        "BIIB",
+        "CAM",
+        "CFG",
+        "CIEN",
+        "CLF",
+        "CNX",
+        "CTX",
+        "DAL",
+        "DALRQ",
+        "DE",
+        "DHI",
+        "DLTR",
+        "DVN",
+        "DXC",
+        "ESRX",
+        "EW",
+        "F",
+        "FCX",
+        "FDO",
+        "FFIV",
+        "FSLR",
+        "GAS",
+        "GE",
+        "GILD",
+        "GM",
+        "GME",
+        "GWW",
+        "HAR",
+        "JCP",
+        "JNPR",
+        "KEY",
+        "KMG",
+        "KMX",
+        "LNC",
+        "LUV",
+        "MEE",
+        "MNST",
+        "MU",
+        "MWW",
+        "NCR",
+        "NFLX",
+        "NLSN",
+        "NOVL",
+        "NVDA",
+        "PBCT",
+        "PHM",
+        "QRVO",
+        "RCL",
+        "RF",
+        "RHT",
+        "RIG",
+        "RX",
+        "SBUX",
+        "SLB",
+        "STT",
+        "TGT",
+        "THC",
+        "TIF",
+        "TPR",
+        "TSLA",
+        "ULTA",
+        "URI",
+        "UVN",
+        "VIAV",
+        "VRTX",
+        "WBA",
+        "WHR",
+        "XLNX",
+        "XOM"
+      ],
+      "selections": {
+        "2004-01-01": [
+          "ESRX",
+          "AET",
+          "CTX",
+          "NCR",
+          "NOVL"
+        ],
+        "2005-01-01": [
+          "UVN",
+          "KMG",
+          "DALRQ",
+          "AAPL",
+          "AMD"
+        ],
+        "2006-01-01": [
+          "VIAV",
+          "AAPL",
+          "ESRX",
+          "CIEN",
+          "A"
+        ],
+        "2007-01-01": [
+          "VIAV",
+          "CIEN",
+          "APCC",
+          "JNPR",
+          "AMZN"
+        ],
+        "2008-01-01": [
+          "RX",
+          "RIG",
+          "AAPL",
+          "DE",
+          "CNX"
+        ],
+        "2009-01-01": [
+          "AYE",
+          "APOL",
+          "PBCT",
+          "FDO",
+          "XOM"
+        ],
+        "2010-01-01": [
+          "AYE",
+          "AMD",
+          "CLF",
+          "AMZN",
+          "BDK"
+        ],
+        "2011-01-01": [
+          "MWW",
+          "JCP",
+          "MEE",
+          "NVDA",
+          "KMX"
+        ],
+        "2012-01-01": [
+          "FFIV",
+          "GWW",
+          "PHM",
+          "RHT",
+          "HAR"
+        ],
+        "2013-01-01": [
+          "THC",
+          "GME",
+          "ANF",
+          "DXC",
+          "WHR"
+        ],
+        "2014-01-01": [
+          "MU",
+          "FSLR",
+          "NFLX",
+          "DAL",
+          "BIIB"
+        ],
+        "2015-01-01": [
+          "MNST",
+          "AABA",
+          "LUV",
+          "EW",
+          "VRTX"
+        ],
+        "2016-01-01": [
+          "NVDA",
+          "ATVI",
+          "CAM",
+          "ARG",
+          "GAS"
+        ],
+        "2017-01-01": [
+          "NVDA",
+          "RF",
+          "CFG",
+          "KEY",
+          "LNC"
+        ],
+        "2018-01-01": [
+          "ALGN",
+          "MU",
+          "DHI",
+          "URI",
+          "DLTR"
+        ],
+        "2019-01-01": [
+          "SBUX",
+          "WBA",
+          "ULTA",
+          "NLSN",
+          "RHT"
+        ],
+        "2020-01-01": [
+          "TGT",
+          "ALGN",
+          "TIF",
+          "QRVO",
+          "STT"
+        ],
+        "2021-01-01": [
+          "TPR",
+          "FCX",
+          "ALGN",
+          "GM",
+          "GE"
+        ],
+        "2022-01-01": [
+          "NVDA",
+          "TSLA",
+          "DVN",
+          "XLNX",
+          "F"
+        ],
+        "2023-01-01": [
+          "SLB",
+          "FSLR",
+          "RCL",
+          "APA",
+          "GILD"
+        ]
+      }
+    },
+    "lowvol_sp500_5": {
+      "selector": "LowVolatilitySP500Selector",
+      "parameters": {
+        "num_tickers": 5,
+        "lookback_period": 100,
+        "training_period": 2
+      },
+      "cache_file": "data/selection_cache/low_volatility/5_tickers_100_lookback_2_trainingperiod.pkl",
+      "cache_file_sha256": "107987a53efd0de5df55a94905c6b020105db5857dd1a05727e4f5d88ea01b79",
+      "reproducibility_note": "Uses the existing FINSABER-1 cache generated by the selector script's documented 100-day lookback parameter.",
+      "years": 20,
+      "first_year": "2004-01-01",
+      "last_year": "2023-01-01",
+      "unique_ticker_count": 63,
+      "unique_tickers": [
+        "ABT",
+        "ACN",
+        "AEE",
+        "AGN",
+        "AON",
+        "ATVI",
+        "AXP",
+        "AZO",
+        "BBT",
+        "CB",
+        "CCE",
+        "CL",
+        "CLX",
+        "DUK",
+        "ECL",
+        "ED",
+        "EQR",
+        "ES",
+        "ETR",
+        "EXC",
+        "FDO",
+        "FISV",
+        "GD",
+        "GIS",
+        "HET",
+        "HNZ",
+        "HON",
+        "HSY",
+        "INTU",
+        "JNJ",
+        "K",
+        "KMB",
+        "KO",
+        "KSE",
+        "LLTC",
+        "MAA",
+        "MCD",
+        "MKC",
+        "MON",
+        "MSI",
+        "NEE",
+        "PCP",
+        "PEP",
+        "PG",
+        "POM",
+        "PPL",
+        "RBK",
+        "RF",
+        "RSG",
+        "SCG",
+        "SJM",
+        "SO",
+        "SWY",
+        "SYY",
+        "T",
+        "TMK",
+        "VAR",
+        "VRSK",
+        "VZ",
+        "WEC",
+        "WFC",
+        "WM",
+        "XEL"
+      ],
+      "selections": {
+        "2004-01-01": [
+          "AEE",
+          "HSY",
+          "NEE",
+          "ED",
+          "EQR"
+        ],
+        "2005-01-01": [
+          "WFC",
+          "AEE",
+          "AXP",
+          "RF",
+          "XEL"
+        ],
+        "2006-01-01": [
+          "RBK",
+          "TMK",
+          "PEP",
+          "CL",
+          "GD"
+        ],
+        "2007-01-01": [
+          "KSE",
+          "SO",
+          "ED",
+          "PG",
+          "BBT"
+        ],
+        "2008-01-01": [
+          "HET",
+          "JNJ",
+          "K",
+          "KMB",
+          "PG"
+        ],
+        "2009-01-01": [
+          "SO",
+          "GIS",
+          "JNJ",
+          "MKC",
+          "XEL"
+        ],
+        "2010-01-01": [
+          "JNJ",
+          "K",
+          "CLX",
+          "MKC",
+          "ED"
+        ],
+        "2011-01-01": [
+          "SO",
+          "WEC",
+          "ES",
+          "KO",
+          "SCG"
+        ],
+        "2012-01-01": [
+          "SO",
+          "KMB",
+          "ED",
+          "DUK",
+          "ABT"
+        ],
+        "2013-01-01": [
+          "PEP",
+          "HNZ",
+          "K",
+          "GIS",
+          "HSY"
+        ],
+        "2014-01-01": [
+          "MCD",
+          "INTU",
+          "AZO",
+          "MSI",
+          "PPL"
+        ],
+        "2015-01-01": [
+          "SWY",
+          "POM",
+          "FDO",
+          "WM",
+          "PG"
+        ],
+        "2016-01-01": [
+          "PCP",
+          "T",
+          "CCE",
+          "RSG",
+          "SYY"
+        ],
+        "2017-01-01": [
+          "LLTC",
+          "VRSK",
+          "KO",
+          "AON",
+          "CB"
+        ],
+        "2018-01-01": [
+          "MON",
+          "HON",
+          "ECL",
+          "FISV",
+          "ACN"
+        ],
+        "2019-01-01": [
+          "EXC",
+          "ETR",
+          "KO",
+          "MAA",
+          "WM"
+        ],
+        "2020-01-01": [
+          "AGN",
+          "VZ",
+          "SYY",
+          "KO",
+          "PEP"
+        ],
+        "2021-01-01": [
+          "VAR",
+          "PG",
+          "VZ",
+          "AEE",
+          "CL"
+        ],
+        "2022-01-01": [
+          "PEP",
+          "PG",
+          "WM",
+          "PPL",
+          "KMB"
+        ],
+        "2023-01-01": [
+          "ATVI",
+          "JNJ",
+          "SJM",
+          "PEP",
+          "HSY"
+        ]
+      }
+    },
+    "fincon_selector_sp500_5": {
+      "selector": "FinConSP500Selector",
+      "parameters": {
+        "num_tickers": 5,
+        "lookback_years": 2,
+        "training_period": 2
+      },
+      "cache_file": "data/selection_cache/fincon_selector/5_tickers_2yr_lookback_2_trainingperiod.pkl",
+      "cache_file_sha256": "b5d29ec9aec4a639c6a5e51fbb6d3f3dfea13063f3db819af3274e575b6298d9",
+      "reproducibility_note": "Cache generated from the same local correlation/Sharpe scoring rule used by StockSelectionAgent, without live LLM calls.",
+      "years": 20,
+      "first_year": "2004-01-01",
+      "last_year": "2023-01-01",
+      "unique_ticker_count": 80,
+      "unique_tickers": [
+        "AAPL",
+        "ABC",
+        "ABMD",
+        "ADS",
+        "ADSK",
+        "AGN",
+        "ALGN",
+        "ALXN",
+        "AMD",
+        "AMT",
+        "AMZN",
+        "APOL",
+        "APTV",
+        "AYE",
+        "AZO",
+        "BIG",
+        "BIIB",
+        "BKNG",
+        "BSX",
+        "BXP",
+        "CARR",
+        "CBOE",
+        "CELG",
+        "CF",
+        "CME",
+        "CMG",
+        "COP",
+        "CPWR",
+        "DLTR",
+        "EA",
+        "EIX",
+        "EOG",
+        "EP",
+        "ETR",
+        "ETSY",
+        "EW",
+        "FE",
+        "GILD",
+        "GME",
+        "HSY",
+        "ICE",
+        "KDP",
+        "KO",
+        "KR",
+        "LLY",
+        "LMT",
+        "LUV",
+        "LW",
+        "MCD",
+        "MCK",
+        "MHS",
+        "MJN",
+        "MO",
+        "MPC",
+        "MRNA",
+        "MU",
+        "NEE",
+        "NEM",
+        "NFLX",
+        "NOC",
+        "NRG",
+        "NVDA",
+        "PBCT",
+        "PGR",
+        "PSA",
+        "REGN",
+        "ROST",
+        "SBUX",
+        "SPG",
+        "TGT",
+        "TJX",
+        "TSLA",
+        "TXU",
+        "ULTA",
+        "VLO",
+        "WM",
+        "WMB",
+        "WST",
+        "XOM",
+        "ZBH"
+      ],
+      "selections": {
+        "2004-01-01": [
+          "NEM",
+          "EP",
+          "BSX",
+          "SPG",
+          "ZBH"
+        ],
+        "2005-01-01": [
+          "WMB",
+          "ADSK",
+          "TXU",
+          "EIX",
+          "SBUX"
+        ],
+        "2006-01-01": [
+          "AAPL",
+          "TXU",
+          "VLO",
+          "AYE",
+          "EOG"
+        ],
+        "2007-01-01": [
+          "AYE",
+          "MO",
+          "CELG",
+          "BXP",
+          "LMT"
+        ],
+        "2008-01-01": [
+          "GME",
+          "MO",
+          "ICE",
+          "KO",
+          "MCD"
+        ],
+        "2009-01-01": [
+          "APOL",
+          "PBCT",
+          "CF",
+          "MHS",
+          "GILD"
+        ],
+        "2010-01-01": [
+          "CPWR",
+          "EP",
+          "BKNG",
+          "ROST",
+          "BIG"
+        ],
+        "2011-01-01": [
+          "CPWR",
+          "NFLX",
+          "EP",
+          "BKNG",
+          "MJN"
+        ],
+        "2012-01-01": [
+          "CPWR",
+          "DLTR",
+          "AZO",
+          "CMG",
+          "HSY"
+        ],
+        "2013-01-01": [
+          "APTV",
+          "HSY",
+          "ALXN",
+          "BIIB",
+          "TJX"
+        ],
+        "2014-01-01": [
+          "ADS",
+          "AGN",
+          "GILD",
+          "MCK",
+          "REGN"
+        ],
+        "2015-01-01": [
+          "LUV",
+          "KR",
+          "ABC",
+          "MU",
+          "LMT"
+        ],
+        "2016-01-01": [
+          "KR",
+          "KDP",
+          "EA",
+          "PSA",
+          "EW"
+        ],
+        "2017-01-01": [
+          "NVDA",
+          "AMZN",
+          "ULTA",
+          "NFLX",
+          "NOC"
+        ],
+        "2018-01-01": [
+          "NVDA",
+          "CBOE",
+          "WM",
+          "PGR",
+          "ALGN"
+        ],
+        "2019-01-01": [
+          "LW",
+          "NRG",
+          "NEE",
+          "CME",
+          "ABMD"
+        ],
+        "2020-01-01": [
+          "NEE",
+          "CMG",
+          "FE",
+          "ETR",
+          "AMT"
+        ],
+        "2021-01-01": [
+          "TSLA",
+          "WST",
+          "TGT",
+          "AMD",
+          "CMG"
+        ],
+        "2022-01-01": [
+          "MRNA",
+          "CARR",
+          "TSLA",
+          "WST",
+          "ETSY"
+        ],
+        "2023-01-01": [
+          "XOM",
+          "MCK",
+          "COP",
+          "MPC",
+          "LLY"
+        ]
+      }
+    }
+  }
+}
