@@ -56,3 +56,5 @@ backtest/output/.DS_Store
 backup
 *.pyc
 backtest/output/selected_5/FinMemStrategy/.DS_Store
+/runs/
+/slurm_logs/
