@@ -152,7 +152,7 @@ def save_outputs(job_dir: Path, args: argparse.Namespace, tickers: list[str], me
         summary_metrics[ticker] = {}
         for key, value in ticker_metrics.items():
             if key == "equity_with_time" and isinstance(value, pd.DataFrame):
-                value.to_parquet(equity_dir / f"{ticker}.parquet", index=False)
+                value.to_pickle(equity_dir / f"{ticker}.pkl")
             else:
                 summary_metrics[ticker][key] = jsonable(value)
 
