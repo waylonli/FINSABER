@@ -32,6 +32,7 @@ def create_finsaber2_data_loader(
     tickers: Iterable[str] | str | None = None,
     modalities: Iterable[str] = ("price", "news", "filing_k", "filing_q"),
     price_field: str = "adjusted_close",
+    filing_merge_policy: str = "concat",
 ) -> FinsaberParquetDataset:
     """Create the default FINSABER-2 parquet data loader."""
 
@@ -46,6 +47,7 @@ def create_finsaber2_data_loader(
         tickers=tickers,
         modalities=modalities,
         price_field=price_field,
+        filing_merge_policy=filing_merge_policy,
     )
 
 
@@ -56,6 +58,7 @@ def resolve_trading_data(
     market_data_info_path: str | Path | None = None,
     tickers: Iterable[str] | str | None = None,
     modalities: Iterable[str] = ("price", "news", "filing_k", "filing_q"),
+    filing_merge_policy: str = "concat",
 ) -> TradingData:
     """Resolve strategy data input while preserving legacy pickle compatibility."""
 
@@ -77,14 +80,23 @@ def resolve_trading_data(
                 DeprecationWarning,
                 stacklevel=2,
             )
-            return FinsaberDataset(pickle_file=str(candidate_path))
+            return FinsaberDataset(
+                pickle_file=str(candidate_path),
+                source_kind="legacy_pickle",
+                filing_payload_kind="section_text",
+            )
         return create_finsaber2_data_loader(
             candidate_path,
             tickers=tickers,
             modalities=modalities,
+            filing_merge_policy=filing_merge_policy,
         )
 
-    return create_finsaber2_data_loader(tickers=tickers, modalities=modalities)
+    return create_finsaber2_data_loader(
+        tickers=tickers,
+        modalities=modalities,
+        filing_merge_policy=filing_merge_policy,
+    )
 
 
 def trading_data_to_env_dict(

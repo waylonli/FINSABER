@@ -14,7 +14,14 @@ class FinsaberDataset(TradingData):
     Additional modalities are preserved and filtered by ticker when possible.
     """
 
-    def __init__(self, pickle_file: str | None = None, data: dict | None = None, price_field: str = "adjusted_close"):
+    def __init__(
+        self,
+        pickle_file: str | None = None,
+        data: dict | None = None,
+        price_field: str = "adjusted_close",
+        source_kind: str | None = None,
+        filing_payload_kind: str = "raw_filing",
+    ):
         if pickle_file is None and data is None:
             raise ValueError("Either pickle_file or data must be provided")
         if pickle_file is not None and data is not None:
@@ -27,6 +34,8 @@ class FinsaberDataset(TradingData):
             self.data = data
 
         self.price_field = price_field
+        self.source_kind = source_kind or ("pickle" if pickle_file is not None else "in_memory")
+        self.filing_payload_kind = self._validate_filing_payload_kind(filing_payload_kind)
         self._tickers_list = None
         self._date_range = sorted(self.data.keys())
 
@@ -37,6 +46,15 @@ class FinsaberDataset(TradingData):
         if isinstance(date, pd.Timestamp):
             return date.date()
         return date
+
+    @staticmethod
+    def _validate_filing_payload_kind(value: str) -> str:
+        normalized = str(value).strip().lower()
+        if normalized not in {"raw_filing", "section_text"}:
+            raise ValueError(
+                "Unsupported filing_payload_kind. Expected 'raw_filing' or 'section_text'."
+            )
+        return normalized
 
     def get_ticker_price_by_date(self, ticker: str, date, price_field: str | None = None) -> float:
         date = self._normalize_date(date)
@@ -75,7 +93,16 @@ class FinsaberDataset(TradingData):
             for date in self._date_range
             if start_date <= date <= end_date
         }
-        return FinsaberDataset(data=subset, price_field=self.price_field) if subset else None
+        return (
+            FinsaberDataset(
+                data=subset,
+                price_field=self.price_field,
+                source_kind=self.source_kind,
+                filing_payload_kind=self.filing_payload_kind,
+            )
+            if subset
+            else None
+        )
 
     def get_ticker_subset_by_time_range(self, ticker: str, start_date, end_date):
         start_date = self._normalize_date(start_date)
@@ -90,7 +117,16 @@ class FinsaberDataset(TradingData):
                     daily_ticker_data[modality] = {ticker: values[ticker]}
             if "price" in daily_ticker_data:
                 subset[date] = daily_ticker_data
-        return FinsaberDataset(data=subset, price_field=self.price_field) if subset else None
+        return (
+            FinsaberDataset(
+                data=subset,
+                price_field=self.price_field,
+                source_kind=self.source_kind,
+                filing_payload_kind=self.filing_payload_kind,
+            )
+            if subset
+            else None
+        )
 
     def get_date_range(self) -> list:
         return list(self._date_range)

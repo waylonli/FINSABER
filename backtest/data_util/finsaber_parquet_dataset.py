@@ -23,6 +23,7 @@ class FinsaberParquetDataset(TradingData):
         tickers: Iterable[str] | None = None,
         modalities: Iterable[str] = ("price", "news", "filing_k", "filing_q"),
         price_field: str = "adjusted_close",
+        filing_merge_policy: str = "concat",
     ):
         self.root = Path(root)
         self.start_date = self._normalize_date(start_date)
@@ -33,6 +34,9 @@ class FinsaberParquetDataset(TradingData):
             self.tickers = sorted(set(tickers)) if tickers is not None else None
         self.modalities = tuple(modalities)
         self.price_field = price_field
+        self.source_kind = "parquet"
+        self.filing_payload_kind = "raw_filing"
+        self.filing_merge_policy = self._validate_filing_merge_policy(filing_merge_policy)
         self._data_cache = None
         self._date_range_cache = None
         self._tickers_cache = None
@@ -46,6 +50,23 @@ class FinsaberParquetDataset(TradingData):
         if isinstance(date, pd.Timestamp):
             return date.date()
         return date
+
+    @staticmethod
+    def _validate_filing_merge_policy(policy: str) -> str:
+        normalized = str(policy).strip().lower()
+        if normalized not in {"concat", "latest"}:
+            raise ValueError(
+                "Unsupported filing_merge_policy. Expected 'concat' or 'latest'."
+            )
+        return normalized
+
+    def _merge_filing_text(self, current_text: str | None, new_text: str) -> str:
+        # Preserve the current default behavior, while allowing callers to keep
+        # only the latest same-day filing for a ticker when duplicate filings
+        # should not be concatenated into one payload.
+        if not current_text or self.filing_merge_policy == "latest":
+            return new_text
+        return f"{current_text}\n\n{new_text}"
 
     def _date_filter(self):
         filters = []
@@ -146,10 +167,10 @@ class FinsaberParquetDataset(TradingData):
             filings = self._read_filings(folder)
             for row in filings.itertuples(index=False):
                 current = data[row.date][modality].get(row.symbol)
-                if current:
-                    data[row.date][modality][row.symbol] = f"{current}\n\n{row.filing_text}"
-                else:
-                    data[row.date][modality][row.symbol] = row.filing_text
+                data[row.date][modality][row.symbol] = self._merge_filing_text(
+                    current,
+                    row.filing_text,
+                )
 
         self._data_cache = {date: dict(values) for date, values in data.items()}
         return self._data_cache
@@ -192,6 +213,7 @@ class FinsaberParquetDataset(TradingData):
             tickers=self.tickers,
             modalities=self.modalities,
             price_field=self.price_field,
+            filing_merge_policy=self.filing_merge_policy,
         )
         return subset if subset.get_date_range() else None
 
@@ -203,6 +225,7 @@ class FinsaberParquetDataset(TradingData):
             tickers=[ticker],
             modalities=self.modalities,
             price_field=self.price_field,
+            filing_merge_policy=self.filing_merge_policy,
         )
         return subset if subset.get_date_range() else None
 
@@ -223,6 +246,7 @@ class FinsaberParquetDataset(TradingData):
             tickers=None if tickers == "all" else tickers,
             modalities=("price",),
             price_field=self.price_field,
+            filing_merge_policy=self.filing_merge_policy,
         )
         df = subset._read_price()
         if df.empty:
