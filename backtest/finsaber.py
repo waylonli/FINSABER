@@ -35,6 +35,68 @@ class FINSABER:
         )
         self.data_loader = self.trade_config.data_loader
 
+    def _result_output_dir(self, strategy_class):
+        setup_name = str(self.trade_config.setup_name or "default").replace(":", "_")
+        return os.path.join(
+            self.trade_config.log_base_dir,
+            setup_name,
+            strategy_class.__name__,
+        )
+
+    def _window_key(self):
+        return f"{self.trade_config.date_from}_{self.trade_config.date_to}"
+
+    @staticmethod
+    def _safe_path_component(value):
+        return str(value).replace("/", "_").replace("\\", "_").replace(":", "_")
+
+    def _checkpoint_path(self, strategy_class, ticker):
+        window_key = self._safe_path_component(self._window_key())
+        ticker_key = self._safe_path_component(ticker)
+        return os.path.join(
+            self._result_output_dir(strategy_class),
+            "checkpoints",
+            window_key,
+            f"{ticker_key}.pkl",
+        )
+
+    def _load_ticker_checkpoint(self, strategy_class, ticker):
+        if not (self.trade_config.save_results and self.trade_config.resume_from_checkpoint):
+            return None
+        checkpoint_path = self._checkpoint_path(strategy_class, ticker)
+        if not os.path.exists(checkpoint_path):
+            return None
+        with open(checkpoint_path, "rb") as file:
+            payload = pickle.load(file)
+        if isinstance(payload, dict) and payload.get("status") == "complete":
+            return payload.get("metrics")
+        return payload if isinstance(payload, dict) else None
+
+    def _save_ticker_checkpoint(self, strategy_class, ticker, metrics):
+        if not (self.trade_config.save_results and self.trade_config.checkpoint_results):
+            return
+        checkpoint_path = self._checkpoint_path(strategy_class, ticker)
+        os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
+        payload = {
+            "schema_version": 1,
+            "status": "complete",
+            "window": self._window_key(),
+            "ticker": ticker,
+            "strategy": strategy_class.__name__,
+            "metrics": metrics,
+        }
+        temp_path = f"{checkpoint_path}.tmp"
+        with open(temp_path, "wb") as file:
+            pickle.dump(payload, file)
+        os.replace(temp_path, checkpoint_path)
+
+    def _write_partial_results(self, strategy_class, eval_metrics):
+        if not (self.trade_config.save_results and self.trade_config.checkpoint_results):
+            return
+        output_dir = self._result_output_dir(strategy_class)
+        os.makedirs(output_dir, exist_ok=True)
+        write_result_artifacts(output_dir, self.trade_config.to_dict(), {self._window_key(): eval_metrics})
+
 
     def run_rolling_window(self, strategy_class, rolling_window_size=None, rolling_window_step=None, strat_params=None):
         rolling_window_size = rolling_window_size or self.trade_config.rolling_window_size
@@ -85,11 +147,7 @@ class FINSABER:
 
         # Save results if required
         if self.trade_config.save_results:
-            output_dir = os.path.join(
-                self.trade_config.log_base_dir,
-                self.trade_config.setup_name.replace(":", "_"),
-                strategy_class.__name__,
-            )
+            output_dir = self._result_output_dir(strategy_class)
             filename = f"{date_from.date()}_{date_to.date()}.pkl" if self.trade_config.result_filename is None else self.trade_config.result_filename
             os.makedirs(output_dir, exist_ok=True)
             with open(os.path.join(output_dir, filename), "wb") as f:
@@ -108,6 +166,8 @@ class FINSABER:
         total_commission = metrics.get("total_commission", 0)
         total_slippage = metrics.get("total_slippage", 0)
         total_llm_cost = metrics.get("total_llm_cost", 0)
+        total_external_cost = metrics.get("total_external_cost", 0)
+        total_trading_cost = metrics.get("total_trading_cost", 0)
 
         print("\n" + "=" * 50)
         print(f"Ticker: {ticker}")
@@ -120,6 +180,8 @@ class FINSABER:
         print(f"Total Commission: ${total_commission:.3f}")
         print(f"Total Slippage: ${total_slippage:.3f}")
         print(f"Total LLM Cost: ${total_llm_cost:.3f}")
+        print(f"Total External Cost: ${total_external_cost:.3f}")
+        print(f"Total Trading Cost: ${total_trading_cost:.3f}")
         print("=" * 50)
 
     def _plot_equity_curve(self, equity_with_time, ticker):
@@ -143,6 +205,15 @@ class FINSABER:
             for ticker in tickers:
                 llm_cost_before = get_llm_cost()
                 llm_ledger_start = len(get_llm_cost_ledger())
+                checkpoint_metrics = self._load_ticker_checkpoint(strategy_class, ticker)
+                if checkpoint_metrics is not None:
+                    eval_metrics[ticker] = checkpoint_metrics
+                    progress.update(task, advance=1,
+                                    description=f"Loaded checkpoint for {ticker} on {self.trade_config.date_from} to {self.trade_config.date_to}")
+                    if not self.trade_config.silence:
+                        print(f"Loaded checkpoint for {ticker} on {self.trade_config.date_from} to {self.trade_config.date_to}.")
+                    continue
+
                 progress.update(task,
                                 description=f"Backtesting {ticker} on {self.trade_config.date_from} to {self.trade_config.date_to}")
 
@@ -200,7 +271,15 @@ class FINSABER:
                         print(f"Insufficient training data for {ticker} in the period {self.trade_config.date_from} to {self.trade_config.date_to}. Skipping...")
                     continue
 
-                status = self.framework.run(strategy, delist_check=delist_check)
+                external_cost_offset = get_llm_cost()
+                if self.trade_config.llm_cost_as_trade_cost:
+                    training_llm_cost = external_cost_offset - llm_cost_before
+                    self.framework.charge_external_cost(self.trade_config.date_from, training_llm_cost, reason="llm_training_cost")
+
+                status = self.framework.run(strategy, delist_check=delist_check,
+                                            external_cost_getter=get_llm_cost if self.trade_config.llm_cost_as_trade_cost else None,
+                                            external_cost_offset=external_cost_offset,
+                                            external_cost_reason="llm_inference_cost")
 
                 if not status:
                     if not self.trade_config.silence:
@@ -211,16 +290,18 @@ class FINSABER:
                 total_llm_cost = get_llm_cost() - llm_cost_before
                 metrics["total_llm_cost"] = total_llm_cost
                 metrics["llm_cost_records"] = pd.DataFrame(get_llm_cost_ledger()[llm_ledger_start:])
-                if self.trade_config.llm_cost_as_trade_cost:
-                    metrics["total_trading_cost"] = metrics.get("total_trading_cost", 0) + total_llm_cost
                 equity_with_time = pd.DataFrame({
                     "datetime": strategy.equity_date,
                     "equity": strategy.equity
                 })
                 metrics["equity_with_time"] = equity_with_time
+                metrics["external_costs"] = pd.DataFrame(self.framework.external_costs)
                 metrics["trades"] = pd.DataFrame(self.framework.history)
                 metrics["rejected_orders"] = pd.DataFrame(self.framework.rejected_orders)
                 eval_metrics[ticker] = metrics
+                self._save_ticker_checkpoint(strategy_class, ticker, metrics)
+                self._write_partial_results(strategy_class, eval_metrics)
+                progress.update(task, advance=1)
 
                 if not self.trade_config.silence:
                     self._print_results(metrics, ticker)
@@ -229,18 +310,18 @@ class FINSABER:
 
         if self.trade_config.save_results:
             eval_metrics = {f"{self.trade_config.date_from}_{self.trade_config.date_to}": eval_metrics}
-            output_dir = os.path.join(
-                self.trade_config.log_base_dir,
-                self.trade_config.setup_name.replace(":", "_"),
-                strategy_class.__name__,
-            )
+            output_dir = self._result_output_dir(strategy_class)
             filename = f"{self.trade_config.date_from}_{self.trade_config.date_to}.pkl" if self.trade_config.result_filename is None else self.trade_config.result_filename
             os.makedirs(output_dir, exist_ok=True)
             with open(os.path.join(output_dir, filename), "wb") as f:
                 pickle.dump(eval_metrics, f)
             write_result_artifacts(output_dir, self.trade_config.to_dict(), eval_metrics)
 
-            aggregate_results_one_strategy(self.trade_config.setup_name.replace(":", "_"), strategy_class.__name__)
+            aggregate_results_one_strategy(
+                self.trade_config.setup_name.replace(":", "_"),
+                strategy_class.__name__,
+                output_dir=self.trade_config.log_base_dir,
+            )
 
         # print the estimated cost
         if not self.trade_config.silence:

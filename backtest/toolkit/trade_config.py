@@ -31,6 +31,8 @@ class TradeConfig:
     result_filename: str = None
     save_results: bool = True
     log_base_dir: str = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "output")
+    checkpoint_results: bool = True
+    resume_from_checkpoint: bool = True
     data_loader: Any = None
 
     def __post_init__(self):

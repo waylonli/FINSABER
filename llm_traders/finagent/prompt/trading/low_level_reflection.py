@@ -52,10 +52,17 @@ class LowLevelReflectionTrading(Prompt):
             
         price = state["price"]
         price = deepcopy(price)
-        price = price.reset_index(drop=False)
+        if "timestamp" in price.columns:
+            price = price.reset_index(drop=True)
+        else:
+            price = price.reset_index(drop=False)
+            if "index" in price.columns:
+                price = price.rename(columns={"index": "timestamp"})
         price = price[["timestamp", "adj_close"]]
         price = price.dropna(axis=0, how="any")
+        price["timestamp"] = pd.to_datetime(price["timestamp"]).dt.date
         price = price.drop_duplicates(subset=["timestamp"], keep="first")
+        price = price.sort_values("timestamp")
 
 
         past_price = price[price["timestamp"] <= pd.to_datetime(current_date).date()]

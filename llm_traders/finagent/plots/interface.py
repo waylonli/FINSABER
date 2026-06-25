@@ -1,4 +1,5 @@
 import os
+import warnings
 
 import pandas as pd
 
@@ -35,14 +36,17 @@ class PlotsInterface():
 
             kline_dir = init_path(os.path.join(self.kline_plot_path, save_dir))
 
-            if not os.path.exists(os.path.join(kline_dir, "echarts.min.js")):
+            if os.path.exists(self.echarts_js_path) and not os.path.exists(os.path.join(kline_dir, "echarts.min.js")):
                 shutil.copy(self.echarts_js_path, kline_dir)
+            elif not os.path.exists(self.echarts_js_path):
+                warnings.warn(f"ECharts asset not found at {self.echarts_js_path}; using matplotlib fallback if needed.", RuntimeWarning)
+
 
             price = price[["open", "high", "low", "close", "volume"]]
-            price = price.reset_index(drop=False)
             price = price.dropna(axis=0, how="any")
-            price = price.drop_duplicates(subset=["timestamp"], keep="first")
-            price = price.set_index("timestamp")
+            price.index = pd.to_datetime(price.index)
+            price = price[~price.index.duplicated(keep="first")]
+            price = price.sort_index()
 
             title = "{} kline of {}".format(info["date"], info["symbol"])
             kline_path = os.path.join(kline_dir, "kline_{}.{}".format(info["date"], self.suffix))
@@ -58,8 +62,12 @@ class PlotsInterface():
                        path=os.path.join(kline_dir, f"{info['date']}_{self.suffix}_kline_render.html"),
                        mode=mode)
 
+            if not os.path.exists(kline_path):
+                warnings.warn(f"K-line chart was not created at {kline_path}.", RuntimeWarning)
+                kline_path = None
+
         except Exception as e:
-            # print(e)
+            warnings.warn(f"Failed to generate k-line chart for {info.get('symbol')} on {info.get('date')}: {e}", RuntimeWarning)
             kline_path = None
         return kline_path
 
@@ -68,15 +76,22 @@ class PlotsInterface():
 
             trading_dir = init_path(os.path.join(self.trading_plot_path, save_dir))
 
-            if not os.path.exists(os.path.join(trading_dir, "echarts.min.js")):
+            if os.path.exists(self.echarts_js_path) and not os.path.exists(os.path.join(trading_dir, "echarts.min.js")):
                 shutil.copy(self.echarts_js_path, trading_dir)
+            elif not os.path.exists(self.echarts_js_path):
+                warnings.warn(f"ECharts asset not found at {self.echarts_js_path}; using matplotlib fallback if needed.", RuntimeWarning)
+
 
             trading_path = os.path.join(trading_dir, "trading_{}.{}".format(info['date'], self.suffix))
 
             plot_trading(records, trading_path, path=os.path.join(trading_dir, f"{info['date']}_{self.suffix}_trading_render.html"))
 
+            if not os.path.exists(trading_path):
+                warnings.warn(f"Trading chart was not created at {trading_path}.", RuntimeWarning)
+                trading_path = None
+
         except Exception as e:
-            # print(e)
+            warnings.warn(f"Failed to generate trading chart for {info.get('symbol')} on {info.get('date')}: {e}", RuntimeWarning)
             trading_path = None
 
         return trading_path

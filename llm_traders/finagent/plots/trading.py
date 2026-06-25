@@ -1,4 +1,10 @@
-from datetime import datetime
+from pathlib import Path
+import warnings
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import pandas as pd
 from snapshot_selenium import snapshot as driver
 import pyecharts.options as opts
 from pyecharts.charts import Line, Grid
@@ -8,12 +14,36 @@ import os
 from pyecharts.globals import CurrentConfig
 CurrentConfig.ONLINE_HOST = ""
 
+
 def plot_trading(data,
                  save_path,
-                 now_date = None,
+                 now_date=None,
                  width=3.5,
                  opacity=0.8,
                  path=None):
+    try:
+        _plot_trading_pyecharts(
+            data,
+            save_path,
+            now_date=now_date,
+            width=width,
+            opacity=opacity,
+            path=path,
+        )
+    except Exception as exc:
+        warnings.warn(
+            f"Pyecharts trading-chart rendering failed ({exc}); using matplotlib fallback.",
+            RuntimeWarning,
+        )
+        _plot_trading_matplotlib(data, save_path, now_date=now_date)
+
+
+def _plot_trading_pyecharts(data,
+                            save_path,
+                            now_date=None,
+                            width=3.5,
+                            opacity=0.8,
+                            path=None):
     dates = data['date'][:-1]
     closing_prices = data['price'][:-1]
     returns = data['total_profit'][1:]
@@ -42,12 +72,13 @@ def plot_trading(data,
         closing_price_at_now_date = closing_prices[index]
         markers.append(
             opts.MarkPointItem(
-            coord=[now_date, closing_price_at_now_date],
-            value=now_date,
-            symbol_size=120,
-            symbol="pin",
-            itemstyle_opts=opts.ItemStyleOpts(color="grey"),
-        ))
+                coord=[now_date, closing_price_at_now_date],
+                value=now_date,
+                symbol_size=120,
+                symbol="pin",
+                itemstyle_opts=opts.ItemStyleOpts(color="grey"),
+            )
+        )
 
     signal_line = (
         Line()
@@ -120,3 +151,52 @@ def plot_trading(data,
         path = os.path.join(os.path.dirname(save_path), 'trading.html')
 
     make_snapshot(driver, grid_chart.render(path=path), save_path, is_remove_html=True)
+
+
+def _plot_trading_matplotlib(data, save_path, now_date=None):
+    dates = list(data.get("date", []))[:-1]
+    prices = list(data.get("price", []))[:-1]
+    returns = list(data.get("total_profit", []))[1:]
+    actions = list(data.get("action", []))[:-1]
+    length = min(len(dates), len(prices), len(actions))
+    if length == 0:
+        raise ValueError("No trading records available for trading chart.")
+
+    dates = pd.to_datetime(dates[:length])
+    prices = prices[:length]
+    actions = actions[:length]
+    returns = returns[:length] if returns else [0.0] * length
+
+    Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+    fig, (price_ax, return_ax) = plt.subplots(2, 1, figsize=(10, 8), dpi=150, sharex=True)
+    price_ax.plot(dates, prices, label="Adj Close", color="#1f77b4", linewidth=1.5)
+
+    for date, price, action in zip(dates, prices, actions):
+        if action == "BUY":
+            price_ax.scatter(date, price, marker="D", color="green", s=45, zorder=3, label="BUY")
+        elif action == "SELL":
+            price_ax.scatter(date, price, marker="v", color="red", s=65, zorder=3, label="SELL")
+
+    if now_date is not None:
+        now_ts = pd.to_datetime(now_date)
+        nearest = min(dates, key=lambda value: abs(value - now_ts))
+        idx = list(dates).index(nearest)
+        price_ax.scatter(nearest, prices[idx], marker="v", color="grey", s=90, zorder=4, label="Current")
+
+    handles, labels = price_ax.get_legend_handles_labels()
+    unique = dict(zip(labels, handles))
+    price_ax.legend(unique.values(), unique.keys(), loc="best")
+    price_ax.set_ylabel("Adjusted Price")
+    price_ax.grid(alpha=0.25)
+
+    return_ax.plot(dates[:len(returns)], returns, label="Cumulative Return", color="#ff7f0e", linewidth=1.5)
+    return_ax.axhline(0, color="black", linewidth=0.8, alpha=0.5)
+    return_ax.set_ylabel("Return (%)")
+    return_ax.set_xlabel("Date")
+    return_ax.grid(alpha=0.25)
+    return_ax.legend(loc="best")
+
+    fig.autofmt_xdate()
+    fig.tight_layout()
+    fig.savefig(save_path, bbox_inches="tight")
+    plt.close(fig)

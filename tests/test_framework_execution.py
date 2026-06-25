@@ -22,6 +22,25 @@ class BuyOnFirstDateStrategy:
         self.equity.append(framework.cash + quantity * close)
 
 
+
+class ExternalCostStrategy:
+    def __init__(self, cost_state, increment):
+        self.equity = []
+        self._seen = 0
+        self._cost_state = cost_state
+        self._increment = increment
+
+    def on_data(self, current_date, today_data, framework):
+        if self._seen == 0:
+            self._cost_state["value"] += self._increment
+        self._seen += 1
+
+    def update_info(self, current_date, data_loader, framework):
+        close = data_loader.get_ticker_price_by_date("AAA", current_date)
+        quantity = framework.portfolio.get("AAA", {}).get("quantity", 0)
+        self.equity.append(framework.cash + quantity * close)
+
+
 def _sample_loader(num_days=22):
     start = date(2024, 1, 2)
     data = {}
@@ -117,6 +136,52 @@ def test_framework_rejects_cap_enabled_order_without_prior_volume_history():
 
     assert framework.history == []
     assert framework.rejected_orders[0]["reason"] == "insufficient_liquidity_history"
+
+
+def test_forced_final_liquidation_updates_last_equity_after_costs():
+    loader, _ = _sample_loader()
+    strategy = BuyOnFirstDateStrategy()
+    framework = FINSABERFrameworkHelper(
+        initial_cash=10_000,
+        commission_per_share=0.0,
+        min_commission=1.0,
+        execution_timing="same_close",
+    )
+    framework.load_backtest_data(loader)
+
+    assert framework.run(strategy, delist_check=False) is True
+    metrics = framework.evaluate(strategy)
+
+    assert framework.history[-1]["type"] == "sell"
+    assert framework.history[-1]["execution_date"] == loader.get_date_range()[-1]
+    assert strategy.equity[-1] == pytest.approx(metrics["final_value"])
+    assert metrics["total_commission"] == pytest.approx(2.0)
+
+
+def test_framework_external_cost_reduces_cash_equity_and_metrics():
+    loader, _ = _sample_loader()
+    cost_state = {"value": 0.0}
+    strategy = ExternalCostStrategy(cost_state, increment=2.5)
+    framework = FINSABERFrameworkHelper(
+        initial_cash=10_000,
+        commission_per_share=0.0,
+        min_commission=0.0,
+    )
+    framework.load_backtest_data(loader)
+
+    assert framework.run(
+        strategy,
+        delist_check=False,
+        external_cost_getter=lambda: cost_state["value"],
+        external_cost_offset=0.0,
+        external_cost_reason="llm_inference_cost",
+    ) is True
+    metrics = framework.evaluate(strategy)
+
+    assert strategy.equity[0] == pytest.approx(9997.5)
+    assert metrics["final_value"] == pytest.approx(9997.5)
+    assert metrics["total_external_cost"] == pytest.approx(2.5)
+    assert metrics["total_trading_cost"] == pytest.approx(2.5)
 
 
 def test_framework_slippage_uses_final_cash_affordable_quantity():
