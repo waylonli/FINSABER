@@ -280,6 +280,10 @@ class FINSABER:
                                             external_cost_getter=get_llm_cost if self.trade_config.llm_cost_as_trade_cost else None,
                                             external_cost_offset=external_cost_offset,
                                             external_cost_reason="llm_inference_cost")
+                # Let strategies persist strategy-local artifacts even when the
+                # outer framework finishes without receiving a "done" signal.
+                if hasattr(strategy, "finalize_backtest_artifacts"):
+                    strategy.finalize_backtest_artifacts(status)
 
                 if not status:
                     if not self.trade_config.silence:
@@ -341,5 +345,4 @@ class FINSABER:
                 resolved_params[key] = value
 
         return resolved_params
-
 

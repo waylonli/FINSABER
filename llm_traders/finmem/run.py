@@ -7,8 +7,16 @@ from tqdm import tqdm
 from dotenv import load_dotenv
 from datetime import datetime
 from typing import Union
-from backtest.data_util import resolve_trading_data, trading_data_to_env_dict
-from puppy import MarketEnvironment, LLMAgent, RunMode
+from backtest.data_util import trading_data_to_env_dict
+
+try:
+    # Keep the standalone runner usable both as a package module and as a
+    # directly executed script from this directory.
+    from .data_loading import prepare_finmem_trading_data
+    from .puppy import MarketEnvironment, LLMAgent, RunMode
+except ImportError:
+    from data_loading import prepare_finmem_trading_data
+    from puppy import MarketEnvironment, LLMAgent, RunMode
 
 
 # set up
@@ -64,6 +72,26 @@ def sim_func(
         "--trained-agent-path",
         help="Only used in test mode, the path of trained agent",
     ),
+    use_filing_sections: bool = typer.Option(
+        True,
+        "--use-filing-sections/--raw-filings",
+        help="Replace raw 10-K/10-Q texts with the configured filing sections.",
+    ),
+    filing_payload_kind: str = typer.Option(
+        "auto",
+        "--filing-payload-kind",
+        help="Interpret filing payloads as auto, raw_filing, or section_text.",
+    ),
+    filing_failure_mode: str = typer.Option(
+        "empty",
+        "--filing-failure-mode",
+        help="Fallback policy when section extraction fails: empty, raw, or raise.",
+    ),
+    filing_merge_policy: str = typer.Option(
+        "latest",
+        "--filing-merge-policy",
+        help="How duplicate same-day filings are assembled before extraction.",
+    ),
 ) -> None:
     # load config
     config = toml.load(config_path)
@@ -94,10 +122,14 @@ def sim_func(
         raise ValueError("Run mode must be train or test")
     # create environment
     symbol = config["general"]["trading_symbol"]
-    data_loader = resolve_trading_data(
+    data_loader = prepare_finmem_trading_data(
+        symbol=symbol,
         market_data_root=market_data_root,
         market_data_info_path=market_data_info_path,
-        tickers=[symbol],
+        use_filing_sections=use_filing_sections,
+        filing_payload_kind=filing_payload_kind,
+        filing_failure_mode=filing_failure_mode,
+        filing_merge_policy=filing_merge_policy,
     )
     env_data_pkl = trading_data_to_env_dict(
         data_loader,
