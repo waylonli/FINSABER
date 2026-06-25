@@ -107,6 +107,7 @@ class FinMemArtifactWriter:
         self.save_reflections = bool(config.get("save_reflections", True))
         self.save_query_trace = bool(config.get("save_query_trace", True))
         self.save_llm_trace = bool(config.get("save_llm_trace", True))
+        self._manifest_written = False
 
         self.symbol = symbol
         self.config_path = str(Path(config_path).resolve())
@@ -206,6 +207,12 @@ class FinMemArtifactWriter:
                 file.write(json.dumps(_json_safe(row), ensure_ascii=False))
                 file.write("\n")
 
+    def _append_jsonl_row(self, path: Path, row: Mapping[str, Any]) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as file:
+            file.write(json.dumps(_json_safe(row), ensure_ascii=False))
+            file.write("\n")
+
     @staticmethod
     def _normalize_record_date(record_date: Any) -> date:
         if isinstance(record_date, datetime):
@@ -290,9 +297,58 @@ class FinMemArtifactWriter:
     def write_manifest(self) -> None:
         if not self.enabled:
             return
+        if self._manifest_written:
+            return
         manifest = dict(self._manifest)
         manifest["generated_at"] = datetime.utcnow().isoformat(timespec="seconds") + "Z"
         self._write_json(self._ticker_dir() / "manifest.json", manifest)
+        self._manifest_written = True
+
+    @staticmethod
+    def _phase_name_from_trace_payload(payload: Mapping[str, Any]) -> str:
+        phase_name = str(payload.get("run_mode", "")).strip().lower()
+        if phase_name not in {"train", "test"}:
+            raise ValueError(
+                "Trace payload must declare run_mode as 'train' or 'test'."
+            )
+        return phase_name
+
+    @staticmethod
+    def _trace_record_date(payload: Mapping[str, Any]) -> str:
+        record_date = payload.get("date")
+        if not isinstance(record_date, str) or not record_date:
+            raise ValueError("Trace payload must include a non-empty string date.")
+        return record_date
+
+    def append_query_trace(self, payload: Mapping[str, Any]) -> None:
+        if not (self.enabled and self.save_query_trace):
+            return
+        self.write_manifest()
+        phase_name = self._phase_name_from_trace_payload(payload)
+        output_name = f"{phase_name}_query_trace.jsonl"
+        self._append_jsonl_row(
+            self._ticker_dir() / output_name,
+            {
+                "phase": phase_name,
+                "date": self._trace_record_date(payload),
+                "payload": payload,
+            },
+        )
+
+    def append_llm_trace(self, payload: Mapping[str, Any]) -> None:
+        if not (self.enabled and self.save_llm_trace):
+            return
+        self.write_manifest()
+        phase_name = self._phase_name_from_trace_payload(payload)
+        output_name = f"{phase_name}_llm_trace.jsonl"
+        self._append_jsonl_row(
+            self._ticker_dir() / output_name,
+            {
+                "phase": phase_name,
+                "date": self._trace_record_date(payload),
+                "payload": payload,
+            },
+        )
 
     def save_post_train(self, *, agent: Any, environment: Any) -> None:
         if not self.enabled:
@@ -319,14 +375,14 @@ class FinMemArtifactWriter:
                 reflection_series=getattr(agent, "reflection_result_series_dict", {}),
                 window=self.requested_train_window,
             )
-        if self.save_query_trace:
+        if self.save_query_trace and getattr(agent, "query_trace_series_dict", {}):
             self._write_agent_series(
                 phase_name="train",
                 output_name="train_query_trace.jsonl",
                 series=getattr(agent, "query_trace_series_dict", {}),
                 window=self.requested_train_window,
             )
-        if self.save_llm_trace:
+        if self.save_llm_trace and getattr(agent, "llm_trace_series_dict", {}):
             self._write_agent_series(
                 phase_name="train",
                 output_name="train_llm_trace.jsonl",
@@ -368,14 +424,14 @@ class FinMemArtifactWriter:
                 reflection_series=getattr(agent, "reflection_result_series_dict", {}),
                 window=self.requested_test_window,
             )
-        if self.save_query_trace:
+        if self.save_query_trace and getattr(agent, "query_trace_series_dict", {}):
             self._write_agent_series(
                 phase_name="test",
                 output_name="test_query_trace.jsonl",
                 series=getattr(agent, "query_trace_series_dict", {}),
                 window=self.requested_test_window,
             )
-        if self.save_llm_trace:
+        if self.save_llm_trace and getattr(agent, "llm_trace_series_dict", {}):
             self._write_agent_series(
                 phase_name="test",
                 output_name="test_llm_trace.jsonl",

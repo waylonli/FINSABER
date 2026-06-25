@@ -10,7 +10,7 @@ from .portfolio import Portfolio
 from abc import ABC, abstractmethod
 from .chat import ChatOpenAICompatible
 from .environment import market_info_type
-from typing import Dict, Union, Any, List
+from typing import Dict, Union, Any, List, Callable
 from .reflection import trading_reflection
 from transformers import AutoTokenizer
 
@@ -163,6 +163,10 @@ class LLMAgent(Agent):
         self.capture_llm_trace = False
         self.query_trace_series_dict = {}
         self.llm_trace_series_dict = {}
+        self.query_trace_sink = None
+        self.llm_trace_sink = None
+        self.keep_query_trace_in_memory = True
+        self.keep_llm_trace_in_memory = True
 
     @classmethod
     def from_config(cls, config: Dict[str, Any]) -> "LLMAgent":
@@ -199,10 +203,18 @@ class LLMAgent(Agent):
         enabled: bool = False,
         capture_query_trace: bool = True,
         capture_llm_trace: bool = True,
+        query_trace_sink: Callable[[Dict[str, Any]], None] | None = None,
+        llm_trace_sink: Callable[[Dict[str, Any]], None] | None = None,
+        keep_query_trace_in_memory: bool = True,
+        keep_llm_trace_in_memory: bool = True,
     ) -> None:
         self.trace_enabled = bool(enabled)
         self.capture_query_trace = self.trace_enabled and bool(capture_query_trace)
         self.capture_llm_trace = self.trace_enabled and bool(capture_llm_trace)
+        self.query_trace_sink = query_trace_sink if self.capture_query_trace else None
+        self.llm_trace_sink = llm_trace_sink if self.capture_llm_trace else None
+        self.keep_query_trace_in_memory = bool(keep_query_trace_in_memory)
+        self.keep_llm_trace_in_memory = bool(keep_llm_trace_in_memory)
 
     def _record_query_trace(
         self,
@@ -213,12 +225,19 @@ class LLMAgent(Agent):
     ) -> None:
         if not (self.trace_enabled and self.capture_query_trace):
             return
-        self.query_trace_series_dict[cur_date] = self._serialize_trace_value(
+        serialized_payload = self._serialize_trace_value(
             {
                 "run_mode": run_mode.name.lower(),
                 **payload,
             }
         )
+        if self.query_trace_sink is not None:
+            try:
+                self.query_trace_sink(serialized_payload)
+            except Exception as trace_error:
+                self.logger.error(f"Failed to emit query trace: {trace_error}")
+        if self.keep_query_trace_in_memory:
+            self.query_trace_series_dict[cur_date] = serialized_payload
 
     def _record_llm_trace(
         self,
@@ -229,12 +248,19 @@ class LLMAgent(Agent):
     ) -> None:
         if not (self.trace_enabled and self.capture_llm_trace):
             return
-        self.llm_trace_series_dict[cur_date] = self._serialize_trace_value(
+        serialized_payload = self._serialize_trace_value(
             {
                 "run_mode": run_mode.name.lower(),
                 **payload,
             }
         )
+        if self.llm_trace_sink is not None:
+            try:
+                self.llm_trace_sink(serialized_payload)
+            except Exception as trace_error:
+                self.logger.error(f"Failed to emit LLM trace: {trace_error}")
+        if self.keep_llm_trace_in_memory:
+            self.llm_trace_series_dict[cur_date] = serialized_payload
 
     def _handling_filings(self, cur_date: date, filing_q: str, filing_k: str) -> None:
         if filing_q:

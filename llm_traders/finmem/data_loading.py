@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from typing import Mapping
 
-from backtest.data_util import FinsaberParquetDataset, TradingData, resolve_trading_data
+from backtest.data_util import (
+    FinsaberDataset,
+    FinsaberParquetDataset,
+    TradingData,
+    resolve_trading_data,
+)
 from backtest.data_util.filing_section_extractor import (
     FilingSectionOverlayDataset,
     with_filing_sections,
@@ -131,7 +136,18 @@ def _ensure_filing_merge_policy(
     if data_loader is None:
         return None
     if isinstance(data_loader, FilingSectionOverlayDataset):
-        return data_loader
+        normalized_base_loader = _ensure_filing_merge_policy(
+            data_loader.base_loader,
+            filing_merge_policy,
+        )
+        if normalized_base_loader is data_loader.base_loader:
+            return data_loader
+        return with_filing_sections(
+            normalized_base_loader,
+            section_map=_copy_section_map(data_loader._section_map),
+            failure_mode=data_loader.failure_mode,
+            cache=data_loader._cache,
+        )
     if (
         isinstance(data_loader, FinsaberParquetDataset)
         and data_loader.filing_merge_policy != filing_merge_policy
@@ -156,6 +172,26 @@ def _unwrap_filing_section_overlay(
 ) -> TradingData | None:
     if isinstance(data_loader, FilingSectionOverlayDataset):
         return data_loader.base_loader
+    return data_loader
+
+
+def _coerce_filing_payload_kind(
+    data_loader: TradingData,
+    filing_payload_kind: str,
+) -> TradingData:
+    if (
+        filing_payload_kind == "section_text"
+        and isinstance(data_loader, FinsaberDataset)
+        and data_loader.filing_payload_kind != "section_text"
+    ):
+        # Keep the loader metadata aligned with an explicit caller override so
+        # downstream manifests and adapters do not report stale filing semantics.
+        return FinsaberDataset(
+            data=data_loader.data,
+            price_field=data_loader.price_field,
+            source_kind=data_loader.source_kind,
+            filing_payload_kind="section_text",
+        )
     return data_loader
 
 
@@ -234,7 +270,7 @@ def prepare_finmem_trading_data(
         isinstance(market_data, FilingSectionOverlayDataset)
         or resolved_payload_kind == "section_text"
     ):
-        return market_data
+        return _coerce_filing_payload_kind(market_data, resolved_payload_kind)
 
     return with_filing_sections(
         market_data,

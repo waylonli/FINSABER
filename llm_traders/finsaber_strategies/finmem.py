@@ -113,15 +113,6 @@ class FinMemStrategy(BaseStrategyIso):
         )
         self.agent = LLMAgent.from_config(self.config)
         normalized_artifact_config = dict(artifact_config or {})
-        self.agent.configure_tracing(
-            enabled=bool(normalized_artifact_config.get("enabled", False)),
-            capture_query_trace=bool(
-                normalized_artifact_config.get("save_query_trace", True)
-            ),
-            capture_llm_trace=bool(
-                normalized_artifact_config.get("save_llm_trace", True)
-            ),
-        )
         resolved_strategy_params = {
             "symbol": symbol,
             "config_path": config_path,
@@ -163,6 +154,19 @@ class FinMemStrategy(BaseStrategyIso):
                 "filing_failure_mode": filing_failure_mode,
                 "filing_merge_policy": filing_merge_policy,
             },
+        )
+        self.agent.configure_tracing(
+            enabled=bool(normalized_artifact_config.get("enabled", False)),
+            capture_query_trace=bool(
+                normalized_artifact_config.get("save_query_trace", True)
+            ),
+            capture_llm_trace=bool(
+                normalized_artifact_config.get("save_llm_trace", True)
+            ),
+            query_trace_sink=self.artifact_writer.append_query_trace,
+            llm_trace_sink=self.artifact_writer.append_llm_trace,
+            keep_query_trace_in_memory=False,
+            keep_llm_trace_in_memory=False,
         )
 
     def on_data(

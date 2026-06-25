@@ -196,7 +196,116 @@ def test_prepare_finmem_trading_data_rebuilds_parquet_loader_for_latest_merge_po
     assert "First duplicate filing line 1." not in extracted
 
 
-def test_prepare_finmem_trading_data_preserves_legacy_section_payloads(tmp_path):
+def test_prepare_finmem_trading_data_rebuilds_overlay_base_loader_for_latest_merge_policy(
+    tmp_path,
+):
+    current_date = pd.Timestamp("2024-01-02")
+
+    price_dir = tmp_path / "price_daily" / "year=2024"
+    price_dir.mkdir(parents=True)
+    pd.DataFrame(
+        [
+            {
+                "date": current_date,
+                "symbol": "AAA",
+                "cik": "0001",
+                "open": 10.0,
+                "high": 12.0,
+                "low": 9.0,
+                "close": 10.0,
+                "adjusted_close": 20.0,
+                "volume": 100,
+            }
+        ]
+    ).to_parquet(price_dir / "part-000.parquet", index=False)
+
+    filing_dir = tmp_path / "filingq" / "year=2024"
+    filing_dir.mkdir(parents=True)
+    first_q = _build_10q_with_item_2(prefix="First duplicate filing")
+    second_q = _build_10q_with_item_2(prefix="Second duplicate filing")
+    pd.DataFrame(
+        [
+            {
+                "date": current_date,
+                "symbol": "AAA",
+                "cik": "0001",
+                "filing_idx": 0,
+                "filing_text": first_q,
+            },
+            {
+                "date": current_date,
+                "symbol": "AAA",
+                "cik": "0001",
+                "filing_idx": 1,
+                "filing_text": second_q,
+            },
+        ]
+    ).to_parquet(filing_dir / "part-000.parquet", index=False)
+
+    raw_loader = FinsaberParquetDataset(
+        tmp_path,
+        tickers=["AAA"],
+        modalities=("price", "filing_q"),
+        filing_merge_policy="concat",
+    )
+    overlay_loader = with_filing_sections(
+        raw_loader,
+        section_map={"filing_q": {"form": "10-Q", "item_key": "part_i_item_2"}},
+        failure_mode="empty",
+    )
+
+    prepared = prepare_finmem_trading_data(
+        symbol="AAA",
+        data_loader=overlay_loader,
+        filing_merge_policy="latest",
+    )
+
+    assert isinstance(prepared, FilingSectionOverlayDataset)
+    assert prepared is not overlay_loader
+    assert isinstance(prepared.base_loader, FinsaberParquetDataset)
+    assert prepared.base_loader.filing_merge_policy == "latest"
+
+    extracted = prepared.get_data_by_date("2024-01-02")["filing_q"]["AAA"]
+    assert "Second duplicate filing line 1." in extracted
+    assert "First duplicate filing line 1." not in extracted
+
+
+def test_prepare_finmem_trading_data_extracts_sections_from_legacy_raw_filing_pickles(tmp_path):
+    current_date = date(2024, 1, 2)
+    raw_q = _build_10q_with_item_2()
+    payload = {
+        current_date: {
+            "price": {
+                "AAA": {
+                    "close": 10.0,
+                    "adjusted_close": 10.0,
+                    "volume": 100,
+                }
+            },
+            "filing_q": {"AAA": raw_q},
+        }
+    }
+    pickle_path = tmp_path / "legacy_env.pkl"
+    with open(pickle_path, "wb") as file:
+        pickle.dump(payload, file)
+
+    prepared = prepare_finmem_trading_data(
+        symbol="AAA",
+        market_data_info_path=pickle_path,
+    )
+
+    assert isinstance(prepared, FilingSectionOverlayDataset)
+    assert isinstance(prepared.base_loader, FinsaberDataset)
+    assert prepared.base_loader.source_kind == "legacy_pickle"
+    assert prepared.base_loader.filing_payload_kind == "raw_filing"
+    assert prepared.get_data_by_date(current_date)["filing_q"]["AAA"].startswith(
+        "Part I Item 2. Management's Discussion and Analysis of Financial Condition and Results of Operations"
+    )
+
+
+def test_prepare_finmem_trading_data_preserves_legacy_section_payloads_when_declared(
+    tmp_path,
+):
     current_date = date(2024, 1, 2)
     section_text = (
         "Management discussion line 1. The company improved revenue quality.\n"
@@ -221,6 +330,7 @@ def test_prepare_finmem_trading_data_preserves_legacy_section_payloads(tmp_path)
     prepared = prepare_finmem_trading_data(
         symbol="AAA",
         market_data_info_path=pickle_path,
+        filing_payload_kind="section_text",
     )
 
     assert isinstance(prepared, FinsaberDataset)

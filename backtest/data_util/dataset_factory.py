@@ -83,7 +83,10 @@ def resolve_trading_data(
             return FinsaberDataset(
                 pickle_file=str(candidate_path),
                 source_kind="legacy_pickle",
-                filing_payload_kind="section_text",
+                # Legacy FinMem environment pickles store raw filing documents.
+                # Keep them extractable by default and let callers opt into
+                # pre-extracted section text explicitly when needed.
+                filing_payload_kind="raw_filing",
             )
         return create_finsaber2_data_loader(
             candidate_path,
