@@ -688,6 +688,9 @@ def aggregate_results_one_strategy(setup_name: str, trading_strategy: str, outpu
                 },
                 ignore_index=True)
 
+        if valid_window == 0:
+            continue
+
         avg_total_return /= valid_window
         avg_annual_return /= valid_window
         avg_annual_volatility /= valid_window
@@ -707,6 +710,11 @@ def aggregate_results_one_strategy(setup_name: str, trading_strategy: str, outpu
                 "max_drawdown": "{:.3f}".format(-avg_max_drawdown),
             },
             ignore_index=True)
+
+    if all_ticker_valid_window == 0:
+        results_df_by_tickers.to_csv(os.path.join(output_dir, "results.csv"),
+                                     index=False)
+        return
 
     all_ticker_avg_total_return /= all_ticker_valid_window
     all_ticker_avg_annual_return /= all_ticker_valid_window
@@ -740,5 +748,4 @@ if __name__ == "__main__":
     df["adj_high"] = df["high"] * adj_factor
     df["adj_low"] = df["low"] * adj_factor
     import pdb; pdb.set_trace()
-
 

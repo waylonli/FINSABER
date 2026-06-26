@@ -14,20 +14,26 @@ class BaseStrategyIso:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.setLevel(logging.INFO)
         self.logger.propagate = 0
-        handler = logging.StreamHandler()
-        formatter = colorlog.ColoredFormatter(
-            "%(log_color)s%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            datefmt='%Y-%m-%d %H:%M:%S',
-            log_colors={
-                "DEBUG": "grey",
-                "INFO": "cyan",
-                "WARNING": "yellow",
-                "ERROR": "red",
-                "CRITICAL": "bold_red",
-            },
+        has_base_console_handler = any(
+            getattr(handler, "_finsaber_base_console_handler", False)
+            for handler in self.logger.handlers
         )
-        handler.setFormatter(formatter)
-        self.logger.addHandler(handler)
+        if not has_base_console_handler:
+            handler = logging.StreamHandler()
+            handler._finsaber_base_console_handler = True
+            formatter = colorlog.ColoredFormatter(
+                "%(log_color)s%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                datefmt='%Y-%m-%d %H:%M:%S',
+                log_colors={
+                    "DEBUG": "grey",
+                    "INFO": "cyan",
+                    "WARNING": "yellow",
+                    "ERROR": "red",
+                    "CRITICAL": "bold_red",
+                },
+            )
+            handler.setFormatter(formatter)
+            self.logger.addHandler(handler)
 
     def on_data(self, date, data_loader, framework):
         """

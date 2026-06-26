@@ -1,0 +1,17 @@
+{
+    "config_path": "strats_configs/finmem_gpt_config.toml",
+    "data_loader": "$data_loader",
+    "date_from": "$date_from",
+    "date_to": "$date_to",
+    "symbol": "$symbol",
+    "training_period": ["2021-01-04", "2023-12-31"],
+    "artifact_config": {
+        "enabled": true,
+        "root": "backtest/output/finmem_window_2024/finmem_artifacts",
+        "save_agent_checkpoint": true,
+        "save_environment_checkpoint": true,
+        "save_reflections": true,
+        "save_query_trace": true,
+        "save_llm_trace": true
+    }
+}

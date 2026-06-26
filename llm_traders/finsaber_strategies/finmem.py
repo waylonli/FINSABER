@@ -3,12 +3,17 @@ from backtest.toolkit.backtest_framework_iso import FINSABERFrameworkHelper
 import toml
 import warnings
 import os
-from backtest.data_util import resolve_trading_data, trading_data_to_env_dict
+from backtest.data_util import trading_data_to_env_dict
 from backtest.toolkit.custom_exceptions import InsufficientTrainingDataException
 
 warnings.filterwarnings("ignore")
 from datetime import datetime, timedelta
+from llm_traders.finmem.data_loading import prepare_finmem_trading_data
 from llm_traders.finmem.puppy import MarketEnvironment, LLMAgent, RunMode
+from llm_traders.finsaber_strategies.finmem_artifacts import (
+    ArtifactWindow,
+    FinMemArtifactWriter,
+)
 from dotenv import load_dotenv
 from backtest.toolkit.llm_cost_monitor import get_llm_cost
 load_dotenv()
@@ -24,12 +29,20 @@ class FinMemStrategy(BaseStrategyIso):
             market_data_root=None,
             data_loader=None,
             training_period=2,  # 2 years of daily data for training
+            use_filing_sections=True,
+            filing_section_map=None,
+            filing_payload_kind="auto",
+            filing_failure_mode="empty",
+            filing_merge_policy="latest",
+            artifact_config=None,
     ):
         super().__init__()
         self.logger.info(f"Initialising FinMemStrategy for backtesting {symbol}.")
         self.config = toml.load(config_path)
         self.config["general"]["trading_symbol"] = symbol
         self.config["general"]["character_string"] = symbol
+        self._post_train_artifacts_saved = False
+        self._test_state_artifacts_saved = False
 
         if type(training_period) == float or type(training_period) == int:
             train_start_date = datetime.strptime(date_from, "%Y-%m-%d").date() - timedelta(
@@ -45,12 +58,21 @@ class FinMemStrategy(BaseStrategyIso):
 
         test_start_date = datetime.strptime(date_from, "%Y-%m-%d").date() if type(date_from) == str else date_from
         test_end_date = datetime.strptime(date_to, "%Y-%m-%d").date() if type(date_to) == str else date_to
+        requested_train_start = train_start_date
+        requested_train_end = train_end_date
+        requested_test_start = test_start_date
+        requested_test_end = test_end_date
 
-        market_data = resolve_trading_data(
+        market_data = prepare_finmem_trading_data(
+            symbol=symbol,
             data_loader=data_loader,
             market_data_root=market_data_root,
             market_data_info_path=market_data_info_path,
-            tickers=[symbol],
+            use_filing_sections=use_filing_sections,
+            filing_section_map=filing_section_map,
+            filing_payload_kind=filing_payload_kind,
+            filing_failure_mode=filing_failure_mode,
+            filing_merge_policy=filing_merge_policy,
         )
         env_data_pkl = trading_data_to_env_dict(
             market_data,
@@ -90,6 +112,62 @@ class FinMemStrategy(BaseStrategyIso):
             end_date=test_end_date,
         )
         self.agent = LLMAgent.from_config(self.config)
+        normalized_artifact_config = dict(artifact_config or {})
+        resolved_strategy_params = {
+            "symbol": symbol,
+            "config_path": config_path,
+            "date_from": requested_test_start,
+            "date_to": requested_test_end,
+            "market_data_info_path": market_data_info_path,
+            "market_data_root": market_data_root,
+            "training_period": training_period,
+            "use_filing_sections": use_filing_sections,
+            "filing_section_map": filing_section_map,
+            "filing_payload_kind": filing_payload_kind,
+            "filing_failure_mode": filing_failure_mode,
+            "filing_merge_policy": filing_merge_policy,
+        }
+        self.artifact_writer = FinMemArtifactWriter(
+            artifact_config=normalized_artifact_config,
+            symbol=symbol,
+            config_path=config_path,
+            resolved_strategy_params=resolved_strategy_params,
+            finmem_config=self.config,
+            requested_train_window=ArtifactWindow(
+                requested_start=requested_train_start,
+                requested_end=requested_train_end,
+                effective_start=self.train_enviroment.start_date,
+                effective_end=self.train_enviroment.end_date,
+            ),
+            requested_test_window=ArtifactWindow(
+                requested_start=requested_test_start,
+                requested_end=requested_test_end,
+                effective_start=self.test_enviroment.start_date,
+                effective_end=self.test_enviroment.end_date,
+            ),
+            input_data_loader=data_loader,
+            runtime_market_data=market_data,
+            filing_options={
+                "use_filing_sections": use_filing_sections,
+                "filing_section_map": filing_section_map,
+                "filing_payload_kind": filing_payload_kind,
+                "filing_failure_mode": filing_failure_mode,
+                "filing_merge_policy": filing_merge_policy,
+            },
+        )
+        self.agent.configure_tracing(
+            enabled=bool(normalized_artifact_config.get("enabled", False)),
+            capture_query_trace=bool(
+                normalized_artifact_config.get("save_query_trace", True)
+            ),
+            capture_llm_trace=bool(
+                normalized_artifact_config.get("save_llm_trace", True)
+            ),
+            query_trace_sink=self.artifact_writer.append_query_trace,
+            llm_trace_sink=self.artifact_writer.append_llm_trace,
+            keep_query_trace_in_memory=False,
+            keep_llm_trace_in_memory=False,
+        )
 
     def on_data(
             self,
@@ -106,8 +184,19 @@ class FinMemStrategy(BaseStrategyIso):
         # self.logger.info(f"{date} price for {symbol}: {cur_price}")
         market_info = self.test_enviroment.step()
 
-        if market_info[-1] or self.test_enviroment.cur_date > self.test_enviroment.end_date:
+        if market_info[-1]:
             self.logger.info(f"Test environment completed!")
+            if not self._test_state_artifacts_saved:
+                # This snapshot is taken before the outer framework performs
+                # final liquidation and metrics evaluation.
+                self.artifact_writer.save_test_state(
+                    agent=self.agent,
+                    environment=self.test_enviroment,
+                    capture_stage="strategy_done_pre_finalization",
+                    snapshot_reason="strategy_done",
+                    framework_status=True,
+                )
+                self._test_state_artifacts_saved = True
             return "done"
 
         if date != self.test_enviroment.cur_date:
@@ -168,10 +257,32 @@ class FinMemStrategy(BaseStrategyIso):
             else:
                 self.logger.info(f"Training progress: {step + 1}/{total_steps} steps completed. Estimated cost: ${get_llm_cost():.2f}.")
 
-        # import pdb; pdb.set_trace()
-        # save result after finish
-        # the_agent.save_checkpoint(path=result_path, force=True)
-        # environment.save_checkpoint(path=result_path, force=True)
+        if not self._post_train_artifacts_saved:
+            self.artifact_writer.save_post_train(
+                agent=self.agent,
+                environment=self.train_enviroment,
+            )
+            self._post_train_artifacts_saved = True
+
+    def finalize_backtest_artifacts(self, framework_status: bool):
+        if self._test_state_artifacts_saved:
+            return
+
+        if framework_status:
+            capture_stage = "framework_completed_without_strategy_done"
+            snapshot_reason = "framework_run_completed_without_done_signal"
+        else:
+            capture_stage = "framework_aborted"
+            snapshot_reason = "framework_run_returned_false"
+
+        self.artifact_writer.save_test_state(
+            agent=self.agent,
+            environment=self.test_enviroment,
+            capture_stage=capture_stage,
+            snapshot_reason=snapshot_reason,
+            framework_status=framework_status,
+        )
+        self._test_state_artifacts_saved = True
 
 if __name__ == "__main__":
     from backtest.data_util import create_finsaber2_data_loader

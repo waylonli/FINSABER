@@ -357,6 +357,7 @@ def trading_reflection(
     symbol: str,
     run_mode: RunMode,
     logger: logging.Logger,
+    trace_sink: Callable[[Dict[str, Any]], None] | None = None,
     momentum: Union[int, None] = None,
     future_record: Union[Dict[str, float | str], None] = None,
     short_memory: Union[List[str], None] = None,
@@ -425,30 +426,104 @@ def trading_reflection(
         output_class=response_model, prompt=cur_prompt, num_reasks=1
     )
 
-    try:
-        # , validated_output
+    def emit_trace(payload: Dict[str, Any]) -> None:
+        if trace_sink is None:
+            return
+        try:
+            trace_sink(payload)
+        except Exception as trace_error:
+            logger.error(f"Failed to emit reflection trace: {trace_error}")
 
+    def raw_outputs_from_guard() -> List[str]:
+        if not getattr(guard, "history", None):
+            return []
+        first_history = guard.history[0]
+        return [str(output) for output in getattr(first_history, "raw_outputs", [])]
+
+    try:
         validated_outcomes = guard(
             endpoint_func,
             prompt_params={"investment_info": investment_info},
         )
+        raw_outputs = raw_outputs_from_guard()
         logger.info("Guardrails Raw LLM Outputs")
-        for i, o in enumerate(guard.history[0].raw_outputs):
+        for i, output in enumerate(raw_outputs):
             logger.info(f"Reask {i}")
-            logger.info(o)
+            logger.info(output)
             logger.info("\n\n")
-        # print(guard.history.last.tree)
+
         if (validated_outcomes.validated_output is None) or (
             not isinstance(validated_outcomes.validated_output, dict)
         ):
             logger.info(f"reflection failed for {symbol}")
+            error_message = validated_outcomes.__dict__["reask"].__dict__["fail_results"][0].__dict__["error_message"]
             if run_mode == RunMode.Train:
-                return {"summary_reason": validated_outcomes.__dict__['reask'].__dict__['fail_results'][0].__dict__['error_message'], "short_memory_index": None, "middle_memory_index": None, "long_memory_index": None, "reflection_memory_index": None}
+                returned_payload = {
+                    "summary_reason": error_message,
+                    "short_memory_index": None,
+                    "middle_memory_index": None,
+                    "long_memory_index": None,
+                    "reflection_memory_index": None,
+                }
             else:
-                return {"investment_decision" : "hold", "summary_reason": validated_outcomes.__dict__['reask'].__dict__['fail_results'][0].__dict__['error_message'], "short_memory_index": None, "middle_memory_index": None, "long_memory_index": None, "reflection_memory_index": None}
-        return _delete_placeholder_info(validated_outcomes.validated_output)
+                returned_payload = {
+                    "investment_decision": "hold",
+                    "summary_reason": error_message,
+                    "short_memory_index": None,
+                    "middle_memory_index": None,
+                    "long_memory_index": None,
+                    "reflection_memory_index": None,
+                }
+            emit_trace(
+                {
+                    "run_mode": run_mode.name.lower(),
+                    "symbol": symbol,
+                    "date": cur_date.isoformat(),
+                    "status": "validation_failed",
+                    "prompt_template": cur_prompt,
+                    "investment_info": investment_info,
+                    "raw_outputs": raw_outputs,
+                    "validated_output": None,
+                    "returned_payload": returned_payload,
+                    "error_message": error_message,
+                }
+            )
+            return returned_payload
+
+        cleaned_output = _delete_placeholder_info(validated_outcomes.validated_output)
+        emit_trace(
+            {
+                "run_mode": run_mode.name.lower(),
+                "symbol": symbol,
+                "date": cur_date.isoformat(),
+                "status": "ok",
+                "prompt_template": cur_prompt,
+                "investment_info": investment_info,
+                "raw_outputs": raw_outputs,
+                "validated_output": validated_outcomes.validated_output,
+                "returned_payload": cleaned_output,
+                "error_message": None,
+            }
+        )
+        return cleaned_output
 
     except Exception as e:
+        error_message = str(e)
+        emit_trace(
+            {
+                "run_mode": run_mode.name.lower(),
+                "symbol": symbol,
+                "date": cur_date.isoformat(),
+                "status": "exception",
+                "prompt_template": cur_prompt,
+                "investment_info": investment_info,
+                "raw_outputs": raw_outputs_from_guard(),
+                "validated_output": None,
+                "returned_payload": {},
+                "error_message": error_message,
+                "exception_type": type(e).__name__,
+            }
+        )
         if isinstance(e.__context__, LongerThanContextError):
             raise LongerThanContextError from e
         logger.info("Wrong again!!!!!")

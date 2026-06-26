@@ -3,13 +3,14 @@ import shutil
 import pickle
 import logging
 from datetime import date
+from enum import Enum
 from .run_type import RunMode
 from .memorydb import BrainDB
 from .portfolio import Portfolio
 from abc import ABC, abstractmethod
 from .chat import ChatOpenAICompatible
 from .environment import market_info_type
-from typing import Dict, Union, Any, List
+from typing import Dict, Union, Any, List, Callable
 from .reflection import trading_reflection
 from transformers import AutoTokenizer
 
@@ -157,6 +158,15 @@ class LLMAgent(Agent):
         # records
         self.reflection_result_series_dict = {}
         self.access_counter = {}
+        self.trace_enabled = False
+        self.capture_query_trace = False
+        self.capture_llm_trace = False
+        self.query_trace_series_dict = {}
+        self.llm_trace_series_dict = {}
+        self.query_trace_sink = None
+        self.llm_trace_sink = None
+        self.keep_query_trace_in_memory = True
+        self.keep_llm_trace_in_memory = True
 
     @classmethod
     def from_config(cls, config: Dict[str, Any]) -> "LLMAgent":
@@ -169,6 +179,88 @@ class LLMAgent(Agent):
             chat_config=config["chat"],
             look_back_window_size=config["general"]["look_back_window_size"],
         )
+
+    @staticmethod
+    def _serialize_trace_value(value: Any) -> Any:
+        if value is None or isinstance(value, (str, int, float, bool)):
+            return value
+        if isinstance(value, date):
+            return value.isoformat()
+        if isinstance(value, Enum):
+            return value.name.lower()
+        if isinstance(value, dict):
+            return {
+                str(key): LLMAgent._serialize_trace_value(item)
+                for key, item in value.items()
+            }
+        if isinstance(value, (list, tuple, set)):
+            return [LLMAgent._serialize_trace_value(item) for item in value]
+        return repr(value)
+
+    def configure_tracing(
+        self,
+        *,
+        enabled: bool = False,
+        capture_query_trace: bool = True,
+        capture_llm_trace: bool = True,
+        query_trace_sink: Callable[[Dict[str, Any]], None] | None = None,
+        llm_trace_sink: Callable[[Dict[str, Any]], None] | None = None,
+        keep_query_trace_in_memory: bool = True,
+        keep_llm_trace_in_memory: bool = True,
+    ) -> None:
+        self.trace_enabled = bool(enabled)
+        self.capture_query_trace = self.trace_enabled and bool(capture_query_trace)
+        self.capture_llm_trace = self.trace_enabled and bool(capture_llm_trace)
+        self.query_trace_sink = query_trace_sink if self.capture_query_trace else None
+        self.llm_trace_sink = llm_trace_sink if self.capture_llm_trace else None
+        self.keep_query_trace_in_memory = bool(keep_query_trace_in_memory)
+        self.keep_llm_trace_in_memory = bool(keep_llm_trace_in_memory)
+
+    def _record_query_trace(
+        self,
+        *,
+        cur_date: date,
+        run_mode: RunMode,
+        payload: Dict[str, Any],
+    ) -> None:
+        if not (self.trace_enabled and self.capture_query_trace):
+            return
+        serialized_payload = self._serialize_trace_value(
+            {
+                "run_mode": run_mode.name.lower(),
+                **payload,
+            }
+        )
+        if self.query_trace_sink is not None:
+            try:
+                self.query_trace_sink(serialized_payload)
+            except Exception as trace_error:
+                self.logger.error(f"Failed to emit query trace: {trace_error}")
+        if self.keep_query_trace_in_memory:
+            self.query_trace_series_dict[cur_date] = serialized_payload
+
+    def _record_llm_trace(
+        self,
+        *,
+        cur_date: date,
+        run_mode: RunMode,
+        payload: Dict[str, Any],
+    ) -> None:
+        if not (self.trace_enabled and self.capture_llm_trace):
+            return
+        serialized_payload = self._serialize_trace_value(
+            {
+                "run_mode": run_mode.name.lower(),
+                **payload,
+            }
+        )
+        if self.llm_trace_sink is not None:
+            try:
+                self.llm_trace_sink(serialized_payload)
+            except Exception as trace_error:
+                self.logger.error(f"Failed to emit LLM trace: {trace_error}")
+        if self.keep_llm_trace_in_memory:
+            self.llm_trace_series_dict[cur_date] = serialized_payload
 
     def _handling_filings(self, cur_date: date, filing_q: str, filing_k: str) -> None:
         if filing_q:
@@ -191,7 +283,7 @@ class LLMAgent(Agent):
             except Exception as e:
                 self.logger.error(f"Error adding news memory: {e}")
     
-    def __query_info_for_reflection(self, run_mode: RunMode):
+    def __query_info_for_reflection(self, cur_date: date, run_mode: RunMode):
         # sourcery skip: low-code-quality
         self.logger.info(f"Symbol: {self.trading_symbol}\n")
 
@@ -314,54 +406,85 @@ class LLMAgent(Agent):
                 cur_moment_ret["moment"] if cur_moment_ret is not None else None
             )
 
+        if self.model_name.startswith("tgi"):
+            final_short_queried = cur_short_queried_truc
+            final_short_memory_id = cur_short_memory_id_truc
+            final_mid_queried = cur_mid_queried_truc
+            final_mid_memory_id = cur_mid_memory_id_truc
+            final_long_queried = cur_long_queried_truc
+            final_long_memory_id = cur_long_memory_id_truc
+            final_reflection_queried = cur_reflection_queried_truc
+            final_reflection_memory_id = cur_reflection_memory_id_truc
+            token_usage = {
+                "short": cur_short_num_tokens,
+                "mid": cur_mid_num_tokens,
+                "long": cur_long_num_tokens,
+                "reflection": cur_reflection_num_tokens,
+                "total": cur_all_num_tokens,
+            }
+        else:
+            final_short_queried = cur_short_queried
+            final_short_memory_id = cur_short_memory_id
+            final_mid_queried = cur_mid_queried
+            final_mid_memory_id = cur_mid_memory_id
+            final_long_queried = cur_long_queried
+            final_long_memory_id = cur_long_memory_id
+            final_reflection_queried = cur_reflection_queried
+            final_reflection_memory_id = cur_reflection_memory_id
+            token_usage = None
+
+        self._record_query_trace(
+            cur_date=cur_date,
+            run_mode=run_mode,
+            payload={
+                "date": cur_date.isoformat(),
+                "symbol": self.trading_symbol,
+                "character_string": self.character_string,
+                "top_k": self.top_k,
+                "model_name": self.model_name,
+                "momentum": cur_moment if run_mode == RunMode.Test else None,
+                "token_usage": token_usage,
+                "short_memory": {
+                    "ids": final_short_memory_id,
+                    "texts": final_short_queried,
+                },
+                "mid_memory": {
+                    "ids": final_mid_memory_id,
+                    "texts": final_mid_queried,
+                },
+                "long_memory": {
+                    "ids": final_long_memory_id,
+                    "texts": final_long_queried,
+                },
+                "reflection_memory": {
+                    "ids": final_reflection_memory_id,
+                    "texts": final_reflection_queried,
+                },
+            },
+        )
+
         if run_mode == RunMode.Train:
-            if self.model_name.startswith("tgi"):
-                return (
-                    cur_short_queried_truc,
-                    cur_short_memory_id_truc,
-                    cur_mid_queried_truc,
-                    cur_mid_memory_id_truc,
-                    cur_long_queried_truc,
-                    cur_long_memory_id_truc,
-                    cur_reflection_queried_truc,
-                    cur_reflection_memory_id_truc,
-                )
-            else:
-                return (
-                    cur_short_queried,
-                    cur_short_memory_id,
-                    cur_mid_queried,
-                    cur_mid_memory_id,
-                    cur_long_queried,
-                    cur_long_memory_id,
-                    cur_reflection_queried,
-                    cur_reflection_memory_id,
-                )
-        elif run_mode == RunMode.Test:
-            if self.model_name.startswith("tgi"):
-                return (
-                    cur_short_queried_truc,
-                    cur_short_memory_id_truc,
-                    cur_mid_queried_truc,
-                    cur_mid_memory_id_truc,
-                    cur_long_queried_truc,
-                    cur_long_memory_id_truc,
-                    cur_reflection_queried_truc,
-                    cur_reflection_memory_id_truc,
-                    cur_moment,  # type: ignore
-                )
-            else:
-                return (
-                    cur_short_queried,
-                    cur_short_memory_id,
-                    cur_mid_queried,
-                    cur_mid_memory_id,
-                    cur_long_queried,
-                    cur_long_memory_id,
-                    cur_reflection_queried,
-                    cur_reflection_memory_id,
-                    cur_moment,  # type: ignore
-                )
+            return (
+                final_short_queried,
+                final_short_memory_id,
+                final_mid_queried,
+                final_mid_memory_id,
+                final_long_queried,
+                final_long_memory_id,
+                final_reflection_queried,
+                final_reflection_memory_id,
+            )
+        return (
+            final_short_queried,
+            final_short_memory_id,
+            final_mid_queried,
+            final_mid_memory_id,
+            final_long_queried,
+            final_long_memory_id,
+            final_reflection_queried,
+            final_reflection_memory_id,
+            cur_moment,  # type: ignore
+        )
 
     def __reflection_on_record(
         self,
@@ -384,6 +507,7 @@ class LLMAgent(Agent):
                 cur_reflection_queried,
                 cur_reflection_memory_id,
             ) = self.__query_info_for_reflection(  # type: ignore
+                cur_date=cur_date,
                 run_mode=run_mode
             )
 
@@ -402,6 +526,11 @@ class LLMAgent(Agent):
                 reflection_memory_id=cur_reflection_memory_id,
                 future_record=cur_record,  # type: ignore
                 logger=self.logger,
+                trace_sink=lambda payload: self._record_llm_trace(
+                    cur_date=cur_date,
+                    run_mode=run_mode,
+                    payload=payload,
+                ),
             )
 
         elif run_mode == RunMode.Test:
@@ -416,6 +545,7 @@ class LLMAgent(Agent):
                 cur_reflection_memory_id,
                 cur_moment,
             ) = self.__query_info_for_reflection(  # type: ignore
+                cur_date=cur_date,
                 run_mode=run_mode
             )
             reflection_result = trading_reflection(
@@ -433,6 +563,11 @@ class LLMAgent(Agent):
                 reflection_memory_id=cur_reflection_memory_id,
                 momentum=cur_moment,
                 logger=self.logger,
+                trace_sink=lambda payload: self._record_llm_trace(
+                    cur_date=cur_date,
+                    run_mode=run_mode,
+                    payload=payload,
+                ),
             )
 
         if (reflection_result is not {}) and ("summary_reason" in reflection_result):
@@ -656,6 +791,11 @@ class LLMAgent(Agent):
             "chat_config": self.chat_config_save,
             "reflection_result_series_dict": self.reflection_result_series_dict,  #
             "access_counter": self.access_counter,
+            "trace_enabled": self.trace_enabled,
+            "capture_query_trace": self.capture_query_trace,
+            "capture_llm_trace": self.capture_llm_trace,
+            "query_trace_series_dict": self.query_trace_series_dict,
+            "llm_trace_series_dict": self.llm_trace_series_dict,
         }
         with open(os.path.join(path, "state_dict.pkl"), "wb") as f:
             pickle.dump(state_dict, f)
@@ -682,4 +822,13 @@ class LLMAgent(Agent):
         ]
         class_obj.access_counter = state_dict["access_counter"]
         class_obj.counter = state_dict["counter"]
+        class_obj.trace_enabled = state_dict.get("trace_enabled", False)
+        class_obj.capture_query_trace = state_dict.get("capture_query_trace", False)
+        class_obj.capture_llm_trace = state_dict.get("capture_llm_trace", False)
+        class_obj.query_trace_series_dict = state_dict.get(
+            "query_trace_series_dict", {}
+        )
+        class_obj.llm_trace_series_dict = state_dict.get(
+            "llm_trace_series_dict", {}
+        )
         return class_obj
