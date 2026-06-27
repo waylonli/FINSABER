@@ -21,6 +21,10 @@ def plot_trading(data,
                  width=3.5,
                  opacity=0.8,
                  path=None):
+    if os.environ.get("FINAGENT_PLOT_RENDERER", "matplotlib").lower() != "pyecharts":
+        _plot_trading_matplotlib(data, save_path, now_date=now_date)
+        return
+
     try:
         _plot_trading_pyecharts(
             data,
