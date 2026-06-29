@@ -47,6 +47,7 @@ nav:
   - Evaluation:
       - Results: results.md
       - Validation: validation.md
+      - FinAgent Reproduction: finagent-reproduction.md
   - API Reference: api.md
 
 plugins:
