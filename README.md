@@ -12,6 +12,7 @@
 
 ## 📣 News
 
+- **[16/06/2026]** FINSABER was featured in [**The Wall Street Journal**](https://www.wsj.com/tech/ai/ai-stock-market-trading-research-154eeb72?st=3wyLm8&reflink=desktopwebshare_permalink)!
 - **[16/06/2026]** FINSABER has been selected for an **oral presentation** at the **KDD 2026 Datasets and Benchmarks Track**. Only **7 out of 92 Cycle 1 submissions** were chosen for oral presentation.
 - **[11/05/2026]** FINSABER has been upgraded to **FINSABER-2**. The backtesting framework is now package-oriented, supports the new parquet dataset format, and includes explicit execution timing, adjusted OHLC handling, slippage, liquidity caps, structured result artifacts, and LLM cost accounting.
 - **[24/11/2025]** We are excited to announce that FINSABER has been accepted to **KDD 2026**.
