@@ -3,6 +3,7 @@ from datetime import date, timedelta
 import pytest
 
 from backtest.data_util import FinsaberDataset
+from backtest.toolkit import metrics as metrics_module
 from backtest.toolkit.backtest_framework_iso import FINSABERFrameworkHelper
 
 
@@ -201,3 +202,28 @@ def test_framework_slippage_uses_final_cash_affordable_quantity():
     assert trade["quantity"] == 6
     assert trade["participation_rate"] == pytest.approx(0.006)
     assert trade["price"] == pytest.approx(15.5 * (1 + 0.1 * 0.006**2))
+
+
+def test_framework_evaluate_uses_shared_metric_helpers(monkeypatch):
+    loader, _ = _sample_loader()
+    strategy = BuyOnFirstDateStrategy()
+    framework = FINSABERFrameworkHelper(
+        initial_cash=10_000,
+        commission_per_share=0.0,
+        min_commission=0.0,
+        execution_timing="same_close",
+    )
+    framework.load_backtest_data(loader)
+    assert framework.run(strategy, delist_check=False) is True
+
+    monkeypatch.setattr(
+        metrics_module, "calculate_sharpe_ratio", lambda *args, **kwargs: 12.34
+    )
+    monkeypatch.setattr(
+        metrics_module, "calculate_sortino_ratio", lambda *args, **kwargs: 56.78
+    )
+
+    evaluated = framework.evaluate(strategy)
+
+    assert evaluated["sharpe_ratio"] == 12.34
+    assert evaluated["sortino_ratio"] == 56.78
