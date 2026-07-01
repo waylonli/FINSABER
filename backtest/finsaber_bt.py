@@ -449,10 +449,10 @@ class FINSABERBt:
             # Calculate annual volatility
             annual_volatility = metrics.calculate_annual_volatility(daily_returns)
 
+            sharpe_ratio = metrics.calculate_sharpe_ratio(
+                daily_returns, risk_free_rate=test_config.risk_free_rate
+            )
             sortino_ratio = metrics.calculate_sortino_ratio(daily_returns, risk_free_rate=test_config.risk_free_rate)
-
-            # Use the analyzer's Sharpe ratio if available
-            sharpe_ratio = strategy.analyzers.mysharpe.get_analysis()['sharperatio']
         else:
             annual_return = annual_volatility = sharpe_ratio = sortino_ratio = 0
 

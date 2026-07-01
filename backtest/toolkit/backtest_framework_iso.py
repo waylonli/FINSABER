@@ -4,6 +4,7 @@ import pickle
 from datetime import datetime
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from backtest.toolkit import metrics
 from backtest.toolkit.execution import (
     adjusted_bar_price,
     apply_liquidity_cap,
@@ -323,12 +324,13 @@ class FINSABERFrameworkHelper:
 
         total_return = (final_value / self.initial_cash) - 1
         annual_return = (1 + total_return) ** (252 / len(self.data_loader.get_date_range())) - 1
-        annual_volatility = daily_returns.std() * np.sqrt(252)
-        downside_returns = daily_returns[daily_returns < 0]
-        downside_deviation = downside_returns.std() * np.sqrt(252) if len(downside_returns) > 1 else 0
-
-        sharpe_ratio = (daily_returns.mean() * 252 - self.risk_free_rate) / annual_volatility if annual_volatility > 0 else 0
-        sortino_ratio = (daily_returns.mean() * 252 - self.risk_free_rate) / downside_deviation if downside_deviation > 0 else 0
+        annual_volatility = metrics.calculate_annual_volatility(daily_returns)
+        sharpe_ratio = metrics.calculate_sharpe_ratio(
+            daily_returns, risk_free_rate=self.risk_free_rate
+        )
+        sortino_ratio = metrics.calculate_sortino_ratio(
+            daily_returns, risk_free_rate=self.risk_free_rate
+        )
 
         total_commission = sum([trade['commission'] for trade in self.history])
         total_external_cost = sum([cost["cost"] for cost in self.external_costs])
