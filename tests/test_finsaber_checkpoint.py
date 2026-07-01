@@ -75,3 +75,37 @@ def test_run_iterative_tickers_skips_completed_checkpoint(tmp_path):
     window = "2024-01-02_2024-01-27"
     assert results[window]["AAA"]["final_value"] == 101_000.0
     output_dir = tmp_path / "unit" / "ExplodingStrategy"
+    assert (output_dir / "2024-01-02_2024-01-27.pkl").exists()
+    assert (output_dir / "run_summary.csv").exists()
+    assert (output_dir / "run_manifest.json").exists()
+    assert (output_dir / "results.csv").exists()
+    assert (output_dir / "checkpoints" / window / "AAA.pkl").exists()
+
+
+def test_run_iterative_tickers_respects_result_output_dir_override(tmp_path):
+    custom_output_dir = tmp_path / "custom-results"
+    engine = FINSABER(
+        {
+            "tickers": ["AAA"],
+            "date_from": "2024-01-02",
+            "date_to": "2024-01-27",
+            "setup_name": "unit",
+            "log_base_dir": str(tmp_path),
+            "result_output_dir": str(custom_output_dir),
+            "data_loader": _sample_loader(),
+            "silence": True,
+            "save_results": True,
+        }
+    )
+    engine._save_ticker_checkpoint(ExplodingStrategy, "AAA", _metrics())
+
+    results = engine.run_iterative_tickers(ExplodingStrategy, strat_params={}, tickers=["AAA"])
+
+    window = "2024-01-02_2024-01-27"
+    assert results[window]["AAA"]["final_value"] == 101_000.0
+    assert (custom_output_dir / "2024-01-02_2024-01-27.pkl").exists()
+    assert (custom_output_dir / "run_summary.csv").exists()
+    assert (custom_output_dir / "run_manifest.json").exists()
+    assert (custom_output_dir / "results.csv").exists()
+    assert (custom_output_dir / "checkpoints" / window / "AAA.pkl").exists()
+    assert not (tmp_path / "unit" / "ExplodingStrategy" / "results.csv").exists()

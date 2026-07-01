@@ -615,8 +615,8 @@ class TestDeferredReflection:
         )
         messages = mock_llm.invoke.call_args[0][0]
         human_content = next(content for role, content in messages if role == "human")
-        assert "Alpha vs ^N225:" in human_content
-        assert "Alpha vs SPY:" not in human_content
+        assert "Alpha vs ^N225 (open-to-open):" in human_content
+        assert "Alpha vs SPY (open-to-open):" not in human_content
 
     def test_reflector_defaults_to_spy_for_unupdated_callers(self):
         """Default benchmark_name keeps the SPY label for legacy callers."""
@@ -630,7 +630,7 @@ class TestDeferredReflection:
         )
         messages = mock_llm.invoke.call_args[0][0]
         human_content = next(content for role, content in messages if role == "human")
-        assert "Alpha vs SPY:" in human_content
+        assert "Alpha vs SPY (open-to-open):" in human_content
 
     # TradingAgentsGraph._resolve_pending_entries
 
@@ -654,6 +654,7 @@ class TestDeferredReflection:
         mock_graph = MagicMock(spec=TradingAgentsGraph)
         mock_graph.memory_log = log
         mock_graph.reflector = mock_reflector
+        mock_graph._benchmark_runtime_enabled.return_value = False
         mock_graph._fetch_returns = MagicMock(return_value=(0.05, 0.02, 5))
         TradingAgentsGraph._resolve_pending_entries(mock_graph, "NVDA")
         assert log.get_pending_entries() == []
@@ -858,6 +859,7 @@ class TestLegacyRemoval:
         mock_graph.propagator.create_initial_state.return_value = fake_state
         mock_graph.propagator.get_graph_args.return_value = {}
         mock_graph.signal_processor.process_signal.return_value = "Buy"
+        mock_graph._benchmark_runtime_enabled.return_value = False
         # Bind the real _run_graph so propagate's call to self._run_graph executes
         # the actual write path instead of the auto-MagicMock.
         mock_graph._run_graph = functools.partial(
