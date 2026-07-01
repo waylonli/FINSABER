@@ -1,10 +1,16 @@
 import argparse
+import os
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+# Use a non-interactive matplotlib backend for the shared experiment launcher.
+# This preserves console progress/output while preventing FINSABER's optional
+# equity-curve plotting path from blocking in headless or GUI-sensitive runs.
+os.environ.setdefault("MPLBACKEND", "Agg")
 
 from experiment_runner import ExperimentRunner  # noqa: E402
 
@@ -28,6 +34,10 @@ def run_llm_strategies(args):
         from llm_traders.finsaber_strategies.finagent import FinAgentStrategy
 
         strategy_class = FinAgentStrategy
+    elif "tradingagents" in args.strategy.lower():
+        from llm_traders.finsaber_strategies.tradingagents import TradingAgentsStrategy
+
+        strategy_class = TradingAgentsStrategy
     else:
         raise ValueError(f"Unknown strategy: {args.strategy}")
 

@@ -1,0 +1,11 @@
+{
+  "data_loader": "$data_loader",
+  "date_from": "$date_from",
+  "date_to": "$date_to",
+  "symbol": "$symbol",
+  "artifact_config": {
+    "enabled": true,
+    "root": "backtest/output/cherry_pick_both_finmem/TradingAgentsStrategy/tradingagents_window_2024/tradingagents_artifacts",
+    "run_key": null
+  }
+}

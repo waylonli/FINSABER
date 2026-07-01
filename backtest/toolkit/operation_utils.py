@@ -603,12 +603,27 @@ def aggregate_results(setup_name:str):
             continue
 
 
-def aggregate_results_one_strategy(setup_name: str, trading_strategy: str, output_dir: str = None):
+def aggregate_results_one_strategy(
+    setup_name: str,
+    trading_strategy: str,
+    output_dir: str = None,
+    strategy_output_dir: str = None,
+):
 
     # automatically check the filename xxx.pkl under the directory
     # root dir is the grandparent directory of this file
-    if output_dir is None:
-        output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "output", setup_name.replace(":","_"), trading_strategy)
+    if strategy_output_dir:
+        # A fully resolved strategy directory takes precedence over the legacy
+        # setup/strategy derivation used by older call sites.
+        output_dir = strategy_output_dir
+    elif output_dir is None:
+        output_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "..",
+            "output",
+            setup_name.replace(":","_"),
+            trading_strategy,
+        )
     else:
         output_dir = os.path.join(output_dir, setup_name.replace(":","_"), trading_strategy)
 
@@ -748,4 +763,3 @@ if __name__ == "__main__":
     df["adj_high"] = df["high"] * adj_factor
     df["adj_low"] = df["low"] * adj_factor
     import pdb; pdb.set_trace()
-

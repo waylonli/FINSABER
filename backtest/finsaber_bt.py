@@ -29,6 +29,18 @@ class FINSABERBt:
         self.trade_config = TradeConfig.from_dict(config)
         self._price_data_cache = {}
 
+    def _result_output_dir(self, strategy_class, trade_config=None):
+        current_config = trade_config or self.trade_config
+        if current_config.result_output_dir:
+            # Keep the Backtrader backend on the same explicit result-root
+            # contract as the ISO backend when a caller overrides the path.
+            return os.fspath(current_config.result_output_dir)
+        return os.path.join(
+            current_config.log_base_dir,
+            current_config.setup_name.replace(":", "_"),
+            strategy_class.__name__,
+        )
+
 
     def run_rolling_window(self, strategy: bt.Strategy, process: callable = None, **kwargs):
         """
@@ -82,7 +94,7 @@ class FINSABERBt:
 
         # export the evaluation metrics
         if self.trade_config.save_results:
-            output_dir = os.path.join(self.trade_config.log_base_dir, self.trade_config.setup_name.replace(":", "_"), strategy.__name__)
+            output_dir = self._result_output_dir(strategy, self.trade_config)
             filename = f"{self.trade_config.date_from}_{self.trade_config.date_to}.pkl" if self.trade_config.result_filename is None else self.trade_config.result_filename
             os.makedirs(output_dir, exist_ok=True)
             with open(os.path.join(output_dir, filename), "wb") as f:
@@ -301,7 +313,7 @@ class FINSABERBt:
 
         if "cherry_pick" in test_config.setup_name and test_config.save_results:
             # store the results using pickle
-            output_dir = os.path.join(test_config.log_base_dir, test_config.setup_name.replace(":", "_"), strategy.__name__)
+            output_dir = self._result_output_dir(strategy, test_config)
             filename = f"{test_config.date_from}_{test_config.date_to}.pkl" if test_config.result_filename is None else test_config.result_filename
             os.makedirs(output_dir, exist_ok=True)
             with open(os.path.join(output_dir, filename), "wb") as f:

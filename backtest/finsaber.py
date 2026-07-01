@@ -36,6 +36,10 @@ class FINSABER:
         self.data_loader = self.trade_config.data_loader
 
     def _result_output_dir(self, strategy_class):
+        if self.trade_config.result_output_dir:
+            # B15 seam: allow the benchmark layer to target a pre-resolved
+            # strategy result directory without changing the legacy default tree.
+            return os.fspath(self.trade_config.result_output_dir)
         setup_name = str(self.trade_config.setup_name or "default").replace(":", "_")
         return os.path.join(
             self.trade_config.log_base_dir,
@@ -325,6 +329,7 @@ class FINSABER:
                 self.trade_config.setup_name.replace(":", "_"),
                 strategy_class.__name__,
                 output_dir=self.trade_config.log_base_dir,
+                strategy_output_dir=output_dir,
             )
 
         # print the estimated cost
@@ -345,4 +350,3 @@ class FINSABER:
                 resolved_params[key] = value
 
         return resolved_params
-
