@@ -80,12 +80,16 @@ MODEL_OPTIONS: ProviderModeOptions = {
             ("GPT-5.4 Nano - Cheapest, high-volume tasks", "gpt-5.4-nano"),
             ("GPT-5.5 - Latest frontier, 1M context", "gpt-5.5"),
             ("GPT-4.1 - Smartest non-reasoning model", "gpt-4.1"),
+            ("GPT-4o Mini - Earlier fast/cost-efficient model", "gpt-4o-mini"),
+            ("GPT-4o - Earlier general-purpose flagship", "gpt-4o"),
         ],
         "deep": [
             ("GPT-5.5 - Latest frontier, 1M context", "gpt-5.5"),
             ("GPT-5.4 - Previous-gen frontier, 1M context, cost-effective", "gpt-5.4"),
             ("GPT-5.2 - Strong reasoning, cost-effective", "gpt-5.2"),
             ("GPT-5.5 Pro - Most capable, expensive ($30/$180 per 1M tokens)", "gpt-5.5-pro"),
+            ("GPT-4o - Earlier general-purpose flagship", "gpt-4o"),
+            ("GPT-4o Mini - Earlier fast/cost-efficient model", "gpt-4o-mini"),
         ],
     },
     "anthropic": {

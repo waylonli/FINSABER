@@ -16,6 +16,7 @@ from langgraph.prebuilt import ToolNode
 from tradingagents.llm_clients import create_llm_client
 
 from tradingagents.agents import *
+from tradingagents.agents.utils.rating import parse_rating
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.agents.utils.memory import TradingMemoryLog
 from tradingagents.dataflows.utils import safe_ticker_component
@@ -32,6 +33,7 @@ from tradingagents.agents.utils.agent_utils import (
     resolve_instrument_identity,
     get_stock_data,
     get_indicators,
+    get_verified_market_snapshot,
     get_fundamentals,
     get_balance_sheet,
     get_cashflow,
@@ -43,6 +45,10 @@ from tradingagents.agents.utils.agent_utils import (
 
 from .checkpointer import checkpoint_step, clear_checkpoint, get_checkpointer, thread_id
 from .conditional_logic import ConditionalLogic
+from .runtime_wiring import (
+    validate_runtime_benchmark_seams,
+    validate_runtime_tool_surfaces,
+)
 from .setup import GraphSetup
 from .propagation import Propagator
 from .reflection import Reflector
@@ -58,6 +64,10 @@ class TradingAgentsGraph:
         debug=False,
         config: Dict[str, Any] = None,
         callbacks: Optional[List] = None,
+        analyst_tool_surfaces: Optional[Dict[str, list]] = None,
+        sentiment_prefetch_loader=None,
+        instrument_context_builder=None,
+        outcome_resolver=None,
     ):
         """Initialize the trading agents graph and components.
 
@@ -102,6 +112,23 @@ class TradingAgentsGraph:
         self.quick_thinking_llm = quick_client.get_llm()
         
         self.memory_log = TradingMemoryLog(self.config)
+        self.runtime_adapter = None
+        self.analyst_tool_surfaces = analyst_tool_surfaces or {}
+        self.sentiment_prefetch_loader = sentiment_prefetch_loader
+        self.instrument_context_builder = instrument_context_builder
+        self.outcome_resolver = outcome_resolver
+
+        if self.analyst_tool_surfaces:
+            validate_runtime_tool_surfaces(
+                selected_analysts=selected_analysts,
+                tool_surfaces=self.analyst_tool_surfaces,
+                data_policy=self.config.get("data_policy", {}),
+            )
+            validate_runtime_benchmark_seams(
+                tool_surfaces=self.analyst_tool_surfaces,
+                instrument_context_builder=self.instrument_context_builder,
+                outcome_resolver=self.outcome_resolver,
+            )
 
         # Create tool nodes
         self.tool_nodes = self._create_tool_nodes()
@@ -117,6 +144,8 @@ class TradingAgentsGraph:
             self.tool_nodes,
             self.conditional_logic,
             analyst_concurrency_limit=self.config.get("analyst_concurrency_limit", 1),
+            analyst_tool_surfaces=self.analyst_tool_surfaces,
+            sentiment_prefetch_loader=self.sentiment_prefetch_loader,
         )
 
         self.propagator = Propagator(
@@ -134,6 +163,82 @@ class TradingAgentsGraph:
         self.workflow = self.graph_setup.setup_graph(selected_analysts)
         self.graph = self.workflow.compile()
         self._checkpointer_ctx = None
+
+    def bind_runtime_adapter(self, runtime_adapter: Any) -> None:
+        """Bind a benchmark-side runtime adapter for outcome-aware reflection."""
+        self.runtime_adapter = runtime_adapter
+
+    def _benchmark_runtime_enabled(self) -> bool:
+        return getattr(self, "runtime_adapter", None) is not None
+
+    def _reflection_horizon_days(self) -> int:
+        contract = self.config.get("benchmark_reflection_contract", {})
+        return int(contract.get("horizon_days", 5))
+
+    def _load_past_context(self, ticker: str) -> str:
+        if self._benchmark_runtime_enabled():
+            return self.runtime_adapter.load_past_context(ticker)
+        return self.memory_log.get_past_context(ticker)
+
+    def _runtime_trade_date_matches(self, trade_date: str) -> bool:
+        if not self._benchmark_runtime_enabled():
+            return True
+
+        if hasattr(self.runtime_adapter, "is_decision_day_bound"):
+            return bool(self.runtime_adapter.is_decision_day_bound(trade_date))
+
+        current_day = getattr(self.runtime_adapter, "current_day", None)
+        if current_day is None:
+            return False
+        if hasattr(current_day, "isoformat"):
+            return current_day.isoformat() == trade_date
+        return str(current_day) == trade_date
+
+    def _require_runtime_trade_date_binding(self, trade_date: str) -> None:
+        if self._benchmark_runtime_enabled() and not self._runtime_trade_date_matches(
+            trade_date
+        ):
+            raise RuntimeError(
+                "Benchmark runtime adapter must be bound to the current decision "
+                f"day before propagate(). Expected {trade_date}."
+            )
+
+    def _normalize_runtime_outcome_bundle(
+        self,
+        outcome: Tuple[Optional[float], Optional[float], Optional[int]],
+        *,
+        ticker: str,
+        trade_date: str,
+        horizon_days: int,
+    ) -> Tuple[Optional[float], Optional[float], Optional[int]]:
+        raw, alpha, days = outcome
+        if raw is None and alpha is None and days is None:
+            return None, None, None
+        if raw is None or days is None:
+            raise RuntimeError(
+                "Benchmark runtime adapter returned an incomplete outcome bundle "
+                f"for {ticker} on {trade_date}. Expected either (None, None, None) "
+                "or a full (raw, alpha_or_none, holding_days) tuple."
+            )
+
+        try:
+            resolved_days = int(days)
+            normalized_raw = float(raw)
+            normalized_alpha = None if alpha is None else float(alpha)
+        except (TypeError, ValueError) as exc:
+            raise RuntimeError(
+                "Benchmark runtime adapter returned a non-numeric outcome bundle "
+                f"for {ticker} on {trade_date}."
+            ) from exc
+
+        if resolved_days != horizon_days:
+            raise RuntimeError(
+                "Benchmark runtime adapter returned a partial outcome bundle "
+                f"for {ticker} on {trade_date}: expected {horizon_days}d, "
+                f"got {resolved_days}d."
+            )
+
+        return normalized_raw, normalized_alpha, resolved_days
 
     def _get_provider_kwargs(self) -> Dict[str, Any]:
         """Get provider-specific kwargs for LLM client creation."""
@@ -166,6 +271,20 @@ class TradingAgentsGraph:
 
     def _create_tool_nodes(self) -> Dict[str, ToolNode]:
         """Create tool nodes for different data sources using abstract methods."""
+        if self.analyst_tool_surfaces:
+            tool_nodes = {
+                key: ToolNode(list(tools))
+                for key, tools in self.analyst_tool_surfaces.items()
+            }
+            if "social" not in tool_nodes:
+                tool_nodes["social"] = ToolNode(
+                    [
+                        # News tools for social media analysis
+                        get_news,
+                    ]
+                )
+            return tool_nodes
+
         return {
             "market": ToolNode(
                 [
@@ -173,6 +292,8 @@ class TradingAgentsGraph:
                     get_stock_data,
                     # Technical indicators
                     get_indicators,
+                    # Verified snapshot used by Market Analyst for exact claims
+                    get_verified_market_snapshot,
                 ]
             ),
             "social": ToolNode(
@@ -199,6 +320,22 @@ class TradingAgentsGraph:
                 ]
             ),
         }
+
+    def _resolve_runtime_outcome(
+        self,
+        trade_date: str,
+        holding_days: int,
+        benchmark: str,
+    ):
+        if self.outcome_resolver is not None:
+            return self.outcome_resolver(
+                trade_date=trade_date,
+                holding_days=holding_days,
+                benchmark=benchmark,
+            )
+        raise RuntimeError(
+            "Benchmark-local graph wiring requires an `outcome_resolver`."
+        )
 
     def _resolve_benchmark(self, ticker: str) -> str:
         """Pick the benchmark ticker for alpha calculation against ``ticker``.
@@ -280,6 +417,93 @@ class TradingAgentsGraph:
         if not pending:
             return
 
+        if self._benchmark_runtime_enabled():
+            benchmark = self._resolve_benchmark(ticker)
+            updates = []
+            resolved_trace_payloads = []
+            horizon_days = self._reflection_horizon_days()
+
+            for entry in pending:
+                outcome = self._resolve_runtime_outcome(
+                    trade_date=entry["date"],
+                    holding_days=horizon_days,
+                    benchmark=benchmark,
+                )
+                raw, alpha, days = self._normalize_runtime_outcome_bundle(
+                    outcome,
+                    ticker=ticker,
+                    trade_date=entry["date"],
+                    horizon_days=horizon_days,
+                )
+                if raw is None:
+                    if hasattr(self.runtime_adapter, "record_memory_write"):
+                        self.runtime_adapter.record_memory_write(
+                            event_type="skip_unresolved_pending",
+                            decision_date=entry["date"],
+                            rating=entry.get("rating", "unknown"),
+                            note="maturity_not_reached_or_outcome_unavailable",
+                        )
+                    continue
+
+                reflection = self.reflector.reflect_on_final_decision(
+                    final_decision=entry.get("decision", ""),
+                    raw_return=raw,
+                    alpha_return=alpha,
+                    benchmark_name=benchmark,
+                )
+                updates.append(
+                    {
+                        "ticker": ticker,
+                        "trade_date": entry["date"],
+                        "raw_return": raw,
+                        "alpha_return": alpha,
+                        "holding_days": days,
+                        "reflection": reflection,
+                    }
+                )
+                resolved_trace_payloads.append(
+                    {
+                        "ticker": ticker,
+                        "decision_date": entry["date"],
+                        "rating": entry.get("rating", "unknown"),
+                        "benchmark_ticker": benchmark,
+                        "raw_return": raw,
+                        "alpha_return": alpha,
+                        "actual_holding_days": days,
+                        "final_trade_decision": entry.get("decision", ""),
+                        "reflection_text": reflection,
+                    }
+                )
+
+            if updates:
+                updated_entries = self.memory_log.batch_update_with_outcomes(updates)
+                updated_entry_keys = set(updated_entries)
+                for trace_payload in resolved_trace_payloads:
+                    trace_key = (
+                        trace_payload["decision_date"],
+                        trace_payload["ticker"],
+                    )
+                    if trace_key not in updated_entry_keys:
+                        continue
+                    if hasattr(self.runtime_adapter, "record_memory_write"):
+                        self.runtime_adapter.record_memory_write(
+                            event_type="resolve_matured_decision",
+                            decision_date=trace_payload["decision_date"],
+                            rating=trace_payload["rating"],
+                            note="reflection_resolved_and_written_back",
+                        )
+                    if hasattr(self.runtime_adapter, "record_reflection_trace"):
+                        self.runtime_adapter.record_reflection_trace(
+                            decision_date=trace_payload["decision_date"],
+                            benchmark_ticker=trace_payload["benchmark_ticker"],
+                            raw_return=trace_payload["raw_return"],
+                            alpha_return=trace_payload["alpha_return"],
+                            actual_holding_days=trace_payload["actual_holding_days"],
+                            final_trade_decision=trace_payload["final_trade_decision"],
+                            reflection_text=trace_payload["reflection_text"],
+                        )
+            return
+
         benchmark = self._resolve_benchmark(ticker)
         updates = []
         for entry in pending:
@@ -315,6 +539,15 @@ class TradingAgentsGraph:
         path and the CLI call this so the resolved identity reaches the whole
         graph regardless of entry point.
         """
+        if self._benchmark_runtime_enabled() and hasattr(
+            self,
+            "instrument_context_builder",
+        ):
+            if self.instrument_context_builder is None:
+                raise RuntimeError(
+                    "Benchmark-local graph wiring requires an `instrument_context_builder`."
+                )
+            return self.instrument_context_builder(ticker, asset_type)
         identity = resolve_instrument_identity(ticker)
         return build_instrument_context(ticker, asset_type, identity)
 
@@ -329,6 +562,7 @@ class TradingAgentsGraph:
         successful node on a subsequent invocation with the same ticker+date.
         """
         self.ticker = company_name
+        self._require_runtime_trade_date_binding(str(trade_date))
 
         # Resolve any pending memory-log entries for this ticker before the pipeline runs.
         self._resolve_pending_entries(company_name)
@@ -363,7 +597,7 @@ class TradingAgentsGraph:
         """Execute the graph and write the resulting state to disk and memory log."""
         # Initialize state — inject memory log context for PM and the
         # deterministically resolved instrument identity for all agents.
-        past_context = self.memory_log.get_past_context(company_name)
+        past_context = self._load_past_context(company_name)
         instrument_context = self.resolve_instrument_context(company_name, asset_type)
         init_agent_state = self.propagator.create_initial_state(
             company_name,
@@ -401,12 +635,22 @@ class TradingAgentsGraph:
         # Log state to disk.
         self._log_state(trade_date, final_state)
 
-        # Store decision for deferred reflection on the next same-ticker run.
-        self.memory_log.store_decision(
+        appended = self.memory_log.store_decision(
             ticker=company_name,
             trade_date=trade_date,
             final_trade_decision=final_state["final_trade_decision"],
         )
+        if (
+            appended
+            and self._benchmark_runtime_enabled()
+            and hasattr(self.runtime_adapter, "record_memory_write")
+        ):
+            self.runtime_adapter.record_memory_write(
+                event_type="append_pending_decision",
+                decision_date=str(trade_date),
+                rating=parse_rating(final_state["final_trade_decision"]),
+                note="decision_logged_for_future_reflection",
+            )
 
         # Clear checkpoint on successful completion to avoid stale state.
         if self.config.get("checkpoint_enabled"):
@@ -421,6 +665,8 @@ class TradingAgentsGraph:
         self.log_states_dict[str(trade_date)] = {
             "company_of_interest": final_state["company_of_interest"],
             "trade_date": final_state["trade_date"],
+            "instrument_context": final_state.get("instrument_context", ""),
+            "past_context": final_state.get("past_context", ""),
             "market_report": final_state["market_report"],
             "sentiment_report": final_state["sentiment_report"],
             "news_report": final_state["news_report"],
@@ -436,7 +682,7 @@ class TradingAgentsGraph:
                     "judge_decision"
                 ],
             },
-            "trader_investment_decision": final_state["trader_investment_plan"],
+            "trader_investment_plan": final_state["trader_investment_plan"],
             "risk_debate_state": {
                 "aggressive_history": final_state["risk_debate_state"]["aggressive_history"],
                 "conservative_history": final_state["risk_debate_state"]["conservative_history"],
@@ -448,10 +694,17 @@ class TradingAgentsGraph:
             "final_trade_decision": final_state["final_trade_decision"],
         }
 
-        # Save to file. Reject ticker values that would escape the
-        # results directory when joined as a path component.
-        safe_ticker = safe_ticker_component(self.ticker)
-        directory = Path(self.config["results_dir"]) / safe_ticker / "TradingAgentsStrategy_logs"
+        full_state_log_dir = self.config.get("full_state_log_dir")
+        if full_state_log_dir:
+            directory = Path(full_state_log_dir)
+        else:
+            # Save to legacy file layout when no explicit namespace path is injected.
+            safe_ticker = safe_ticker_component(self.ticker)
+            directory = (
+                Path(self.config["results_dir"])
+                / safe_ticker
+                / "TradingAgentsStrategy_logs"
+            )
         directory.mkdir(parents=True, exist_ok=True)
 
         log_path = directory / f"full_states_log_{trade_date}.json"

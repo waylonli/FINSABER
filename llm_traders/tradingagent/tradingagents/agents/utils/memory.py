@@ -13,6 +13,12 @@ class TradingMemoryLog:
     # HTML comment: cannot appear in LLM prose output, safe as a hard delimiter
     _SEPARATOR = "\n\n<!-- ENTRY_END -->\n\n"
     # Precompiled patterns — avoids re-compilation on every load_entries() call
+    # Kept only for backward-compatible parsing of legacy entries written
+    # before the benchmark recommendation-space rollback.
+    _SEMANTIC_RE = re.compile(
+        r"BENCHMARK_EXECUTION_SEMANTIC:\s*(.*?)(?=\n\nDECISION:|\Z)",
+        re.DOTALL,
+    )
     _DECISION_RE = re.compile(r"DECISION:\n(.*?)(?=\nREFLECTION:|\Z)", re.DOTALL)
     _REFLECTION_RE = re.compile(r"REFLECTION:\n(.*?)$", re.DOTALL)
 
@@ -33,21 +39,25 @@ class TradingMemoryLog:
         ticker: str,
         trade_date: str,
         final_trade_decision: str,
-    ) -> None:
+        benchmark_execution_semantic: Optional[str] = None,
+    ) -> bool:
         """Append pending entry at end of propagate(). No LLM call."""
+        del benchmark_execution_semantic
         if not self._log_path:
-            return
+            return False
         # Idempotency guard: fast raw-text scan instead of full parse
         if self._log_path.exists():
             raw = self._log_path.read_text(encoding="utf-8")
             for line in raw.splitlines():
                 if line.startswith(f"[{trade_date} | {ticker} |") and line.endswith("| pending]"):
-                    return
+                    return False
         rating = parse_rating(final_trade_decision)
         tag = f"[{trade_date} | {ticker} | {rating} | pending]"
-        entry = f"{tag}\n\nDECISION:\n{final_trade_decision}{self._SEPARATOR}"
+        entry_parts = [tag, f"DECISION:\n{final_trade_decision}"]
+        entry = "\n\n".join(entry_parts) + self._SEPARATOR
         with open(self._log_path, "a", encoding="utf-8") as f:
             f.write(entry)
+        return True
 
     # --- Read path (Phase A) ---
 
@@ -70,9 +80,26 @@ class TradingMemoryLog:
 
     def get_past_context(self, ticker: str, n_same: int = 5, n_cross: int = 3) -> str:
         """Return formatted past context string for agent prompt injection."""
+        return self.get_past_context_snapshot(
+            ticker,
+            n_same=n_same,
+            n_cross=n_cross,
+        )["past_context_text"]
+
+    def get_past_context_snapshot(
+        self,
+        ticker: str,
+        n_same: int = 5,
+        n_cross: int = 3,
+    ) -> dict:
+        """Return the injected memory context plus the selected source entries."""
         entries = [e for e in self.load_entries() if not e.get("pending")]
         if not entries:
-            return ""
+            return {
+                "past_context_text": "",
+                "same_entries": [],
+                "cross_entries": [],
+            }
 
         same, cross = [], []
         for e in reversed(entries):
@@ -84,7 +111,11 @@ class TradingMemoryLog:
                 cross.append(e)
 
         if not same and not cross:
-            return ""
+            return {
+                "past_context_text": "",
+                "same_entries": [],
+                "cross_entries": [],
+            }
 
         parts = []
         if same:
@@ -93,7 +124,11 @@ class TradingMemoryLog:
         if cross:
             parts.append("Recent cross-ticker lessons:")
             parts.extend(self._format_reflection_only(e) for e in cross)
-        return "\n\n".join(parts)
+        return {
+            "past_context_text": "\n\n".join(parts),
+            "same_entries": same,
+            "cross_entries": cross,
+        }
 
     # --- Update path (Phase B) ---
 
@@ -102,7 +137,7 @@ class TradingMemoryLog:
         ticker: str,
         trade_date: str,
         raw_return: float,
-        alpha_return: float,
+        alpha_return: Optional[float],
         holding_days: int,
         reflection: str,
     ) -> None:
@@ -120,7 +155,7 @@ class TradingMemoryLog:
 
         pending_prefix = f"[{trade_date} | {ticker} |"
         raw_pct = f"{raw_return:+.1%}"
-        alpha_pct = f"{alpha_return:+.1%}"
+        alpha_pct = "n/a" if alpha_return is None else f"{alpha_return:+.1%}"
 
         updated = False
         new_blocks = []
@@ -162,20 +197,22 @@ class TradingMemoryLog:
         tmp_path.write_text(new_text, encoding="utf-8")
         tmp_path.replace(self._log_path)
 
-    def batch_update_with_outcomes(self, updates: List[dict]) -> None:
+    def batch_update_with_outcomes(self, updates: List[dict]) -> List[tuple[str, str]]:
         """Apply multiple outcome updates in a single read + atomic write.
 
         Each element of updates must have keys: ticker, trade_date,
-        raw_return, alpha_return, holding_days, reflection.
+        raw_return, alpha_return, holding_days, reflection. ``alpha_return`` may
+        be ``None`` when the local benchmark series is unavailable.
         """
         if not self._log_path or not self._log_path.exists() or not updates:
-            return
+            return []
 
         text = self._log_path.read_text(encoding="utf-8")
         blocks = text.split(self._SEPARATOR)
 
         # Build lookup keyed by (trade_date, ticker) for O(1) dispatch
         update_map = {(u["trade_date"], u["ticker"]): u for u in updates}
+        updated_entries: List[tuple[str, str]] = []
 
         new_blocks = []
         for block in blocks:
@@ -194,7 +231,8 @@ class TradingMemoryLog:
                     fields = [f.strip() for f in tag_line[1:-1].split("|")]
                     rating = fields[2]
                     raw_pct = f"{upd['raw_return']:+.1%}"
-                    alpha_pct = f"{upd['alpha_return']:+.1%}"
+                    alpha_value = upd.get("alpha_return")
+                    alpha_pct = "n/a" if alpha_value is None else f"{alpha_value:+.1%}"
                     new_tag = (
                         f"[{trade_date} | {ticker} | {rating}"
                         f" | {raw_pct} | {alpha_pct} | {upd['holding_days']}d]"
@@ -203,6 +241,7 @@ class TradingMemoryLog:
                     new_blocks.append(
                         f"{new_tag}\n\n{rest.lstrip()}\n\nREFLECTION:\n{upd['reflection']}"
                     )
+                    updated_entries.append((trade_date, ticker))
                     del update_map[(trade_date, ticker)]
                     matched = True
                     break
@@ -215,6 +254,7 @@ class TradingMemoryLog:
         tmp_path = self._log_path.with_suffix(".tmp")
         tmp_path.write_text(new_text, encoding="utf-8")
         tmp_path.replace(self._log_path)
+        return updated_entries
 
     # --- Helpers ---
 
@@ -275,8 +315,12 @@ class TradingMemoryLog:
             "holding": fields[5] if len(fields) > 5 else None,
         }
         body = "\n".join(lines[1:]).strip()
+        semantic_match = self._SEMANTIC_RE.search(body)
         decision_match = self._DECISION_RE.search(body)
         reflection_match = self._REFLECTION_RE.search(body)
+        entry["benchmark_execution_semantic"] = (
+            semantic_match.group(1).strip() if semantic_match else None
+        )
         entry["decision"] = decision_match.group(1).strip() if decision_match else ""
         entry["reflection"] = reflection_match.group(1).strip() if reflection_match else ""
         return entry

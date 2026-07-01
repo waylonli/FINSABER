@@ -1,6 +1,8 @@
 import os
 from typing import Any, Optional
 
+from backtest.toolkit.llm_cost_monitor import add_llm_cost
+from langchain_core.outputs import ChatResult
 from langchain_core.messages import AIMessage
 from langchain_openai import ChatOpenAI
 
@@ -32,6 +34,34 @@ class NormalizedChatOpenAI(ChatOpenAI):
     def invoke(self, input, config=None, **kwargs):
         return normalize_content(super().invoke(input, config, **kwargs))
 
+    def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+        result = super()._generate(
+            messages,
+            stop=stop,
+            run_manager=run_manager,
+            **kwargs,
+        )
+        _record_openai_cost_from_chat_result(
+            result,
+            model=self.model_name,
+            provider=getattr(self, "_tradingagents_provider", "openai"),
+        )
+        return result
+
+    async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
+        result = await super()._agenerate(
+            messages,
+            stop=stop,
+            run_manager=run_manager,
+            **kwargs,
+        )
+        _record_openai_cost_from_chat_result(
+            result,
+            model=self.model_name,
+            provider=getattr(self, "_tradingagents_provider", "openai"),
+        )
+        return result
+
     def with_structured_output(self, schema, *, method=None, **kwargs):
         caps = get_capabilities(self.model_name)
         if caps.preferred_structured_method == "none":
@@ -46,6 +76,71 @@ class NormalizedChatOpenAI(ChatOpenAI):
         if method == "function_calling" and not caps.supports_tool_choice:
             kwargs.setdefault("tool_choice", None)
         return super().with_structured_output(schema, method=method, **kwargs)
+
+
+def _usage_to_prompt_completion_tokens(usage: Any) -> tuple[int, int]:
+    if usage is None:
+        return 0, 0
+    if isinstance(usage, dict):
+        prompt_tokens = usage.get("prompt_tokens")
+        if prompt_tokens is None:
+            prompt_tokens = usage.get("input_tokens", 0)
+        completion_tokens = usage.get("completion_tokens")
+        if completion_tokens is None:
+            completion_tokens = usage.get("output_tokens", 0)
+        return int(prompt_tokens or 0), int(completion_tokens or 0)
+    prompt_tokens = getattr(usage, "prompt_tokens", None)
+    if prompt_tokens is None:
+        prompt_tokens = getattr(usage, "input_tokens", 0)
+    completion_tokens = getattr(usage, "completion_tokens", None)
+    if completion_tokens is None:
+        completion_tokens = getattr(usage, "output_tokens", 0)
+    return int(prompt_tokens or 0), int(completion_tokens or 0)
+
+
+def _extract_usage_from_chat_result(chat_result: ChatResult) -> tuple[int, int]:
+    llm_output = chat_result.llm_output or {}
+    llm_output_usage = llm_output.get("token_usage")
+    prompt_tokens, completion_tokens = _usage_to_prompt_completion_tokens(
+        llm_output_usage
+    )
+    if prompt_tokens or completion_tokens:
+        return prompt_tokens, completion_tokens
+
+    for generation in chat_result.generations:
+        message = getattr(generation, "message", None)
+        if message is None:
+            continue
+        prompt_tokens, completion_tokens = _usage_to_prompt_completion_tokens(
+            getattr(message, "usage_metadata", None)
+        )
+        if prompt_tokens or completion_tokens:
+            return prompt_tokens, completion_tokens
+        prompt_tokens, completion_tokens = _usage_to_prompt_completion_tokens(
+            getattr(message, "response_metadata", {}).get("token_usage")
+        )
+        if prompt_tokens or completion_tokens:
+            return prompt_tokens, completion_tokens
+    return 0, 0
+
+
+def _record_openai_cost_from_chat_result(
+    chat_result: ChatResult,
+    *,
+    model: str,
+    provider: str,
+) -> None:
+    if provider != "openai":
+        return
+    prompt_tokens, completion_tokens = _extract_usage_from_chat_result(chat_result)
+    if prompt_tokens == 0 and completion_tokens == 0:
+        return
+    add_llm_cost(
+        model=model,
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        provider="openai",
+    )
 
 
 def _input_to_messages(input_: Any) -> list:
@@ -246,7 +341,9 @@ class OpenAIClient(BaseLLMClient):
             chat_cls = MinimaxChatOpenAI
         else:
             chat_cls = NormalizedChatOpenAI
-        return chat_cls(**llm_kwargs)
+        llm = chat_cls(**llm_kwargs)
+        llm._tradingagents_provider = self.provider
+        return llm
 
     def validate_model(self) -> bool:
         """Validate model for the provider."""

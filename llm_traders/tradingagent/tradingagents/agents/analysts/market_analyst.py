@@ -1,4 +1,9 @@
+from __future__ import annotations
+
+from typing import Sequence
+
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.tools import BaseTool
 from tradingagents.agents.utils.agent_utils import (
     get_instrument_context_from_state,
     get_indicators,
@@ -9,20 +14,9 @@ from tradingagents.agents.utils.agent_utils import (
 from tradingagents.dataflows.config import get_config
 
 
-def create_market_analyst(llm):
-
-    def market_analyst_node(state):
-        current_date = state["trade_date"]
-        instrument_context = get_instrument_context_from_state(state)
-
-        tools = [
-            get_stock_data,
-            get_indicators,
-            get_verified_market_snapshot,
-        ]
-
-        system_message = (
-            """You are a trading assistant tasked with analyzing financial markets. Your role is to select the **most relevant indicators** for a given market condition or trading strategy from the following list. The goal is to choose up to **8 indicators** that provide complementary insights without redundancy. Categories and each category's indicators are:
+def _build_market_system_message() -> str:
+    return (
+        """You are a trading assistant tasked with analyzing financial markets. Your role is to select the **most relevant indicators** for a given market condition or trading strategy from the following list. The goal is to choose up to **8 indicators** that provide complementary insights without redundancy. Categories and each category's indicators are:
 
 Moving Averages:
 - close_50_sma: 50 SMA: A medium-term trend indicator. Usage: Identify trend direction and serve as dynamic support/resistance. Tips: It lags price; combine with faster indicators for timely signals.
@@ -50,10 +44,30 @@ Volume-Based Indicators:
 
 Before writing the final report, call get_verified_market_snapshot for this ticker and the current date, and treat it as the source of truth for any exact OHLCV, price-level, or indicator-value claim. If another tool's output conflicts with the verified snapshot, flag the discrepancy rather than inventing a reconciled number. Do not claim historical validation, support/resistance bounces, or exact percentage moves unless they are directly supported by tool output with concrete dates and prices.
 
+If a tool reports `N/A`, unavailable values, or visibly truncated local history, state that limitation explicitly. Do not backfill pre-window history, fabricate missing indicator values, or claim confirmation that is not directly supported by the visible tool output.
+
 Write a very detailed and nuanced report of the trends you observe. Provide specific, actionable insights with supporting evidence to help traders make informed decisions."""
-            + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."""
-            + get_language_instruction()
+        + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."""
+        + get_language_instruction()
+    )
+
+
+def create_market_analyst(llm, tools: Sequence[BaseTool] | None = None):
+
+    def market_analyst_node(state):
+        current_date = state["trade_date"]
+        instrument_context = get_instrument_context_from_state(state)
+
+        available_tools = list(
+            tools
+            or [
+                get_stock_data,
+                get_indicators,
+                get_verified_market_snapshot,
+            ]
         )
+
+        system_message = _build_market_system_message()
 
         prompt = ChatPromptTemplate.from_messages(
             [
@@ -73,11 +87,13 @@ Write a very detailed and nuanced report of the trends you observe. Provide spec
         )
 
         prompt = prompt.partial(system_message=system_message)
-        prompt = prompt.partial(tool_names=", ".join([tool.name for tool in tools]))
+        prompt = prompt.partial(
+            tool_names=", ".join([tool.name for tool in available_tools])
+        )
         prompt = prompt.partial(current_date=current_date)
         prompt = prompt.partial(instrument_context=instrument_context)
 
-        chain = prompt | llm.bind_tools(tools)
+        chain = prompt | llm.bind_tools(available_tools)
 
         result = chain.invoke(state["messages"])
 

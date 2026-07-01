@@ -32,7 +32,7 @@ class Reflector:
         self,
         final_decision: str,
         raw_return: float,
-        alpha_return: float,
+        alpha_return: float | None,
         benchmark_name: str = "SPY",
     ) -> str:
         """Single reflection call on the final trade decision with outcome context.
@@ -42,15 +42,26 @@ class Reflector:
         ``benchmark_name`` is the label used for the alpha line (e.g. ``"SPY"``
         for US tickers, ``"^N225"`` for ``.T`` listings); defaults to SPY for
         callers that haven't been updated to thread the benchmark through.
+        ``alpha_return`` may be ``None`` when the local benchmark series is
+        unavailable; in that case the prompt marks alpha as unavailable while
+        preserving the upstream alpha-primary wording.
         """
+        alpha_line = (
+            f"Alpha vs {benchmark_name} (open-to-open): {alpha_return:+.1%}"
+            if alpha_return is not None
+            else (
+                f"Alpha vs {benchmark_name} (open-to-open): unavailable under local "
+                "benchmark policy"
+            )
+        )
         messages = [
             ("system", self.log_reflection_prompt),
             (
                 "human",
                 (
-                    f"Raw return: {raw_return:+.1%}\n"
-                    f"Alpha vs {benchmark_name}: {alpha_return:+.1%}\n\n"
-                    f"Final Decision:\n{final_decision}"
+                    f"Raw return (open-to-open): {raw_return:+.1%}\n"
+                    f"{alpha_line}\n"
+                    f"\nFinal Decision:\n{final_decision}"
                 ),
             ),
         ]
