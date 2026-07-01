@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "experiment_name": "finagent_finsaber2_2024_2026",
+  "data_root_default": "I:\\Data\\finsaber2\\sp500_2000_2025_parquet",
+  "output_root_default": "tmp/finagent-finsaber2-2024-2026",
+  "model": "gpt-4o-mini",
+  "seed": 2026,
+  "windows": {
+    "2024-01-01_2025-01-01": ["2024-01-01", "2025-01-01"],
+    "2025-01-01_2026-01-01": ["2025-01-01", "2026-01-01"]
+  },
+  "evaluation": {
+    "initial_cash": 100000.0,
+    "risk_free_rate": 0.03,
+    "commission_per_share": 0.0049,
+    "min_commission": 0.99,
+    "max_commission_rate": 0.01,
+    "execution_timing": "next_open",
+    "slippage_perc": 0.0,
+    "slippage_impact": 0.0,
+    "liquidity_lookback_days": 20,
+    "liquidity_min_history_days": 1,
+    "liquidity_cap_pct": 0.0,
+    "llm_cost_as_trade_cost": true,
+    "training_years": 3,
+    "modalities": ["price", "news", "filing_k", "filing_q"]
+  },
+  "selections": {
+    "selected_4": {
+      "2024-01-01_2025-01-01": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"],
+      "2025-01-01_2026-01-01": ["TSLA", "NFLX", "AMZN", "MSFT", "COIN"]
+    },
+    "random_sp500_5": {
+      "2024-01-01_2025-01-01": ["CI", "EIX", "INTC", "MCK", "PNC"],
+      "2025-01-01_2026-01-01": ["ATO", "IP", "LOW", "NDSN", "TAP"]
+    },
+    "momentum_sp500_5": {
+      "2024-01-01_2025-01-01": ["INTC", "IT", "NRG", "PANW", "PGR"],
+      "2025-01-01_2026-01-01": ["NCLH", "PLTR", "TPL", "UAL", "VST"]
+    },
+    "lowvol_sp500_5": {
+      "2024-01-01_2025-01-01": ["BRK-B", "CB", "KMB", "MRK", "PG"],
+      "2025-01-01_2026-01-01": ["CME", "FRT", "K", "MA", "REG"]
+    },
+    "magnificent_7": {
+      "2024-01-01_2025-01-01": ["AAPL", "AMZN", "GOOGL", "META", "MSFT", "NVDA", "TSLA"],
+      "2025-01-01_2026-01-01": ["AAPL", "AMZN", "GOOGL", "META", "MSFT", "NVDA", "TSLA"]
+    }
+  }
+}

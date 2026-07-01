@@ -35,6 +35,8 @@ class FinAgentStrategy(BaseStrategyIso):
         market_data_root=None,
         data_loader=None,
         training_period=3,
+        llm_model_id="gpt-4o-mini",
+        workdir="llm_traders/finagent/workdir/trading",
     ):
         super().__init__()
         self.logger.info("Initialising FinAgentStrategy.")
@@ -42,7 +44,7 @@ class FinAgentStrategy(BaseStrategyIso):
         # Hard-coded configuration values
         self.selected_asset = symbol
         self.asset_type = "company"
-        self.workdir = "llm_traders/finagent/workdir/trading"
+        self.workdir = workdir
         self.tag = self.selected_asset
         self.trader_preference = "aggressive_trader"
 
@@ -59,7 +61,7 @@ class FinAgentStrategy(BaseStrategyIso):
         self.look_back_days = self.long_term_past_date_range
         self.previous_action_look_back_days = 14
         self.top_k = 5
-        self.llm_model_id = "gpt-4o-mini"
+        self.llm_model_id = llm_model_id
 
         # Template paths for valid mode
         self.valid_latest_market_intelligence_template = self._read_template(

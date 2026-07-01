@@ -57,6 +57,8 @@ class EnvironmentTrading(gym.Env):
         self.end_date = end_date
         self.start_date = datetime.strptime(self.start_date, "%Y-%m-%d") if type(self.start_date) == str else self.start_date
         self.end_date = datetime.strptime(self.end_date, "%Y-%m-%d") if type(self.end_date) == str else self.end_date
+        self.start_date = pd.to_datetime(self.start_date)
+        self.end_date = pd.to_datetime(self.end_date)
 
         self.look_back_days = look_back_days
         self.look_forward_days = look_forward_days
@@ -67,27 +69,32 @@ class EnvironmentTrading(gym.Env):
 
         self.prices_df = self.prices_df.reset_index(drop=True)
         self.news_df = self.news_df.reset_index(drop=True)
+        self.prices_df["timestamp"] = pd.to_datetime(self.prices_df["timestamp"])
+        self.news_df["timestamp"] = pd.to_datetime(self.news_df["timestamp"])
 
         if self.guidances_df is not None:
             self.guidances_df = self.guidances_df.reset_index(drop=True)
+            self.guidances_df["timestamp"] = pd.to_datetime(self.guidances_df["timestamp"])
         if self.sentiments_df is not None:
             self.sentiments_df = self.sentiments_df.reset_index(drop=True)
+            self.sentiments_df["timestamp"] = pd.to_datetime(self.sentiments_df["timestamp"])
         if self.economics_df is not None:
             self.economics_df = self.economics_df.reset_index(drop=True)
+            self.economics_df["timestamp"] = pd.to_datetime(self.economics_df["timestamp"])
 
-        self.init_day = self.prices_df[self.prices_df["timestamp"] >= start_date].index.values[0]
-        self.end_day = self.prices_df[self.prices_df["timestamp"] <= end_date].index.values[-1]
+        self.init_day = self.prices_df[self.prices_df["timestamp"] >= self.start_date].index.values[0]
+        self.end_day = self.prices_df[self.prices_df["timestamp"] <= self.end_date].index.values[-1]
 
-        self.prices_df = self.prices_df.set_index("timestamp", drop=False)
-        self.news_df = self.news_df.set_index("timestamp", drop=False)
+        self.prices_df = self.prices_df.set_index("timestamp")
+        self.news_df = self.news_df.set_index("timestamp")
 
 
         if self.guidances_df is not None:
-            self.guidances_df = self.guidances_df.set_index("timestamp", drop=False)
+            self.guidances_df = self.guidances_df.set_index("timestamp")
         if self.sentiments_df is not None:
-            self.sentiments_df = self.sentiments_df.set_index("timestamp", drop=False)
+            self.sentiments_df = self.sentiments_df.set_index("timestamp")
         if self.economics_df is not None:
-            self.economics_df = self.economics_df.set_index("timestamp", drop=False)
+            self.economics_df = self.economics_df.set_index("timestamp")
 
         self.day = self.init_day
         self.value = self.initial_amount
@@ -127,12 +134,8 @@ class EnvironmentTrading(gym.Env):
         price = self.prices_df[self.prices_df.index <= days_future]
         price = price[price.index >= days_ago]
 
-        try:
-            news = self.news_df[self.news_df.index.date <= days_future]
-            news = news[news.index.date >= days_ago]
-        except AttributeError:
-            news = self.news_df[self.news_df.index <= days_future]
-            news = news[news.index >= days_ago]
+        news = self.news_df[self.news_df.index <= days_future]
+        news = news[news.index >= days_ago]
 
         if self.guidances_df is not None:
             guidance = self.guidances_df[self.guidances_df.index <= days_future]

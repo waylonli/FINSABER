@@ -256,6 +256,10 @@ def plot_kline(df,
                opacity=0.8,
                path=None,
                mode="train"):
+    if os.environ.get("FINAGENT_PLOT_RENDERER", "matplotlib").lower() != "pyecharts":
+        _plot_kline_matplotlib(df, title, save_path, now_date, mode=mode)
+        return
+
     try:
         _plot_kline_pyecharts(
             df,
