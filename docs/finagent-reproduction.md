@@ -55,8 +55,10 @@ python examples/experiments/summarize_finsaber2_results.py \
 ```
 
 The command verifies all 454 expected ticker-year results, rejects duplicate
-identities, preserves raw Sharpe values, and excludes near-cash runs with less
-than 0.5% annualized volatility from reported mean Sharpe.
+identities, and recomputes volatility, Sharpe, and Sortino from the saved equity
+curves with the current framework metrics and a 3% annual risk-free rate. It
+retains the stored experiment-time metrics for audit and excludes near-cash
+runs with less than 0.5% annualized volatility from reported mean Sharpe.
 
 ## FinRL Result Status
 

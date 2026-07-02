@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,6 +13,16 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from backtest.toolkit.metrics import (  # noqa: E402
+    calculate_annual_volatility,
+    calculate_sharpe_ratio,
+    calculate_sortino_ratio,
+)
 
 
 STRATEGY_FAMILIES = {
@@ -55,6 +66,7 @@ def parse_args() -> argparse.Namespace:
         default=Path("tmp/consolidated-finsaber2-2024-2026-r1"),
     )
     parser.add_argument("--min-annual-volatility", type=float, default=0.005)
+    parser.add_argument("--risk-free-rate", type=float, default=0.03)
     return parser.parse_args()
 
 
@@ -105,9 +117,36 @@ def number(metrics: dict, key: str, default=np.nan) -> float:
     return float(default if value is None else value)
 
 
+def recompute_risk_metrics(
+    metrics_path: Path,
+    risk_free_rate: float,
+) -> tuple[float, float, float, int]:
+    equity_path = metrics_path.with_name("equity_curve.csv")
+    if not equity_path.is_file():
+        raise FileNotFoundError(f"Missing equity curve: {equity_path}")
+
+    equity_curve = pd.read_csv(equity_path)
+    if "equity" not in equity_curve:
+        raise ValueError(f"Missing equity column: {equity_path}")
+    equity = pd.to_numeric(equity_curve["equity"], errors="coerce")
+    daily_returns = equity.pct_change(fill_method=None).replace(
+        [np.inf, -np.inf], np.nan
+    ).dropna()
+    if daily_returns.empty:
+        raise ValueError(f"No valid returns in equity curve: {equity_path}")
+
+    return (
+        float(calculate_annual_volatility(daily_returns)),
+        float(calculate_sharpe_ratio(daily_returns, risk_free_rate)),
+        float(calculate_sortino_ratio(daily_returns, risk_free_rate)),
+        int(len(daily_returns)),
+    )
+
+
 def load_rows(
     trees: list[ResultTree],
     min_annual_volatility: float,
+    risk_free_rate: float,
 ) -> tuple[pd.DataFrame, list[dict]]:
     rows = []
     inventory = []
@@ -132,8 +171,12 @@ def load_rows(
                     seen.add(identity)
 
                     metrics = json.loads(path.read_text(encoding="utf-8"))
-                    annual_volatility = number(metrics, "annual_volatility")
-                    raw_sharpe = number(metrics, "sharpe_ratio")
+                    (
+                        annual_volatility,
+                        recomputed_sharpe,
+                        recomputed_sortino,
+                        return_observations,
+                    ) = recompute_risk_metrics(path, risk_free_rate)
                     sharpe_defined = (
                         np.isfinite(annual_volatility)
                         and annual_volatility >= min_annual_volatility
@@ -149,10 +192,18 @@ def load_rows(
                             "total_return": number(metrics, "total_return"),
                             "annual_return": number(metrics, "annual_return"),
                             "annual_volatility": annual_volatility,
-                            "raw_sharpe_ratio": raw_sharpe,
-                            "reported_sharpe_ratio": raw_sharpe if sharpe_defined else np.nan,
+                            "stored_annual_volatility": number(
+                                metrics, "annual_volatility"
+                            ),
+                            "stored_sharpe_ratio": number(metrics, "sharpe_ratio"),
+                            "recomputed_sharpe_ratio": recomputed_sharpe,
+                            "reported_sharpe_ratio": (
+                                recomputed_sharpe if sharpe_defined else np.nan
+                            ),
                             "sharpe_status": "defined" if sharpe_defined else "near_zero_volatility",
-                            "sortino_ratio": number(metrics, "sortino_ratio"),
+                            "stored_sortino_ratio": number(metrics, "sortino_ratio"),
+                            "recomputed_sortino_ratio": recomputed_sortino,
+                            "return_observations": return_observations,
                             "max_drawdown": number(metrics, "max_drawdown"),
                             "total_commission": number(metrics, "total_commission", 0.0),
                             "total_slippage": number(metrics, "total_slippage", 0.0),
@@ -225,6 +276,7 @@ def markdown_report(
     rows: pd.DataFrame,
     inventory: list[dict],
     min_annual_volatility: float,
+    risk_free_rate: float,
 ) -> str:
     lines = [
         "# FINSABER-2 Consolidated Results, 2024-2026",
@@ -252,8 +304,13 @@ def markdown_report(
             "",
             "## Sharpe Policy",
             "",
+            "Sharpe, Sortino, and annualized volatility are recomputed from every",
+            "saved equity curve with the current framework metric helpers and an",
+            f"annual risk-free rate of {risk_free_rate:.2%}. Stored experiment-time",
+            "metrics remain in the detailed CSV for auditability.",
+            "",
             f"Runs with annualized volatility below {min_annual_volatility:.2%} "
-            "are treated as inactive/near-cash runs. Their original Sharpe is",
+            "are treated as inactive/near-cash runs. Their recomputed Sharpe is",
             "preserved in `all_ticker_year_results.csv`, but reported Sharpe is",
             "undefined and excluded from strategy averages.",
             "",
@@ -391,6 +448,7 @@ def main() -> int:
     rows, inventory = load_rows(
         source_trees(tmp_root.resolve()),
         args.min_annual_volatility,
+        args.risk_free_rate,
     )
     summary = summarize(rows)
 
@@ -421,6 +479,7 @@ def main() -> int:
             rows,
             inventory,
             args.min_annual_volatility,
+            args.risk_free_rate,
         ),
         encoding="utf-8",
     )
@@ -433,6 +492,7 @@ def main() -> int:
                 .isoformat(),
                 "git_commit": git_commit(repo_root),
                 "min_annual_volatility": args.min_annual_volatility,
+                "risk_free_rate": args.risk_free_rate,
                 "total_ticker_year_rows": len(rows),
                 "sources": inventory,
             },
