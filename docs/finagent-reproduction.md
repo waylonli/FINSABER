@@ -44,6 +44,20 @@ Hosted LLM output is not bitwise reproducible because provider-side model
 revisions and sampling can change. Preserve the complete output directory;
 the prompt, response, chart, and cost artifacts provide the audit trail.
 
+## Consolidating Results
+
+After all configured runs finish, rebuild the cross-strategy tables and plots:
+
+```bash
+python examples/experiments/summarize_finsaber2_results.py \
+  --tmp-root tmp \
+  --output-root tmp/consolidated-finsaber2-2024-2026-r1
+```
+
+The command verifies all 454 expected ticker-year results, rejects duplicate
+identities, preserves raw Sharpe values, and excludes near-cash runs with less
+than 0.5% annualized volatility from reported mean Sharpe.
+
 ## FinRL Result Status
 
 Current 2024-2025 FinRL results are preliminary. Some runs bought only one
