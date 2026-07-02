@@ -44,7 +44,7 @@ EXPECTED_ROWS = {
     "random_sp500_5": 110,
     "momentum_sp500_5": 110,
     "lowvol_sp500_5": 110,
-    "magnificent_7": 14,
+    "magnificent_7": 154,
 }
 
 
@@ -103,6 +103,11 @@ def source_trees(tmp_root: Path) -> list[ResultTree]:
             "finagent_four_selectors",
             tmp_root / "finagent-all-2024-2026-official-r1",
             ("selected_4", "random_sp500_5", "momentum_sp500_5", "lowvol_sp500_5"),
+        ),
+        ResultTree(
+            "magnificent_7_non_llm",
+            tmp_root / "magnificent7-benchmarks-2024-2026-r1",
+            ("magnificent_7",),
         ),
         ResultTree(
             "finagent_magnificent_7",
@@ -318,11 +323,11 @@ def markdown_report(
     )
 
     selector_order = [
+        "magnificent_7",
         "selected_4",
         "random_sp500_5",
         "momentum_sp500_5",
         "lowvol_sp500_5",
-        "magnificent_7",
     ]
     for selector in selector_order:
         table = summary[summary["selector"] == selector]
@@ -369,7 +374,7 @@ def markdown_report(
 
 def plot_strategy_returns(summary: pd.DataFrame, output_path: Path) -> None:
     selectors = [
-        "selected_4",
+        "magnificent_7",
         "random_sp500_5",
         "momentum_sp500_5",
         "lowvol_sp500_5",
@@ -457,8 +462,8 @@ def main() -> int:
         raise ValueError(
             f"Incomplete result inventory: expected {EXPECTED_ROWS}, got {actual_counts}"
         )
-    if len(rows) != 454:
-        raise ValueError(f"Expected 454 ticker-year rows, got {len(rows)}")
+    if len(rows) != 594:
+        raise ValueError(f"Expected 594 ticker-year rows, got {len(rows)}")
 
     rows.to_csv(output_root / "all_ticker_year_results.csv", index=False)
     summary.to_csv(output_root / "strategy_summary.csv", index=False)

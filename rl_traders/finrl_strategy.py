@@ -22,6 +22,7 @@ class FinRLStrategy(BaseStrategy):
         ("initial_amount", 100000),
         ("total_days", 0),
         ("train_period", 252 * 3),
+        ("seed", 2026),
         # ("train_period", 252),
     )
 
@@ -182,7 +183,7 @@ class FinRLStrategy(BaseStrategy):
         model = agent.get_model(
             algorithm,
             verbose=0,
-            # seed=1,
+            seed=self.params.seed,
             model_kwargs=self.model_params[algorithm]
         )
         trained_model = agent.train_model(
