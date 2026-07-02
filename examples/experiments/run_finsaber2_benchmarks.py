@@ -90,6 +90,7 @@ def parse_args() -> argparse.Namespace:
         help="Comma-separated strategy class names.",
     )
     parser.add_argument("--training-years", type=int, default=3)
+    parser.add_argument("--finrl-training-years", type=int, default=10)
     parser.add_argument("--finrl-total-timesteps", type=int, default=5000)
     parser.add_argument("--seed", type=int, default=2026)
     parser.add_argument("--force", action="store_true")
@@ -184,6 +185,7 @@ def write_runner_manifest(
         "date_from": "2024-01-01",
         "date_to": "2026-01-01",
         "training_years": args.training_years,
+        "finrl_training_years": args.finrl_training_years,
         "finrl_total_timesteps": args.finrl_total_timesteps,
         "seed": args.seed,
         "execution_timing": "next_open",
@@ -230,6 +232,11 @@ def main() -> int:
             )
 
         strategy = load_strategy(strategy_name)
+        training_years = (
+            args.finrl_training_years
+            if strategy_name == "FinRLStrategy"
+            else args.training_years
+        )
         config = {
             "tickers": tickers,
             "date_from": "2024-01-01",
@@ -250,7 +257,7 @@ def main() -> int:
             "silence": True,
             "rolling_window_size": 1,
             "rolling_window_step": 1,
-            "training_years": args.training_years,
+            "training_years": training_years,
             "selection_strategy": FixedTickerSelector(tickers),
             "setup_name": args.setup,
             "save_results": True,

@@ -42,8 +42,9 @@ python examples/experiments/run_finsaber2_benchmarks.py \
 ```
 
 This runs Buy-and-Hold, six technical strategies, ARIMA, XGBoost, and FinRL.
-The runner uses seed 2026 and skips strategies that already have all 14
-ticker-year artifacts.
+ARIMA and XGBoost use three years of training data; FinRL uses a distinct
+10-year training window. The runner uses seed 2026 and skips strategies that
+already have all 14 ticker-year artifacts.
 
 ## Reproducibility Artifacts
 
@@ -81,7 +82,8 @@ appendix.
 Current 2024-2025 FinRL results are preliminary. The exported action history
 has been verified to contain the post-`hmax`, integer share quantities actually
 executed inside the FinRL environment, so replay must not scale them again.
-However, several deterministic 5,000-step runs still held cash or traded only
-one share. Rerun controlled longer-training and 10-year training-window
-variants before making a definitive RL comparison. Near-zero-exposure Sharpe
-values remain undefined rather than being averaged as extreme ratios.
+However, deterministic 5,000-step runs may still hold cash or trade only one
+share even with the required 10-year training window. Longer-training variants
+are therefore still recommended before making a definitive RL comparison.
+Near-zero-exposure Sharpe values remain undefined rather than being averaged
+as extreme ratios.
