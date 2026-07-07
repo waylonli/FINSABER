@@ -603,11 +603,18 @@ def aggregate_results(setup_name:str):
             continue
 
 
-def aggregate_results_one_strategy(setup_name: str, trading_strategy: str, output_dir: str = None):
+def aggregate_results_one_strategy(
+    setup_name: str,
+    trading_strategy: str,
+    output_dir: str = None,
+    strategy_output_dir: str = None,
+):
 
     # automatically check the filename xxx.pkl under the directory
     # root dir is the grandparent directory of this file
-    if output_dir is None:
+    if strategy_output_dir:
+        output_dir = strategy_output_dir
+    elif output_dir is None:
         output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "output", setup_name.replace(":","_"), trading_strategy)
     else:
         output_dir = os.path.join(output_dir, setup_name.replace(":","_"), trading_strategy)
@@ -627,9 +634,7 @@ def aggregate_results_one_strategy(setup_name: str, trading_strategy: str, outpu
 
     tickers = list(tickers)
 
-    results_df_by_tickers = pd.DataFrame(
-        columns=["Period", "ticker", "total_return (%)", "annual_return (%)", "annual_volatility (%)", "sharpe_ratio", "sortino_ratio",
-                 "max_drawdown"])
+    rows = []
 
     all_ticker_avg_total_return = 0
     all_ticker_avg_annual_return = 0
@@ -640,7 +645,7 @@ def aggregate_results_one_strategy(setup_name: str, trading_strategy: str, outpu
     all_ticker_valid_window = 0
 
     # try:
-    for ticker in tickers:
+    for ticker in sorted(tickers):
         valid_window = 0
         # calculate the average return
         avg_total_return = 0
@@ -675,7 +680,7 @@ def aggregate_results_one_strategy(setup_name: str, trading_strategy: str, outpu
             valid_window += 1
             all_ticker_valid_window += 1
 
-            results_df_by_tickers = results_df_by_tickers._append(
+            rows.append(
                 {
                     "Period": window,
                     "ticker": ticker,
@@ -685,8 +690,8 @@ def aggregate_results_one_strategy(setup_name: str, trading_strategy: str, outpu
                     "sharpe_ratio": "{:.3f}".format(all_results[window][ticker]["sharpe_ratio"]),
                     "sortino_ratio": "{:.3f}".format(all_results[window][ticker]["sortino_ratio"]),
                     "max_drawdown": "{:.3f}".format(-all_results[window][ticker]["max_drawdown"]),
-                },
-                ignore_index=True)
+                }
+            )
 
         if valid_window == 0:
             continue
@@ -698,7 +703,7 @@ def aggregate_results_one_strategy(setup_name: str, trading_strategy: str, outpu
         avg_sortino_ratio /= valid_window
         avg_max_drawdown /= valid_window
 
-        results_df_by_tickers = results_df_by_tickers._append(
+        rows.append(
             {
                 "Period": "Average",
                 "ticker": ticker,
@@ -708,10 +713,15 @@ def aggregate_results_one_strategy(setup_name: str, trading_strategy: str, outpu
                 "sharpe_ratio": "{:.3f}".format(avg_sharpe_ratio),
                 "sortino_ratio": "{:.3f}".format(avg_sortino_ratio),
                 "max_drawdown": "{:.3f}".format(-avg_max_drawdown),
-            },
-            ignore_index=True)
+            }
+        )
 
     if all_ticker_valid_window == 0:
+        results_df_by_tickers = pd.DataFrame(
+            rows,
+            columns=["Period", "ticker", "total_return (%)", "annual_return (%)", "annual_volatility (%)", "sharpe_ratio", "sortino_ratio",
+                     "max_drawdown"],
+        )
         results_df_by_tickers.to_csv(os.path.join(output_dir, "results.csv"),
                                      index=False)
         return
@@ -723,7 +733,7 @@ def aggregate_results_one_strategy(setup_name: str, trading_strategy: str, outpu
     all_ticker_avg_sortino_ratio /= all_ticker_valid_window
     all_ticker_avg_max_drawdown /= all_ticker_valid_window
 
-    results_df_by_tickers = results_df_by_tickers._append(
+    rows.append(
         {
             "Period": "Average",
             "ticker": "All",
@@ -733,8 +743,14 @@ def aggregate_results_one_strategy(setup_name: str, trading_strategy: str, outpu
             "sharpe_ratio": "{:.3f}".format(all_ticker_avg_sharpe_ratio),
             "sortino_ratio": "{:.3f}".format(all_ticker_avg_sortino_ratio),
             "max_drawdown": "{:.3f}".format(-all_ticker_avg_max_drawdown),
-        },
-        ignore_index=True)
+        }
+    )
+
+    results_df_by_tickers = pd.DataFrame(
+        rows,
+        columns=["Period", "ticker", "total_return (%)", "annual_return (%)", "annual_volatility (%)", "sharpe_ratio", "sortino_ratio",
+                 "max_drawdown"],
+    )
 
     results_df_by_tickers.to_csv(os.path.join(output_dir, "results.csv"),
                                  index=False)
@@ -748,4 +764,3 @@ if __name__ == "__main__":
     df["adj_high"] = df["high"] * adj_factor
     df["adj_low"] = df["low"] * adj_factor
     import pdb; pdb.set_trace()
-

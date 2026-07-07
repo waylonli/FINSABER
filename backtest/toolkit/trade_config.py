@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field, fields
-from typing import Any, Union, List
+from typing import Any, Union, List, Optional
 import os
 from backtest.strategy.selection.base_selector import BaseSelector
 import sys
@@ -31,6 +31,7 @@ class TradeConfig:
     result_filename: str = None
     save_results: bool = True
     log_base_dir: str = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "output")
+    result_output_dir: Optional[str] = None
     checkpoint_results: bool = True
     resume_from_checkpoint: bool = True
     data_loader: Any = None
@@ -61,6 +62,13 @@ class TradeConfig:
 
         if not 1 <= self.liquidity_min_history_days <= self.liquidity_lookback_days:
             raise ValueError("liquidity_min_history_days must be between 1 and liquidity_lookback_days")
+
+        if self.result_output_dir is not None and not isinstance(self.result_output_dir, str):
+            raise ValueError("result_output_dir must be a string path or None")
+        if self.result_output_dir == "":
+            # Normalize empty overrides so callers can fall back to the legacy
+            # setup/strategy output tree without splitting writer/reader paths.
+            self.result_output_dir = None
 
 
     @classmethod
