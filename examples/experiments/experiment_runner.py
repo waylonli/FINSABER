@@ -27,6 +27,77 @@ class ExperimentRunner:
     def _data_loader(self, tickers=None):
         return create_finsaber2_data_loader(self.data_root, tickers=tickers)
 
+    def _materialize_finmem_run_root(
+        self,
+        *,
+        strategy_class,
+        trade_config: dict,
+        strat_config: dict | None,
+    ):
+        if (
+            strategy_class.__name__ != "FinMemStrategy"
+            or strat_config is None
+            or self.mode != "iter"
+        ):
+            return trade_config, strat_config, None
+
+        import toml
+
+        from llm_traders.finsaber_strategies.finmem_artifacts import (
+            materialize_finmem_run_identity,
+        )
+
+        artifact_config = dict(strat_config.get("artifact_config") or {})
+        if not bool(artifact_config.get("enabled", False)):
+            return trade_config, strat_config, None
+
+        config_path = strat_config.get("config_path")
+        if not config_path:
+            raise ValueError("FinMemStrategy strat_config must provide config_path.")
+        resolved_config_path = os.path.abspath(config_path)
+
+        resolved_strategy_params = {
+            "config_path": resolved_config_path,
+            "date_from": trade_config.get("date_from"),
+            "date_to": trade_config.get("date_to"),
+            "market_data_info_path": strat_config.get("market_data_info_path"),
+            "market_data_root": strat_config.get("market_data_root"),
+            "training_period": strat_config.get("training_period", 2),
+            "use_filing_sections": strat_config.get("use_filing_sections", True),
+            "filing_section_map": strat_config.get("filing_section_map"),
+            "filing_payload_kind": strat_config.get("filing_payload_kind", "auto"),
+            "filing_failure_mode": strat_config.get("filing_failure_mode", "empty"),
+            "filing_merge_policy": strat_config.get("filing_merge_policy", "latest"),
+        }
+        finmem_config = toml.load(resolved_config_path)
+        run_identity = materialize_finmem_run_identity(
+            artifact_config=artifact_config,
+            output_root=trade_config.get("log_base_dir", self.output_dir),
+            setup_name=trade_config["setup_name"],
+            strategy_name=strategy_class.__name__,
+            config_path=resolved_config_path,
+            finmem_config=finmem_config,
+            resolved_strategy_params=resolved_strategy_params,
+        )
+
+        materialized_trade_config = dict(trade_config)
+        materialized_trade_config["result_output_dir"] = str(
+            run_identity.benchmark_results_dir
+        )
+
+        materialized_strat_config = dict(strat_config)
+        materialized_artifact_config = {
+            **artifact_config,
+            "profile_name": run_identity.profile_name,
+            "run_key": run_identity.run_key,
+            "benchmark_results_dir": str(run_identity.benchmark_results_dir),
+        }
+        if artifact_config.get("root") in (None, ""):
+            materialized_artifact_config["root"] = str(run_identity.artifact_root)
+        materialized_strat_config["artifact_config"] = materialized_artifact_config
+        materialized_strat_config["config_path"] = resolved_config_path
+        return materialized_trade_config, materialized_strat_config, run_identity
+
     def run(
         self,
         setup_name: str,
@@ -141,6 +212,11 @@ class ExperimentRunner:
         default_config.setdefault("log_base_dir", self.output_dir)
 
         strat_config = json.load(open(strat_config_path, encoding="utf-8")) if strat_config_path else None
+        default_config, strat_config, _ = self._materialize_finmem_run_root(
+            strategy_class=strategy_class,
+            trade_config=default_config,
+            strat_config=strat_config,
+        )
         self._run_backtest(strategy_class, default_config, strat_config)
 
     def _run_backtest(self, strategy_class, trade_config, strat_config):
@@ -155,4 +231,5 @@ class ExperimentRunner:
             trade_config["setup_name"],
             strategy_class.__name__,
             output_dir=trade_config.get("log_base_dir", self.output_dir),
+            strategy_output_dir=trade_config.get("result_output_dir"),
         )
