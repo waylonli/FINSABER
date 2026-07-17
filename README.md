@@ -331,7 +331,3 @@ Use that branch if you want to reproduce the experimental results in the origina
     series = {KDD '26}
 }
 ```
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=waylonli/FINSABER&type=date&legend=top-left)](https://www.star-history.com/#waylonli/FINSABER&type=date&legend=top-left)
