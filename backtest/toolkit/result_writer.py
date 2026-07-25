@@ -33,6 +33,19 @@ DATAFRAME_FILENAMES = {
 }
 
 
+EMPTY_DATAFRAME_COLUMNS = {
+    "rejected_orders": [
+        "signal_date",
+        "execution_date",
+        "ticker",
+        "side",
+        "quantity",
+        "reference_price",
+        "reason",
+    ],
+}
+
+
 def _json_safe(value):
     if is_dataclass(value):
         return _json_safe(asdict(value))
@@ -51,6 +64,14 @@ def _json_safe(value):
     if isinstance(value, (str, int, float, bool)) or value is None:
         return value
     return value.__class__.__name__
+
+
+def _dataframe_for_csv(key, value):
+    if value.empty and len(value.columns) == 0 and key in EMPTY_DATAFRAME_COLUMNS:
+        # Empty optional artifacts should still be readable by downstream
+        # pandas-based summary scripts.
+        return pd.DataFrame(columns=EMPTY_DATAFRAME_COLUMNS[key])
+    return value
 
 
 def _write_json(path, data):
@@ -123,6 +144,7 @@ def _write_metric_leaf(output_dir, metrics):
     for key, value in metrics.items():
         if isinstance(value, pd.DataFrame):
             filename = DATAFRAME_FILENAMES.get(key, f"{key}.csv")
+            value = _dataframe_for_csv(key, value)
             value.to_csv(os.path.join(output_dir, filename), index=False)
         elif key in METRIC_KEYS:
             scalar_metrics[key] = value
