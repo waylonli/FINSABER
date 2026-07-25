@@ -13,6 +13,7 @@ llm_traders/finagent/workdir
 /*.egg-info/
 /scripts
 /backtest/scripts
+/backtest/output/
 .cache
 .pytest_cache/
 .vscode

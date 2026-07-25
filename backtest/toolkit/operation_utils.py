@@ -642,9 +642,7 @@ def aggregate_results_one_strategy(
 
     tickers = list(tickers)
 
-    results_df_by_tickers = pd.DataFrame(
-        columns=["Period", "ticker", "total_return (%)", "annual_return (%)", "annual_volatility (%)", "sharpe_ratio", "sortino_ratio",
-                 "max_drawdown"])
+    rows = []
 
     all_ticker_avg_total_return = 0
     all_ticker_avg_annual_return = 0
@@ -655,7 +653,7 @@ def aggregate_results_one_strategy(
     all_ticker_valid_window = 0
 
     # try:
-    for ticker in tickers:
+    for ticker in sorted(tickers):
         valid_window = 0
         # calculate the average return
         avg_total_return = 0
@@ -690,7 +688,7 @@ def aggregate_results_one_strategy(
             valid_window += 1
             all_ticker_valid_window += 1
 
-            results_df_by_tickers = results_df_by_tickers._append(
+            rows.append(
                 {
                     "Period": window,
                     "ticker": ticker,
@@ -700,8 +698,8 @@ def aggregate_results_one_strategy(
                     "sharpe_ratio": "{:.3f}".format(all_results[window][ticker]["sharpe_ratio"]),
                     "sortino_ratio": "{:.3f}".format(all_results[window][ticker]["sortino_ratio"]),
                     "max_drawdown": "{:.3f}".format(-all_results[window][ticker]["max_drawdown"]),
-                },
-                ignore_index=True)
+                }
+            )
 
         if valid_window == 0:
             continue
@@ -713,7 +711,7 @@ def aggregate_results_one_strategy(
         avg_sortino_ratio /= valid_window
         avg_max_drawdown /= valid_window
 
-        results_df_by_tickers = results_df_by_tickers._append(
+        rows.append(
             {
                 "Period": "Average",
                 "ticker": ticker,
@@ -723,10 +721,15 @@ def aggregate_results_one_strategy(
                 "sharpe_ratio": "{:.3f}".format(avg_sharpe_ratio),
                 "sortino_ratio": "{:.3f}".format(avg_sortino_ratio),
                 "max_drawdown": "{:.3f}".format(-avg_max_drawdown),
-            },
-            ignore_index=True)
+            }
+        )
 
     if all_ticker_valid_window == 0:
+        results_df_by_tickers = pd.DataFrame(
+            rows,
+            columns=["Period", "ticker", "total_return (%)", "annual_return (%)", "annual_volatility (%)", "sharpe_ratio", "sortino_ratio",
+                     "max_drawdown"],
+        )
         results_df_by_tickers.to_csv(os.path.join(output_dir, "results.csv"),
                                      index=False)
         return
@@ -738,7 +741,7 @@ def aggregate_results_one_strategy(
     all_ticker_avg_sortino_ratio /= all_ticker_valid_window
     all_ticker_avg_max_drawdown /= all_ticker_valid_window
 
-    results_df_by_tickers = results_df_by_tickers._append(
+    rows.append(
         {
             "Period": "Average",
             "ticker": "All",
@@ -748,8 +751,14 @@ def aggregate_results_one_strategy(
             "sharpe_ratio": "{:.3f}".format(all_ticker_avg_sharpe_ratio),
             "sortino_ratio": "{:.3f}".format(all_ticker_avg_sortino_ratio),
             "max_drawdown": "{:.3f}".format(-all_ticker_avg_max_drawdown),
-        },
-        ignore_index=True)
+        }
+    )
+
+    results_df_by_tickers = pd.DataFrame(
+        rows,
+        columns=["Period", "ticker", "total_return (%)", "annual_return (%)", "annual_volatility (%)", "sharpe_ratio", "sortino_ratio",
+                 "max_drawdown"],
+    )
 
     results_df_by_tickers.to_csv(os.path.join(output_dir, "results.csv"),
                                  index=False)

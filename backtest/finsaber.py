@@ -37,8 +37,8 @@ class FINSABER:
 
     def _result_output_dir(self, strategy_class):
         if self.trade_config.result_output_dir:
-            # B15 seam: allow the benchmark layer to target a pre-resolved
-            # strategy result directory without changing the legacy default tree.
+            # Allow callers to pin benchmark outputs to a run-scoped directory
+            # without changing the legacy setup/strategy default tree.
             return os.fspath(self.trade_config.result_output_dir)
         setup_name = str(self.trade_config.setup_name or "default").replace(":", "_")
         return os.path.join(

@@ -66,8 +66,8 @@ class TradeConfig:
         if self.result_output_dir is not None and not isinstance(self.result_output_dir, str):
             raise ValueError("result_output_dir must be a string path or None")
         if self.result_output_dir == "":
-            # Normalize empty overrides so all callers fall back to the legacy
-            # setup/strategy output tree instead of splitting writer/reader paths.
+            # Normalize empty overrides so callers can fall back to the legacy
+            # setup/strategy output tree without splitting writer/reader paths.
             self.result_output_dir = None
 
 

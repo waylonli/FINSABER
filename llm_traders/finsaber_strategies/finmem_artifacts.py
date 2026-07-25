@@ -24,6 +24,17 @@ class ArtifactWindow:
         }
 
 
+@dataclass(frozen=True)
+class FinMemRunIdentity:
+    profile_name: str
+    artifact_root: Path
+    config_key: str
+    run_key: str
+    base_run_dir: Path
+    benchmark_results_dir: Path
+    tickers_dir: Path
+
+
 def _json_safe(value: Any) -> Any:
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
@@ -40,6 +51,172 @@ def _json_safe(value: Any) -> Any:
 
 def _safe_path_component(value: Any) -> str:
     return str(value).replace("/", "_").replace("\\", "_").replace(":", "_")
+
+
+def _coerce_date(value: Any) -> date:
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        return datetime.fromisoformat(value).date()
+    raise TypeError(f"Unsupported date value: {type(value)!r}")
+
+
+def _normalize_strategy_params_for_config_key(
+    resolved_strategy_params: Mapping[str, Any],
+) -> dict[str, Any]:
+    # Symbol-specific fields must not split a single run into one config-key
+    # directory per ticker.
+    excluded_keys = {"artifact_config", "symbol"}
+    return {
+        key: value
+        for key, value in dict(resolved_strategy_params).items()
+        if key not in excluded_keys
+    }
+
+
+def _normalize_finmem_config_for_config_key(
+    finmem_config: Mapping[str, Any],
+) -> dict[str, Any]:
+    normalized = json.loads(json.dumps(_json_safe(finmem_config)))
+    general = normalized.get("general")
+    if isinstance(general, dict):
+        # The strategy mutates these fields per ticker at runtime, so they must
+        # not change the run-level config fingerprint.
+        general.pop("trading_symbol", None)
+        general.pop("character_string", None)
+    return normalized
+
+
+def build_finmem_config_key(
+    *,
+    config_path: str,
+    finmem_config: Mapping[str, Any],
+    resolved_strategy_params: Mapping[str, Any],
+) -> str:
+    config_stem = _safe_path_component(Path(config_path).stem)
+    fingerprint_source = {
+        "config_path": config_path,
+        "finmem_config": _normalize_finmem_config_for_config_key(finmem_config),
+        "resolved_strategy_params": _json_safe(
+            _normalize_strategy_params_for_config_key(resolved_strategy_params)
+        ),
+    }
+    fingerprint_json = json.dumps(
+        fingerprint_source,
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+    fingerprint = hashlib.sha256(fingerprint_json.encode("utf-8")).hexdigest()[:10]
+    return f"{config_stem}_{fingerprint}"
+
+
+def default_finmem_profile_name(
+    *,
+    date_from: Any,
+    date_to: Any,
+) -> str:
+    start_date = _coerce_date(date_from)
+    end_date = _coerce_date(date_to)
+    if start_date.year == end_date.year:
+        return f"finmem_window_{start_date.year}"
+    return (
+        "finmem_window_"
+        f"{_safe_path_component(start_date.isoformat())}_"
+        f"{_safe_path_component(end_date.isoformat())}"
+    )
+
+
+def default_finmem_run_key(
+    *,
+    date_from: Any,
+    date_to: Any,
+) -> str:
+    start_date = _coerce_date(date_from)
+    end_date = _coerce_date(date_to)
+    return (
+        "run_"
+        f"{_safe_path_component(start_date.isoformat())}_"
+        f"{_safe_path_component(end_date.isoformat())}"
+    )
+
+
+def resolve_finmem_run_key(
+    artifact_config: Mapping[str, Any] | None,
+    *,
+    resolved_strategy_params: Mapping[str, Any] | None = None,
+) -> str:
+    config = dict(artifact_config or {})
+    explicit = config.get("run_key")
+    if explicit not in (None, ""):
+        return _safe_path_component(str(explicit).strip())
+
+    params = dict(resolved_strategy_params or {})
+    if "date_from" in params and "date_to" in params:
+        # Keep the default run directory stable for the same experiment window
+        # so interrupted runs can reuse checkpoints on restart.
+        return default_finmem_run_key(
+            date_from=params["date_from"],
+            date_to=params["date_to"],
+        )
+    return "run_default"
+
+
+def materialize_finmem_run_identity(
+    *,
+    artifact_config: Mapping[str, Any] | None,
+    output_root: str,
+    setup_name: str,
+    strategy_name: str,
+    config_path: str,
+    finmem_config: Mapping[str, Any],
+    resolved_strategy_params: Mapping[str, Any],
+) -> FinMemRunIdentity:
+    config = dict(artifact_config or {})
+    profile_name = str(
+        config.get(
+            "profile_name",
+            default_finmem_profile_name(
+                date_from=resolved_strategy_params["date_from"],
+                date_to=resolved_strategy_params["date_to"],
+            ),
+        )
+    ).strip()
+    run_key = resolve_finmem_run_key(
+        config,
+        resolved_strategy_params=resolved_strategy_params,
+    )
+    config_key = build_finmem_config_key(
+        config_path=config_path,
+        finmem_config=finmem_config,
+        resolved_strategy_params=resolved_strategy_params,
+    )
+    configured_root = config.get("root")
+    if configured_root not in (None, ""):
+        # Respect an explicit artifact root from the strategy config so callers
+        # can keep stable output locations across launcher variants.
+        artifact_root = Path(str(configured_root)).expanduser().resolve()
+    else:
+        artifact_root = (
+            Path(output_root).expanduser().resolve()
+            / _safe_path_component(setup_name)
+            / _safe_path_component(strategy_name)
+            / _safe_path_component(profile_name)
+            / "finmem_artifacts"
+        )
+    base_run_dir = artifact_root / config_key / run_key
+    benchmark_results_dir = base_run_dir / "benchmark_results"
+    tickers_dir = base_run_dir / "tickers"
+    return FinMemRunIdentity(
+        profile_name=profile_name,
+        artifact_root=artifact_root,
+        config_key=config_key,
+        run_key=run_key,
+        base_run_dir=base_run_dir,
+        benchmark_results_dir=benchmark_results_dir,
+        tickers_dir=tickers_dir,
+    )
 
 
 def _loader_summary(loader: Any) -> dict[str, Any] | None:
@@ -93,13 +270,26 @@ class FinMemArtifactWriter:
         filing_options: Mapping[str, Any],
     ) -> None:
         config = dict(artifact_config or {})
-        normalized_strategy_params = {
+        manifest_strategy_params = {
             key: value
             for key, value in dict(resolved_strategy_params).items()
             if key != "artifact_config"
         }
+        config_key_strategy_params = _normalize_strategy_params_for_config_key(
+            manifest_strategy_params
+        )
         self.enabled = bool(config.get("enabled", False))
         self.root = Path(config.get("root", "backtest/output/finmem_artifacts")).expanduser().resolve()
+        self.run_key = resolve_finmem_run_key(
+            config,
+            resolved_strategy_params=manifest_strategy_params,
+        )
+        self.profile_name = (
+            None
+            if config.get("profile_name") in (None, "")
+            else str(config.get("profile_name")).strip()
+        )
+        self.benchmark_results_dir = config.get("benchmark_results_dir")
         self.save_agent_checkpoint = bool(config.get("save_agent_checkpoint", True))
         self.save_environment_checkpoint = bool(
             config.get("save_environment_checkpoint", True)
@@ -113,17 +303,32 @@ class FinMemArtifactWriter:
         self.config_path = str(Path(config_path).resolve())
         self.requested_train_window = requested_train_window
         self.requested_test_window = requested_test_window
-        self.config_key = self._build_config_key(
+        self.config_key = build_finmem_config_key(
             config_path=self.config_path,
             finmem_config=finmem_config,
-            resolved_strategy_params=normalized_strategy_params,
+            resolved_strategy_params=config_key_strategy_params,
         )
+        artifact_layout = {
+            "config_key": self.config_key,
+            "ticker_dir": str(self._ticker_dir()),
+        }
+        if self.run_key is None:
+            artifact_layout["window_key"] = self._window_key()
+        else:
+            artifact_layout["run_key"] = self.run_key
+            artifact_layout["base_run_dir"] = str(self._base_run_dir())
+            if self.benchmark_results_dir not in (None, ""):
+                artifact_layout["benchmark_results_dir"] = str(
+                    Path(str(self.benchmark_results_dir)).expanduser().resolve()
+                )
         self._manifest = {
             "symbol": symbol,
             "config_path": self.config_path,
             "artifact_config": {
                 "enabled": self.enabled,
                 "root": str(self.root),
+                "profile_name": self.profile_name,
+                "run_key": self.run_key,
                 "save_agent_checkpoint": self.save_agent_checkpoint,
                 "save_environment_checkpoint": self.save_environment_checkpoint,
                 "save_reflections": self.save_reflections,
@@ -134,12 +339,9 @@ class FinMemArtifactWriter:
                 "train": requested_train_window.to_dict(),
                 "test": requested_test_window.to_dict(),
             },
-            "artifact_layout": {
-                "window_key": self._window_key(),
-                "config_key": self.config_key,
-                "ticker_dir": str(self._ticker_dir()),
-            },
-            "resolved_strategy_params": _json_safe(normalized_strategy_params),
+            "artifact_layout": artifact_layout,
+            "resolved_strategy_params": _json_safe(manifest_strategy_params),
+            "config_fingerprint_inputs": _json_safe(config_key_strategy_params),
             "filing_options": _json_safe(filing_options),
             "input_data_loader": _loader_summary(input_data_loader),
             "runtime_market_data": _loader_summary(runtime_market_data),
@@ -158,27 +360,6 @@ class FinMemArtifactWriter:
             },
         }
 
-    @staticmethod
-    def _build_config_key(
-        *,
-        config_path: str,
-        finmem_config: Mapping[str, Any],
-        resolved_strategy_params: Mapping[str, Any],
-    ) -> str:
-        config_stem = _safe_path_component(Path(config_path).stem)
-        fingerprint_source = {
-            "config_path": config_path,
-            "finmem_config": _json_safe(finmem_config),
-            "resolved_strategy_params": _json_safe(resolved_strategy_params),
-        }
-        fingerprint_json = json.dumps(
-            fingerprint_source,
-            ensure_ascii=False,
-            sort_keys=True,
-        )
-        fingerprint = hashlib.sha256(fingerprint_json.encode("utf-8")).hexdigest()[:10]
-        return f"{config_stem}_{fingerprint}"
-
     def _window_key(self) -> str:
         return (
             "train_"
@@ -189,8 +370,15 @@ class FinMemArtifactWriter:
             f"{self.requested_test_window.requested_end.isoformat()}"
         )
 
+    def _base_run_dir(self) -> Path:
+        if self.run_key is None:
+            return self.root / self._window_key() / self.config_key
+        return self.root / self.config_key / self.run_key
+
     def _ticker_dir(self) -> Path:
-        return self.root / self._window_key() / self.config_key / self.symbol
+        if self.run_key is None:
+            return self._base_run_dir() / self.symbol
+        return self._base_run_dir() / "tickers" / self.symbol
 
     def _phase_dir(self, phase_name: str) -> Path:
         return self._ticker_dir() / phase_name
