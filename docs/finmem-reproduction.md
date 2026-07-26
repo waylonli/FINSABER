@@ -1,84 +1,51 @@
 # FinMem FINSABER-2 Experiments
 
-This workflow is the planned reproducible entry point for evaluating FinMem on
-the FINSABER-2 parquet dataset over the 2024 and 2025 calendar-year windows.
-The versioned manifest fixes ticker selections, test windows, explicit FinMem
-training windows, data modalities, execution assumptions, and the FinMem TOML
-configuration used by the strategy.
+This workflow evaluates FinMem with the FINSABER-2 parquet dataset over the
+2024 and 2025 calendar-year windows. The versioned manifest fixes ticker
+selections, explicit FinMem training windows, model, data modalities, execution
+assumptions, and the FinMem TOML configuration.
 
-## Current Status
+## Prerequisites
 
-The FinMem manifest and launcher currently support two safe operations:
+Use the `finsaber2-finmem` conda environment, configure `OPENAI_API_KEY` in an
+ignored `.env` file, and pass the local FINSABER-2 dataset root explicitly. The
+expected dataset folders are `price_daily/`, `news_items/`, `filingk/`, and
+`filingq/`.
 
-- `--plan` validates the experiment contract and expands it into ticker-year
-  jobs without running backtests.
-- Explicit single-job execution runs exactly one `setup/window/ticker`
-  combination. If the selected filters expand to more than one job, the launcher
-  stops before calling FinMem.
+Create the environment from the FINSABER-2 project dependencies plus the
+FinMem add-on dependencies:
 
-Full-manifest orchestration is intentionally not enabled yet. Official FinMem
-baseline runs remain paused until filing-section extraction coverage is repaired
-or explicitly accepted as an experimental limitation.
+```bash
+conda create -n finsaber2-finmem python=3.10 -y
+conda activate finsaber2-finmem
 
-## Manifest
+python -m pip install -U pip "wheel<0.46"
+pip install -r llm_traders/finmem/requirements.txt
+pip install -e .
 
-The source manifest is:
+# Optional: needed by the non-LLM FINSABER-2 benchmark launcher.
+pip install "statsmodels>=0.14" "xgboost>=2.0" "pandas-datareader>=0.10"
 
-```text
-examples/experiments/manifests/finmem_finsaber2_2024_2026.json
+python -m pip check
 ```
 
-It uses the same frozen ticker selections as the FinAgent FINSABER-2 manifest
-so FinMem and FinAgent can be compared on the same universes:
+`requirements-complete.txt` is an identical pinned snapshot across the
+`reproduce`, `main`, and `finmem` branches. It can be used as a compatibility
+reference, but the commands above document the intended FinMem-on-FINSABER-2
+installation path.
 
-- `selected_4`
-- `random_sp500_5`
-- `momentum_sp500_5`
-- `lowvol_sp500_5`
-- `magnificent_7`
+Do not use `pip install -e ".[dev,research]"` for the FinMem environment. The
+full `research` extra currently pulls newer Hugging Face dependencies that
+conflict with FinMem's pinned `transformers` stack. The selective optional
+installs above keep FinMem and the standard non-LLM benchmark launcher working
+in the same environment.
 
-The manifest also records explicit FinMem training windows:
-
-| Test Window | Training Window |
-|---|---|
-| `2024-01-01_2025-01-01` | `2021-01-04` to `2023-12-31` |
-| `2025-01-01_2026-01-01` | `2022-01-03` to `2024-12-31` |
-
-These explicit training windows avoid ambiguity from FinMem's numeric
-`training_period` behavior, which converts years into `365 * years` days.
-
-## Configuration Checks
-
-The launcher validates FinMem-specific configuration during planning:
-
-- The FinMem TOML config path exists.
-- The manifest model matches `[chat].model` in the FinMem TOML config.
-- Filing section requests resolve to exactly one supported extractor item.
-- Filing payload, failure, and merge policies use supported values.
-- Training windows match the declared test windows and end before testing.
-- Each selected universe defines every test window.
-- Empty artifact roots are rejected because `Path("")` resolves to the current
-  working directory.
-
-The current FinMem filing section requests are:
-
-| Modality | Form | Item |
-|---|---|---|
-| `filing_k` | `10-K` | `item_7` |
-| `filing_q` | `10-Q` | `part_i_item_2` |
-
-Artifact capture is disabled by default in the manifest. If enabled, the runner
-materializes FinMem artifact roots under the strategy output directory before
-passing artifact configuration into `FinMemStrategy`.
-
-## Preview The Plan
-
-Activate the FinMem conda environment and preview the full experiment plan:
+Preview the complete plan without running FinMem or calling OpenAI:
 
 ```bash
 conda run -n finsaber2-finmem python examples/experiments/run_finmem_finsaber2.py \
   --plan \
-  --data-root /mnt/cbs1/data/datasets/sp500_2000_2025_parquet
+  --data-root /path/to/sp500_2000_2025_parquet
 ```
 
 Preview one ticker-year job:
@@ -89,67 +56,158 @@ conda run -n finsaber2-finmem python examples/experiments/run_finmem_finsaber2.p
   --setups selected_4 \
   --windows 2025-01-01_2026-01-01 \
   --tickers COIN \
-  --data-root /mnt/cbs1/data/datasets/sp500_2000_2025_parquet
+  --data-root /path/to/sp500_2000_2025_parquet
 ```
 
-Run one explicit ticker-year job:
+Run one ticker-year job through the resumable orchestrator:
 
 ```bash
 conda run -n finsaber2-finmem python examples/experiments/run_finmem_finsaber2.py \
   --setups selected_4 \
   --windows 2025-01-01_2026-01-01 \
   --tickers COIN \
-  --data-root /mnt/cbs1/data/datasets/sp500_2000_2025_parquet
+  --data-root /path/to/sp500_2000_2025_parquet \
+  --output-root tmp/finmem-selected4-coin-2025-r1
 ```
 
-The command above is intentionally narrow. Running the launcher without filters
-currently fails fast because the manifest expands to multiple jobs.
+Run one setup sequentially:
 
-The full manifest currently expands to 54 jobs:
+```bash
+conda run -n finsaber2-finmem python examples/experiments/run_finmem_finsaber2.py \
+  --setups selected_4 \
+  --data-root /path/to/sp500_2000_2025_parquet \
+  --output-root tmp/finmem-selected4-2024-2026-r1 \
+  --max-parallel 1
+```
 
-| Setup | Jobs |
-|---|---:|
-| `selected_4` | 10 |
-| `random_sp500_5` | 10 |
-| `momentum_sp500_5` | 10 |
-| `lowvol_sp500_5` | 10 |
-| `magnificent_7` | 14 |
+## Manifest
 
-Each job is identified by:
+The source manifest is:
+
+```text
+examples/experiments/manifests/finmem_finsaber2_2024_2026.json
+```
+
+It uses the same frozen ticker selections as the FinAgent FINSABER-2 manifest:
+
+- `selected_4`
+- `random_sp500_5`
+- `momentum_sp500_5`
+- `lowvol_sp500_5`
+- `magnificent_7`
+
+The manifest expands to 54 jobs. A job is identified by:
 
 ```text
 setup / window / ticker
 ```
 
-For example:
+For example, `selected_4` has five tickers across two windows, so it expands to
+10 jobs.
 
-```text
-selected_4 / 2025-01-01_2026-01-01 / COIN
+FinMem uses explicit three-year training windows:
+
+| Test Window | Training Window |
+| --- | --- |
+| `2024-01-01_2025-01-01` | `2021-01-04` to `2023-12-31` |
+| `2025-01-01_2026-01-01` | `2022-01-03` to `2024-12-31` |
+
+The current filing section mapping is:
+
+| Modality | Form | Item |
+| --- | --- | --- |
+| `filing_k` | `10-K` | `item_7` |
+| `filing_q` | `10-Q` | `part_i_item_2` |
+
+Filing section extraction uses the shared FINSABER filing section extractor. If
+a requested filing section cannot be safely recovered from the clean parquet
+text, the configured FinMem failure mode is `empty`; the runner should not
+fabricate section text.
+
+## Parallel Execution
+
+A runner is one invocation of `examples/experiments/run_finmem_finsaber2.py`.
+The runner expands the manifest into `setup/window/ticker` jobs and schedules
+those jobs through one global worker pool.
+
+`--max-parallel` controls how many jobs may run at the same time. It does not
+control setup-level parallelism. If multiple setups and windows are selected,
+the runner still uses one global job queue ordered by `setup -> window ->
+ticker`.
+
+For local development, prefer `--max-parallel 1` or `--max-parallel 2`. On a
+larger machine, increase it only after checking CPU, memory, and OpenAI API rate
+limits.
+
+Recommended: use one runner to coordinate multiple setups and windows:
+
+```bash
+conda run -n finsaber2-finmem python examples/experiments/run_finmem_finsaber2.py \
+  --setups selected_4 random_sp500_5 momentum_sp500_5 lowvol_sp500_5 magnificent_7 \
+  --windows 2024-01-01_2025-01-01 2025-01-01_2026-01-01 \
+  --data-root /path/to/sp500_2000_2025_parquet \
+  --output-root backtest/output/finmem_finsaber2_2024_2026 \
+  --max-parallel 2
 ```
 
-## Date Semantics
+Do not run multiple runners against the same `--output-root` at the same time.
+Per-ticker directories include the setup name, but top-level files such as
+`runner_manifest.json` and `experiment_config.json` would be overwritten by
+competing runner processes.
 
-The manifest keeps FinAgent-style calendar-year labels such as
-`2025-01-01_2026-01-01` for cross-baseline comparability. Some boundary dates
-are not trading days in the parquet data. FinMem's environment adjusts missing
-start or end dates to nearby available dates, and its artifact manifests should
-record both requested and effective windows once execution is enabled.
+If multiple tmux sessions are necessary, give each runner a separate output
+root:
 
-## Current Execution Contract
+```bash
+# tmux A
+conda run -n finsaber2-finmem python examples/experiments/run_finmem_finsaber2.py \
+  --setups selected_4 \
+  --data-root /path/to/sp500_2000_2025_parquet \
+  --output-root backtest/output/finmem_selected4 \
+  --max-parallel 1
+```
 
-Single-job execution currently:
+```bash
+# tmux B
+conda run -n finsaber2-finmem python examples/experiments/run_finmem_finsaber2.py \
+  --setups random_sp500_5 \
+  --data-root /path/to/sp500_2000_2025_parquet \
+  --output-root backtest/output/finmem_random5 \
+  --max-parallel 1
+```
 
-- Builds a one-ticker `FinsaberParquetDataset` from the explicit training start
-  through the test end.
-- Passes the explicit `[train_start, train_end]` tuple into `FinMemStrategy`.
-- Keeps `silence=True`, disables FINSABER checkpoint reuse, and sets a
-  non-interactive matplotlib backend before importing FINSABER.
-- Lets FINSABER return metrics, then writes standard result artifacts with
-  `backtest.toolkit.result_writer`.
-- Merges existing scalar `metrics.json` leaves into `run_summary.csv` so
-  repeated single-job runs do not depend on legacy `.pkl` aggregation order.
+## Resume Semantics
 
-The expected benchmark output shape is:
+Resume is job-level, not trading-day-level. A job is considered complete when
+its scalar `metrics.json` exists under the ticker output directory. Completed
+jobs are skipped on restart and do not call FinMem or OpenAI again.
+
+Incomplete jobs are rerun from scratch. Before rerunning an incomplete job, the
+runner removes that job's stale ticker output directory and, when FinMem
+artifacts are enabled, that job's stale artifact ticker directory. This prevents
+partial CSVs, traces, or checkpoints from being mixed with the replacement run.
+
+Worker stdout/stderr logs are appended across restarts. Seeing pre-interruption
+and post-resume logs in the same ticker log file is expected and useful for
+auditing.
+
+## Output Structure
+
+Each output root contains top-level orchestration artifacts:
+
+```text
+<output_root>/
+  experiment_config.json
+  runner_manifest.json
+  logs/<setup>/<window>/<ticker>.stdout.log
+  logs/<setup>/<window>/<ticker>.stderr.log
+```
+
+`runner_manifest.json` records the source manifest hash, Git commit, resolved
+data/output roots, full ticker selections, selected job list, per-job status,
+and completion counts.
+
+The runner also writes standard FINSABER result artifacts under:
 
 ```text
 <output_root>/<setup>/FinMemStrategy/
@@ -158,6 +216,8 @@ The expected benchmark output shape is:
   run_summary.csv
   <test_start>_<test_end>/<ticker>/
     metrics.json
+    metrics.pkl
+    job_status.json
     equity_curve.csv
     trades.csv
     rejected_orders.csv
@@ -165,38 +225,75 @@ The expected benchmark output shape is:
     external_costs.csv
 ```
 
-## Smoke Validation
+Use `run_summary.csv` for setup-level scalar results. Use each ticker leaf
+directory for the raw per-job files. `metrics.pkl` preserves the complete
+metrics object, including DataFrames, while `metrics.json` is the scalar
+completion sentinel used for resume.
 
-The launcher has been smoke-tested with a short single-ticker AMZN job using
-the `finsaber2-finmem` conda environment.
+`run_summary.csv` is rebuilt from the selected jobs in the current invocation,
+so filtered reruns do not accidentally summarize unrelated artifacts that
+happen to share the same output root.
 
-The smoke window was intentionally short, but the FINSABER ISO framework
-requires at least 21 available test trading days. A shorter 6-trading-day smoke
-initialized and trained FinMem successfully, but the outer framework rejected
-the test window before metrics evaluation.
+## FinMem Artifacts
 
-Validated behavior:
+The manifest currently keeps `artifact_config.enabled=false` by default.
+However, official audit runs should consider enabling FinMem artifacts so the
+experiment preserves query traces, LLM traces, reflections, and post-train/test
+state checkpoints.
 
-- `--plan` expands the intended job without running FinMem.
-- Unfiltered execution fails fast because the manifest expands to multiple
-  jobs.
-- Single-job execution runs through FinMem training, FINSABER testing, final
-  metric evaluation, and standard result writing.
-- `silence=True` plus `MPLBACKEND=Agg` avoids interactive plotting.
-- Artifact-off execution writes only benchmark outputs.
-- Artifact-on execution writes FinMem traces/reflections under
-  `FinMemStrategy/finmem_artifacts/` while leaving benchmark outputs in the
-  standard tree.
-- Artifact-on smoke with checkpoint saving disabled wrote trace/reflection JSONL
-  files and snapshot metadata, but did not write checkpoint/index files.
-- Empty `rejected_orders.csv` files are written with headers so downstream
-  pandas readers can parse them.
+Artifact capture can add meaningful storage overhead because checkpoints and
+state pickles are written per ticker job. Plan disk space before enabling it for
+large multi-setup runs.
 
-The temporary smoke manifests and temporary output directories were removed
-after validation.
+If artifacts are enabled and no explicit artifact root is provided, the runner
+places strategy-local artifacts under:
 
-## Next Implementation Step
+```text
+<output_root>/<setup>/FinMemStrategy/finmem_artifacts/
+  <config_key>/<run_key>/tickers/<ticker>/
+```
 
-The next code step is not full official execution. Before running complete
-baselines, filing-section extraction should be repaired on the shared data
-utility path and re-audited for both FinMem and TradingAgents requirements.
+The artifact ticker directory may include files such as:
+
+```text
+manifest.json
+train_query_trace.jsonl
+train_llm_trace.jsonl
+train_reflections.jsonl
+test_query_trace.jsonl
+test_llm_trace.jsonl
+test_reflections.jsonl
+post_train/
+test_state/
+```
+
+If `artifact_config.root` is set explicitly, do not share the same root across
+concurrent experiments unless the resulting `config_key/run_key/ticker` paths
+are known not to collide.
+
+## Known Limits
+
+Hosted LLM output is not bitwise reproducible because provider-side model
+revisions and sampling can change. Preserve the complete output directory when
+using artifacts for audit.
+
+The runner does not provide trading-day-level checkpoint resume. An incomplete
+ticker job is rerun from scratch and may incur additional LLM cost.
+
+Do not run multiple runner processes into the same output root concurrently.
+Use one runner with `--max-parallel`, or use separate output roots per runner.
+
+FinMem can use substantial CPU and memory even for one ticker. Increase
+`--max-parallel` cautiously, especially when artifacts are enabled.
+
+## Current Status
+
+The dedicated FinMem launcher supports `--plan`, resumable multi-job
+orchestration, per-job worker status files, stdout/stderr logs, optional FinMem
+artifact capture, and standard FINSABER result summaries. It intentionally keeps
+FinMem strategy logic and FINSABER core execution unchanged.
+
+The latest plan validation confirmed the manifest, model/TOML match, filing
+section map, dataset root, and all 54 planned jobs. The launcher has also been
+validated with no-artifact resume and artifact-enabled interrupted resume smoke
+runs.

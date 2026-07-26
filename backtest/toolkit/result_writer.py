@@ -34,6 +34,21 @@ DATAFRAME_FILENAMES = {
 
 
 EMPTY_DATAFRAME_COLUMNS = {
+    "trades": [
+        "signal_date",
+        "execution_date",
+        "ticker",
+        "type",
+        "reference_price",
+        "price",
+        "quantity",
+        "commission",
+        "slippage_cost",
+        "average_volume",
+        "volume_observations",
+        "participation_rate",
+        "liquidity_cap_pct",
+    ],
     "rejected_orders": [
         "signal_date",
         "execution_date",

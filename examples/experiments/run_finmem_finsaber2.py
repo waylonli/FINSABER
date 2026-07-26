@@ -4,10 +4,15 @@ import argparse
 import hashlib
 import json
 import os
+import pickle
 import random
+import shutil
+import subprocess
 import sys
+import time
+import traceback
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +29,7 @@ DEFAULT_MANIFEST = (
     / "finmem_finsaber2_2024_2026.json"
 )
 STRATEGY_NAME = "FinMemStrategy"
+Job = tuple[str, str, str]
 
 
 @dataclass(frozen=True)
@@ -136,6 +142,61 @@ def _load_toml(path: Path) -> dict[str, Any]:
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def git_commit() -> str:
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=REPO_ROOT,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return "unknown"
+
+
+def _json_safe(value: Any) -> Any:
+    try:
+        import numpy as np
+    except ImportError:
+        np = None
+
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if hasattr(value, "isoformat") and value.__class__.__name__ == "Timestamp":
+        return value.isoformat()
+    if np is not None:
+        if isinstance(value, np.integer):
+            return int(value)
+        if isinstance(value, np.floating):
+            return float(value)
+        if isinstance(value, np.ndarray):
+            return [_json_safe(item) for item in value.tolist()]
+    if hasattr(value, "item"):
+        try:
+            return value.item()
+        except Exception:
+            pass
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    return value.__class__.__name__
+
+
+def atomic_json(path: Path, value: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(
+        json.dumps(_json_safe(value), indent=2),
+        encoding="utf-8",
+    )
+    os.replace(temporary, path)
 
 
 def validate_finmem_settings(
@@ -295,9 +356,9 @@ def jobs_for(
     setups: list[str],
     windows: list[str],
     tickers: list[str] | None,
-) -> list[tuple[str, str, str]]:
+) -> list[Job]:
     requested_tickers = set(tickers or [])
-    jobs: list[tuple[str, str, str]] = []
+    jobs: list[Job] = []
     seen_requested: set[str] = set()
 
     for setup in setups:
@@ -318,7 +379,7 @@ def jobs_for(
     return jobs
 
 
-def _format_job_count_line(jobs: list[tuple[str, str, str]]) -> str:
+def _format_job_count_line(jobs: list[Job]) -> str:
     unique_window_tickers = {(window, ticker) for _, window, ticker in jobs}
     unique_tickers = {ticker for _, _, ticker in jobs}
     return (
@@ -337,21 +398,152 @@ def _strategy_output_dir(output_root: Path, setup: str) -> Path:
     return output_root / setup.replace(":", "_") / STRATEGY_NAME
 
 
-def _load_existing_scalar_results(strategy_dir: Path) -> dict[str, dict[str, dict]]:
-    results: dict[str, dict[str, dict]] = {}
-    if not strategy_dir.exists():
-        return results
+def _ticker_output_dir(
+    manifest: dict[str, Any],
+    output_root: Path,
+    job: Job,
+) -> Path:
+    setup, window, ticker = job
+    return _strategy_output_dir(output_root, setup) / _window_key(manifest, window) / ticker
 
-    for path in strategy_dir.glob("*/*/metrics.json"):
-        relative = path.relative_to(strategy_dir)
-        if len(relative.parts) != 3:
+
+def metrics_path(manifest: dict[str, Any], output_root: Path, job: Job) -> Path:
+    return _ticker_output_dir(manifest, output_root, job) / "metrics.json"
+
+
+def status_path(manifest: dict[str, Any], output_root: Path, job: Job) -> Path:
+    return _ticker_output_dir(manifest, output_root, job) / "job_status.json"
+
+
+def _remove_job_dir_if_exists(path: Path, *, expected_leaf_name: str) -> None:
+    if not path.exists():
+        return
+    resolved = path.resolve()
+    if resolved.name != expected_leaf_name:
+        raise ValueError(f"Refusing to remove unexpected job directory: {resolved}")
+    shutil.rmtree(resolved)
+
+
+def _artifact_ticker_dir(
+    manifest: dict[str, Any],
+    validation: FinMemManifestValidation,
+    output_root: Path,
+    job: Job,
+) -> Path | None:
+    setup, window, ticker = job
+    finmem = manifest["finmem"]
+    artifact_config = _materialized_artifact_config(
+        manifest,
+        output_root=output_root,
+        setup=setup,
+    )
+    if not bool(artifact_config.get("enabled", False)):
+        return None
+
+    import toml
+    from llm_traders.finsaber_strategies.finmem_artifacts import (
+        materialize_finmem_run_identity,
+    )
+
+    finmem_config = toml.load(validation.config_path)
+    finmem_config["general"]["trading_symbol"] = ticker
+    finmem_config["general"]["character_string"] = ticker
+    test_start, test_end = manifest["windows"][window]
+    resolved_strategy_params = {
+        "symbol": ticker,
+        "config_path": str(validation.config_path),
+        "date_from": test_start,
+        "date_to": test_end,
+        "market_data_info_path": None,
+        "market_data_root": None,
+        "training_period": tuple(manifest["training_windows"][window]),
+        "use_filing_sections": bool(finmem["use_filing_sections"]),
+        "filing_section_map": finmem["filing_section_map"],
+        "filing_payload_kind": finmem["filing_payload_kind"],
+        "filing_failure_mode": finmem["filing_failure_mode"],
+        "filing_merge_policy": finmem["filing_merge_policy"],
+    }
+    identity = materialize_finmem_run_identity(
+        artifact_config=artifact_config,
+        output_root=str(output_root),
+        setup_name=setup,
+        strategy_name=STRATEGY_NAME,
+        config_path=str(validation.config_path),
+        finmem_config=finmem_config,
+        resolved_strategy_params=resolved_strategy_params,
+    )
+    return identity.tickers_dir / ticker
+
+
+def cleanup_incomplete_job_outputs(
+    manifest: dict[str, Any],
+    validation: FinMemManifestValidation,
+    output_root: Path,
+    job: Job,
+) -> None:
+    if metrics_path(manifest, output_root, job).exists():
+        return
+
+    _, _, ticker = job
+    # Resume is job-level: an incomplete ticker is rerun from scratch, so stale
+    # partial CSVs/traces must not be mixed with the replacement run.
+    _remove_job_dir_if_exists(
+        _ticker_output_dir(manifest, output_root, job),
+        expected_leaf_name=ticker,
+    )
+    artifact_ticker_dir = _artifact_ticker_dir(
+        manifest,
+        validation,
+        output_root,
+        job,
+    )
+    if artifact_ticker_dir is not None:
+        _remove_job_dir_if_exists(artifact_ticker_dir, expected_leaf_name=ticker)
+
+
+def log_dir(output_root: Path, job: Job) -> Path:
+    setup, window, _ = job
+    return output_root / "logs" / setup.replace(":", "_") / window
+
+
+def _mark_failed_status(
+    manifest: dict[str, Any],
+    output_root: Path,
+    job: Job,
+    *,
+    error: str,
+) -> None:
+    setup, window, ticker = job
+    atomic_json(
+        status_path(manifest, output_root, job),
+        {
+            "setup": setup,
+            "window": window,
+            "window_key": _window_key(manifest, window),
+            "ticker": ticker,
+            "status": "failed",
+            "finished_at_utc": utc_now(),
+            "error": error,
+        },
+    )
+
+
+def _load_scalar_results_for_jobs(
+    manifest: dict[str, Any],
+    output_root: Path,
+    jobs: list[Job],
+) -> dict[str, dict[str, dict[str, Any]]]:
+    results: dict[str, dict[str, dict[str, Any]]] = {}
+    for job in jobs:
+        setup, window, ticker = job
+        path = metrics_path(manifest, output_root, job)
+        if not path.exists():
             continue
-        window, ticker, _ = relative.parts
         try:
             metrics = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             continue
-        results.setdefault(window, {})[ticker] = metrics
+        results.setdefault(_window_key(manifest, window), {})[ticker] = metrics
     return results
 
 
@@ -361,15 +553,118 @@ def _write_job_artifacts(
     setup: str,
     window_key: str,
     ticker: str,
-    trade_config: dict[str, Any],
     metrics: dict[str, Any],
+) -> None:
+    import pandas as pd
+    from backtest.toolkit.result_writer import (
+        DATAFRAME_FILENAMES,
+        EMPTY_DATAFRAME_COLUMNS,
+        METRIC_KEYS,
+    )
+
+    output_dir = _strategy_output_dir(output_root, setup) / window_key / ticker
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for key, value in metrics.items():
+        if isinstance(value, pd.DataFrame):
+            filename = DATAFRAME_FILENAMES.get(key, f"{key}.csv")
+            if (
+                value.empty
+                and len(value.columns) == 0
+                and key in EMPTY_DATAFRAME_COLUMNS
+            ):
+                # Empty optional artifacts should still be readable by pandas.
+                value = pd.DataFrame(columns=EMPTY_DATAFRAME_COLUMNS[key])
+            value.to_csv(output_dir / filename, index=False)
+
+    try:
+        with (output_dir / "metrics.pkl").open("wb") as file:
+            pickle.dump(metrics, file)
+    except Exception as exc:
+        # metrics.json remains the completion sentinel; a pickle failure should
+        # not invalidate an otherwise completed and auditable backtest.
+        atomic_json(output_dir / "metrics_pickle_error.json", {"error": repr(exc)})
+
+    scalar_metrics = {
+        key: value
+        for key, value in metrics.items()
+        if key in METRIC_KEYS and not isinstance(value, pd.DataFrame)
+    }
+    # The metrics file is the completion sentinel used for resumable runs.
+    atomic_json(output_dir / "metrics.json", scalar_metrics)
+
+
+def _summary_config(
+    *,
+    manifest_path: Path,
+    manifest: dict[str, Any],
+    validation: FinMemManifestValidation,
+    data_root: Path,
+    output_root: Path,
+    model: str,
+    setup: str,
+) -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "experiment_name": manifest["experiment_name"],
+        "strategy": STRATEGY_NAME,
+        "setup_name": setup,
+        "source_manifest": str(manifest_path),
+        "source_manifest_sha256": hashlib.sha256(
+            manifest_path.read_bytes()
+        ).hexdigest(),
+        "git_commit": git_commit(),
+        "repo_root": str(REPO_ROOT),
+        "data_root": str(data_root),
+        "output_root": str(output_root),
+        "model": model,
+        "seed": manifest.get("seed"),
+        "windows": manifest["windows"],
+        "training_windows": manifest["training_windows"],
+        "evaluation": manifest["evaluation"],
+        "finmem": {
+            "config_path": str(validation.config_path),
+            "toml_model": validation.toml_model,
+            "use_filing_sections": manifest["finmem"]["use_filing_sections"],
+            "filing_section_map": manifest["finmem"]["filing_section_map"],
+            "filing_payload_kind": manifest["finmem"]["filing_payload_kind"],
+            "filing_failure_mode": manifest["finmem"]["filing_failure_mode"],
+            "filing_merge_policy": manifest["finmem"]["filing_merge_policy"],
+            "artifact_config": manifest["finmem"]["artifact_config"],
+        },
+    }
+
+
+def build_summary(
+    *,
+    manifest_path: Path,
+    manifest: dict[str, Any],
+    validation: FinMemManifestValidation,
+    data_root: Path,
+    output_root: Path,
+    model: str,
+    setup: str,
+    jobs: list[Job],
 ) -> None:
     from backtest.toolkit.result_writer import write_result_artifacts
 
     strategy_dir = _strategy_output_dir(output_root, setup)
-    results = _load_existing_scalar_results(strategy_dir)
-    results.setdefault(window_key, {})[ticker] = metrics
-    write_result_artifacts(str(strategy_dir), trade_config, results)
+    setup_jobs = [job for job in jobs if job[0] == setup]
+    results = _load_scalar_results_for_jobs(manifest, output_root, setup_jobs)
+    if not results:
+        return
+    write_result_artifacts(
+        str(strategy_dir),
+        _summary_config(
+            manifest_path=manifest_path,
+            manifest=manifest,
+            validation=validation,
+            data_root=data_root,
+            output_root=output_root,
+            model=model,
+            setup=setup,
+        ),
+        results,
+    )
 
 
 def prepare_env(seed: int) -> None:
@@ -544,7 +839,6 @@ def run_single_job(
         setup=setup,
         window_key=window_key,
         ticker=ticker,
-        trade_config=trade_config,
         metrics=result[ticker],
     )
     print(
@@ -553,6 +847,418 @@ def run_single_job(
         f"output={_strategy_output_dir(output_root, setup)} "
         f"finished_at={utc_now()}"
     )
+
+
+def worker(
+    manifest: dict[str, Any],
+    *,
+    validation: FinMemManifestValidation,
+    data_root: Path,
+    output_root: Path,
+    setup: str,
+    window: str,
+    ticker: str,
+) -> int:
+    job = (setup, window, ticker)
+    status = {
+        "setup": setup,
+        "window": window,
+        "window_key": _window_key(manifest, window),
+        "ticker": ticker,
+        "status": "running",
+        "started_at_utc": utc_now(),
+        "pid": os.getpid(),
+    }
+    atomic_json(status_path(manifest, output_root, job), status)
+    try:
+        run_single_job(
+            manifest,
+            validation=validation,
+            data_root=data_root,
+            output_root=output_root,
+            setup=setup,
+            window=window,
+            ticker=ticker,
+        )
+        status["status"] = "completed"
+        status["finished_at_utc"] = utc_now()
+        atomic_json(status_path(manifest, output_root, job), status)
+        return 0
+    except Exception as exc:
+        status["status"] = "failed"
+        status["finished_at_utc"] = utc_now()
+        status["error"] = repr(exc)
+        atomic_json(status_path(manifest, output_root, job), status)
+        traceback.print_exc()
+        return 1
+
+
+def read_status(
+    manifest: dict[str, Any],
+    output_root: Path,
+    job: Job,
+) -> dict[str, Any]:
+    setup, window, ticker = job
+    if metrics_path(manifest, output_root, job).exists():
+        return {
+            "setup": setup,
+            "window": window,
+            "window_key": _window_key(manifest, window),
+            "ticker": ticker,
+            "status": "completed",
+        }
+    path = status_path(manifest, output_root, job)
+    if path.exists():
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            pass
+    return {
+        "setup": setup,
+        "window": window,
+        "window_key": _window_key(manifest, window),
+        "ticker": ticker,
+        "status": "pending",
+    }
+
+
+def write_runner_manifest(
+    *,
+    manifest_path: Path,
+    manifest: dict[str, Any],
+    data_root: Path,
+    output_root: Path,
+    model: str,
+    jobs: list[Job],
+    max_parallel: int,
+) -> None:
+    statuses = [read_status(manifest, output_root, job) for job in jobs]
+    counts = {
+        state: sum(item.get("status") == state for item in statuses)
+        for state in ("pending", "running", "completed", "failed")
+    }
+    atomic_json(
+        output_root / "runner_manifest.json",
+        {
+            "schema_version": 1,
+            "generated_at_utc": utc_now(),
+            "experiment_name": manifest["experiment_name"],
+            "source_manifest": str(manifest_path),
+            "source_manifest_sha256": hashlib.sha256(
+                manifest_path.read_bytes()
+            ).hexdigest(),
+            "git_commit": git_commit(),
+            "python_version": sys.version,
+            "repo_root": str(REPO_ROOT),
+            "data_root": str(data_root),
+            "output_root": str(output_root),
+            "model": model,
+            "seed": manifest.get("seed"),
+            "strategy": STRATEGY_NAME,
+            "data_feed": "FinsaberParquetDataset -> FinMemStrategy",
+            "evaluation": manifest["evaluation"],
+            "finmem": manifest["finmem"],
+            "selections": manifest["selections"],
+            "jobs": [
+                {
+                    "setup": setup,
+                    "window": window,
+                    "window_key": _window_key(manifest, window),
+                    "ticker": ticker,
+                }
+                for setup, window, ticker in jobs
+            ],
+            "max_parallel": max_parallel,
+            "counts": counts,
+            "status": statuses,
+        },
+    )
+
+
+def write_experiment_config(
+    *,
+    manifest_path: Path,
+    manifest: dict[str, Any],
+    data_root: Path,
+    output_root: Path,
+    model: str,
+) -> None:
+    resolved = dict(manifest)
+    resolved["source_manifest"] = str(manifest_path)
+    resolved["source_manifest_sha256"] = hashlib.sha256(
+        manifest_path.read_bytes()
+    ).hexdigest()
+    resolved["resolved_data_root"] = str(data_root)
+    resolved["resolved_output_root"] = str(output_root)
+    resolved["resolved_model"] = model
+    resolved["git_commit"] = git_commit()
+    atomic_json(output_root / "experiment_config.json", resolved)
+
+
+def _mark_timeout(
+    manifest: dict[str, Any],
+    output_root: Path,
+    job: Job,
+    job_timeout_hours: float,
+) -> None:
+    _mark_failed_status(
+        manifest,
+        output_root,
+        job,
+        error=f"Job exceeded {job_timeout_hours:g}-hour timeout",
+    )
+
+
+def _worker_command(
+    *,
+    manifest_path: Path,
+    data_root: Path,
+    output_root: Path,
+    model: str,
+    job: Job,
+) -> list[str]:
+    setup, window, ticker = job
+    return [
+        sys.executable,
+        str(Path(__file__).resolve()),
+        "--worker",
+        "--setup",
+        setup,
+        "--window",
+        window,
+        "--ticker",
+        ticker,
+        "--manifest",
+        str(manifest_path),
+        "--data-root",
+        str(data_root),
+        "--model",
+        model,
+        "--output-root",
+        str(output_root),
+    ]
+
+
+def orchestrate(
+    *,
+    manifest_path: Path,
+    manifest: dict[str, Any],
+    validation: FinMemManifestValidation,
+    data_root: Path,
+    output_root: Path,
+    model: str,
+    jobs: list[Job],
+    max_parallel: int,
+    job_timeout_hours: float,
+) -> int:
+    output_root.mkdir(parents=True, exist_ok=True)
+    write_experiment_config(
+        manifest_path=manifest_path,
+        manifest=manifest,
+        data_root=data_root,
+        output_root=output_root,
+        model=model,
+    )
+
+    pending = [
+        job for job in jobs if not metrics_path(manifest, output_root, job).exists()
+    ]
+    running: dict[subprocess.Popen, tuple[Job, Any, Any, float]] = {}
+    creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    print(
+        f"Total={len(jobs)} complete={len(jobs) - len(pending)} "
+        f"pending={len(pending)} parallel={max_parallel}",
+        flush=True,
+    )
+    write_runner_manifest(
+        manifest_path=manifest_path,
+        manifest=manifest,
+        data_root=data_root,
+        output_root=output_root,
+        model=model,
+        jobs=jobs,
+        max_parallel=max_parallel,
+    )
+
+    try:
+        while pending or running:
+            while pending and len(running) < max_parallel:
+                job = pending.pop(0)
+                setup, window, ticker = job
+                try:
+                    cleanup_incomplete_job_outputs(
+                        manifest,
+                        validation,
+                        output_root,
+                        job,
+                    )
+                except Exception as exc:
+                    _mark_failed_status(
+                        manifest,
+                        output_root,
+                        job,
+                        error=(
+                            "Failed to clean incomplete job outputs before restart: "
+                            f"{exc!r}"
+                        ),
+                    )
+                    write_runner_manifest(
+                        manifest_path=manifest_path,
+                        manifest=manifest,
+                        data_root=data_root,
+                        output_root=output_root,
+                        model=model,
+                        jobs=jobs,
+                        max_parallel=max_parallel,
+                    )
+                    print(
+                        f"FAIL cleanup {setup} {window} {ticker}: {exc!r}",
+                        flush=True,
+                    )
+                    continue
+
+                job_log_dir = log_dir(output_root, job)
+                job_log_dir.mkdir(parents=True, exist_ok=True)
+                stdout = (job_log_dir / f"{ticker}.stdout.log").open(
+                    "a",
+                    encoding="utf-8",
+                )
+                stderr = (job_log_dir / f"{ticker}.stderr.log").open(
+                    "a",
+                    encoding="utf-8",
+                )
+                try:
+                    process = subprocess.Popen(
+                        _worker_command(
+                            manifest_path=manifest_path,
+                            data_root=data_root,
+                            output_root=output_root,
+                            model=model,
+                            job=job,
+                        ),
+                        cwd=REPO_ROOT,
+                        stdout=stdout,
+                        stderr=stderr,
+                        env={**os.environ, "PYTHONUNBUFFERED": "1"},
+                        creationflags=creationflags,
+                    )
+                except Exception as exc:
+                    stdout.close()
+                    stderr.close()
+                    _mark_failed_status(
+                        manifest,
+                        output_root,
+                        job,
+                        error=f"Failed to start worker process: {exc!r}",
+                    )
+                    write_runner_manifest(
+                        manifest_path=manifest_path,
+                        manifest=manifest,
+                        data_root=data_root,
+                        output_root=output_root,
+                        model=model,
+                        jobs=jobs,
+                        max_parallel=max_parallel,
+                    )
+                    print(f"FAIL start {setup} {window} {ticker}: {exc!r}", flush=True)
+                    continue
+
+                running[process] = (job, stdout, stderr, time.monotonic())
+                write_runner_manifest(
+                    manifest_path=manifest_path,
+                    manifest=manifest,
+                    data_root=data_root,
+                    output_root=output_root,
+                    model=model,
+                    jobs=jobs,
+                    max_parallel=max_parallel,
+                )
+                print(f"START pid={process.pid} {setup} {window} {ticker}", flush=True)
+
+            if not running:
+                continue
+
+            time.sleep(2)
+            for process, (job, stdout, stderr, started) in list(running.items()):
+                if time.monotonic() - started > job_timeout_hours * 3600:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=30)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait()
+                    _mark_timeout(manifest, output_root, job, job_timeout_hours)
+
+                return_code = process.poll()
+                if return_code is None:
+                    continue
+                stdout.close()
+                stderr.close()
+                del running[process]
+                print(
+                    f"{'DONE' if return_code == 0 else 'FAIL'} rc={return_code} "
+                    f"{job[0]} {job[1]} {job[2]}",
+                    flush=True,
+                )
+                write_runner_manifest(
+                    manifest_path=manifest_path,
+                    manifest=manifest,
+                    data_root=data_root,
+                    output_root=output_root,
+                    model=model,
+                    jobs=jobs,
+                    max_parallel=max_parallel,
+                )
+    except KeyboardInterrupt:
+        print("Stopping active workers...", flush=True)
+        for process in running:
+            process.terminate()
+        for process, (_, stdout, stderr, _) in running.items():
+            try:
+                process.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+            stdout.close()
+            stderr.close()
+        write_runner_manifest(
+            manifest_path=manifest_path,
+            manifest=manifest,
+            data_root=data_root,
+            output_root=output_root,
+            model=model,
+            jobs=jobs,
+            max_parallel=max_parallel,
+        )
+        return 130
+
+    for setup in sorted({job[0] for job in jobs}):
+        build_summary(
+            manifest_path=manifest_path,
+            manifest=manifest,
+            validation=validation,
+            data_root=data_root,
+            output_root=output_root,
+            model=model,
+            setup=setup,
+            jobs=jobs,
+        )
+    write_runner_manifest(
+        manifest_path=manifest_path,
+        manifest=manifest,
+        data_root=data_root,
+        output_root=output_root,
+        model=model,
+        jobs=jobs,
+        max_parallel=max_parallel,
+    )
+    failed = [
+        job
+        for job in jobs
+        if read_status(manifest, output_root, job).get("status") != "completed"
+    ]
+    print(f"FINISHED completed={len(jobs) - len(failed)} failed={len(failed)}", flush=True)
+    return int(bool(failed))
 
 
 def _print_finmem_options(manifest: dict[str, Any]) -> None:
@@ -593,7 +1299,9 @@ def print_plan(
     model: str,
     setups: list[str],
     windows: list[str],
-    jobs: list[tuple[str, str, str]],
+    jobs: list[Job],
+    max_parallel: int,
+    job_timeout_hours: float,
 ) -> None:
     print(f"manifest={manifest_path}")
     print(f"manifest_sha256={hashlib.sha256(manifest_path.read_bytes()).hexdigest()}")
@@ -602,6 +1310,7 @@ def print_plan(
     print(f"data_root={data_root} exists={data_root.is_dir()}")
     print(f"output_root={output_root}")
     print(f"model={model} seed={manifest.get('seed')}")
+    print(f"max_parallel={max_parallel} job_timeout_hours={job_timeout_hours:g}")
     print(f"finmem_config={validation.config_path}")
     print(f"finmem_toml_model={validation.toml_model}")
     _print_finmem_options(manifest)
@@ -629,7 +1338,7 @@ def print_plan(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Plan FINSABER-2 FinMem ticker-year jobs, or run one explicit job."
+            "Plan or run resumable FINSABER-2 FinMem ticker-year jobs."
         )
     )
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
@@ -639,11 +1348,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--setups", nargs="+")
     parser.add_argument("--windows", nargs="+")
     parser.add_argument("--tickers", nargs="+")
+    parser.add_argument("--max-parallel", type=int, default=1)
+    parser.add_argument("--job-timeout-hours", type=float, default=12)
     parser.add_argument(
         "--plan",
         action="store_true",
         help="Print the expanded job plan without running any backtests.",
     )
+    parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--setup", help=argparse.SUPPRESS)
+    parser.add_argument("--window", help=argparse.SUPPRESS)
+    parser.add_argument("--ticker", help=argparse.SUPPRESS)
     return parser.parse_args()
 
 
@@ -655,6 +1370,35 @@ def main() -> int:
     output_root = resolved_output_root(manifest, args.output_root)
     model = args.model or manifest["model"]
     validation = validate_finmem_settings(manifest, model=model)
+
+    if args.max_parallel < 1:
+        raise ValueError("--max-parallel must be at least 1.")
+    if args.job_timeout_hours <= 0:
+        raise ValueError("--job-timeout-hours must be positive.")
+    if args.worker:
+        if not (args.setup and args.window and args.ticker):
+            raise ValueError("Worker mode requires --setup, --window, and --ticker.")
+        if args.setup not in manifest["selections"]:
+            raise ValueError(f"Worker setup is not in the manifest: {args.setup}")
+        if args.window not in manifest["windows"]:
+            raise ValueError(f"Worker window is not in the manifest: {args.window}")
+        if args.ticker not in manifest["selections"][args.setup][args.window]:
+            raise ValueError(
+                "Worker ticker is not present in the selected setup/window: "
+                f"{args.setup} {args.window} {args.ticker}"
+            )
+        if not data_root.is_dir():
+            raise FileNotFoundError(f"Dataset root does not exist: {data_root}")
+        return worker(
+            manifest,
+            validation=validation,
+            data_root=data_root,
+            output_root=output_root,
+            setup=args.setup,
+            window=args.window,
+            ticker=args.ticker,
+        )
+
     setups = select_setups(manifest, args.setups)
     windows = select_windows(manifest, args.windows)
     jobs = jobs_for(
@@ -675,30 +1419,24 @@ def main() -> int:
             setups=setups,
             windows=windows,
             jobs=jobs,
+            max_parallel=args.max_parallel,
+            job_timeout_hours=args.job_timeout_hours,
         )
         return 0
 
-    if len(jobs) != 1:
-        raise ValueError(
-            "Execution is currently restricted to one explicit job. "
-            f"The current filters expand to {len(jobs)} job(s). "
-            "Run with --plan first, then provide --setups, --windows, and "
-            "--tickers filters that resolve to exactly one job."
-        )
     if not data_root.is_dir():
         raise FileNotFoundError(f"Dataset root does not exist: {data_root}")
-
-    setup, window, ticker = jobs[0]
-    run_single_job(
-        manifest,
+    return orchestrate(
+        manifest_path=manifest_path,
+        manifest=manifest,
         validation=validation,
         data_root=data_root,
         output_root=output_root,
-        setup=setup,
-        window=window,
-        ticker=ticker,
+        model=model,
+        jobs=jobs,
+        max_parallel=args.max_parallel,
+        job_timeout_hours=args.job_timeout_hours,
     )
-    return 0
 
 
 if __name__ == "__main__":
