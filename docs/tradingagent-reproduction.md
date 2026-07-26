@@ -1,512 +1,488 @@
-# TradingAgents Reproduction Guide
+# TradingAgents FINSABER-2 Experiments
 
-## Purpose and Scope
+This workflow evaluates `TradingAgentsStrategy` with the FINSABER-2 parquet
+dataset over the 2024 and 2025 calendar-year windows. The versioned manifest
+fixes ticker selections, model, data modalities, execution assumptions, random
+seed, and TradingAgents artifact policy.
 
-This document explains how to run `TradingAgentsStrategy` through the formal
-FINSABER experiment launcher.
+The formal FINSABER-2 entry point is:
 
-It focuses on the current launcher path:
+```text
+examples/experiments/run_tradingagents_finsaber2.py
+```
 
-- `examples/experiments/run_llm_traders_exp.py`
-- `examples/experiments/experiment_runner.py`
-- `backtest.finsaber.FINSABER`
-
-This is an operator-facing runbook. It does not explain the internal
-TradingAgents implementation, prompt design, or research history.
-
-This guide uses a checked-in environment snapshot file:
-
-- `finsaber_ta310.yml`
-
-That file is intended to reproduce the currently validated `finsaber-ta310`
-dependency environment quickly. It is not a hand-curated minimal dependency
-specification.
-
-## Supported Launcher Setups
-
-The current TradingAgents launcher path inherits its setup catalog from
-`ExperimentRunner`. At the time of writing, the formal `--setup` values are:
-
-| Setup name | Execution mode | Ticker source | Notes |
-| --- | --- | --- | --- |
-| `cherry_pick_both_finmem` | `iter` | Fixed 5 tickers | Canonical TradingAgents benchmark path |
-| `cherry_pick_both_fincon` | `iter` | Fixed 8 tickers | Alternate fixed-basket benchmark |
-| `selected_4` | `rolling_window` | Legacy fixed list | Currently resolves to the same 5-ticker list as `selected_5`; planned to be replaced by a `magnificent_7` fixed basket in a future update |
-| `selected_5` | `rolling_window` | Legacy fixed list | Fixed list: `TSLA`, `NFLX`, `AMZN`, `MSFT`, `COIN` |
-| `random_sp500_<N>` | `rolling_window` | Dynamic SP500 selection | Random yearly selector |
-| `momentum_sp500_<N>` | `rolling_window` | Dynamic SP500 selection | Momentum selector |
-| `lowvol_sp500_<N>` | `rolling_window` | Dynamic SP500 selection | Low-volatility selector |
-| `fincon_selector_sp500_<N>` | `rolling_window` | Dynamic SP500 selection | FinCon-based selector |
-
-Important details:
-
-- `cherry_pick_both_finmem` is the most thoroughly validated TradingAgents path
-  in this repository.
-- `selected_4` is a legacy setup name. In the current code it still resolves to
-  the same fixed five-ticker list as `selected_5`.
-- The intended future direction is to retire `selected_4` and reuse that
-  fixed-basket slot for a `magnificent_7` cohort, but that change has not been
-  applied to `ExperimentRunner` yet.
-- `iter` setups and `rolling_window` setups do not behave the same way. Runtime,
-  ticker selection, and output interpretation differ.
-
-## Future Cohorts and Manifest-Driven Selections
-
-Some experiment families in this repository already use manifest-driven cohort
-definitions. For example, FinAgent uses:
-
-- `examples/experiments/manifests/finagent_finsaber2_2024_2026.json`
-
-That manifest includes a `magnificent_7` cohort.
-
-TradingAgents does **not** currently expose `magnificent_7` as a first-class
-`--setup` in `ExperimentRunner`. If you want to support that cohort later, add a
-dedicated launcher setup or introduce a TradingAgents-specific manifest runner.
-
-The expected direction for this repository is that the old `selected_4`
-fixed-basket slot will eventually be replaced by `magnificent_7`, but this is
-still a planning target rather than the current launcher behavior.
-
-This guide therefore documents the setups that are formally supported by the
-current TradingAgents launcher path today.
+The older `run_llm_traders_exp.py` path is retained for legacy cherry-pick
+experiments, but it is not the recommended path for the manifest-aligned
+FINSABER-2 baseline.
 
 ## Prerequisites
 
-Before launching a TradingAgents experiment, confirm:
+Run all commands from the repository root.
 
-1. A conda environment recreated from `finsaber_ta310.yml` exists and is usable.
-2. `OPENAI_API_KEY` is available through the shell or a repo-local `.env`.
-3. The FINSABER-2 parquet dataset is available locally.
-4. `tmux` is installed if you want a background session.
+### Data And Secrets
 
-Expected dataset folders under `--data_root`:
+Use a Python 3.10 conda environment, configure `OPENAI_API_KEY` in an ignored
+`.env` file, and pass the local FINSABER-2 dataset root explicitly. The
+expected dataset folders are `price_daily/`, `news_items/`, `filingk/`, and
+`filingq/`.
 
-- `price_daily/`
-- `news_items/`
-- `filingk/`
-- `filingq/`
+The local dataset root used during validation was:
 
-Example local dataset root used in this project:
-
-```bash
-./data/sp500_2000_2025_parquet
+```text
+/mnt/cbs1/data/datasets/sp500_2000_2025_parquet
 ```
 
-Example interpreter choices:
+Use the real path for the machine running the experiment. The runner also
+accepts `FINSABER_DATA_ROOT` when `--data-root` is omitted, but passing
+`--data-root` explicitly is preferred for reproducibility.
+
+### Environment
+
+Create the environment from the FINSABER-2 package dependencies plus the
+TradingAgents add-on package:
 
 ```bash
-/opt/anaconda3/envs/finsaber-ta310/bin/python
-/opt/anaconda3/envs/finsaber-ta310-test/bin/python
-```
-
-## Environment Setup
-
-The fastest way to reproduce the validated TradingAgents runtime on another
-machine is to recreate the current `finsaber-ta310` environment from the
-checked-in snapshot file and then reinstall the local repo packages in editable
-mode.
-
-### Option A: reproduce the default environment name
-
-```bash
-conda env create -f finsaber_ta310.yml
+conda create -n finsaber-ta310 python=3.10 pip -y
 conda activate finsaber-ta310
+
+python -m pip install -U pip setuptools wheel
+python -m pip install -e ".[dev]"
+python -m pip install -e ./llm_traders/tradingagent
+python -m pip check
 ```
 
-### Option B: reproduce the same environment under a temporary name
+The `dev` extra is only needed for the validation tests below. For a run-only
+environment, `python -m pip install -e .` is sufficient before installing the
+TradingAgents package. The checked-in `finsaber_ta310.yml` is a local snapshot
+for reference; it may be less portable than the commands above because it
+contains conda build pins.
 
-This is useful for local verification without touching an existing
-`finsaber-ta310`:
+The runner loads `.env` automatically. If only `OPENAI_API_KEY` is set, it is
+also copied into `OA_OPENAI_KEY` for the TradingAgents internals.
+
+### Validation
+
+Validate the environment before spending API budget:
 
 ```bash
-conda env create -f finsaber_ta310.yml -n finsaber-ta310-test
-conda activate finsaber-ta310-test
+conda run -n finsaber-ta310 python -m py_compile \
+  examples/experiments/run_tradingagents_finsaber2.py \
+  tests/test_tradingagents_finsaber2_runner.py
+
+conda run -n finsaber-ta310 python -m pytest -q \
+  tests/test_tradingagents_finsaber2_runner.py \
+  tests/test_tradingagents_experiment_launcher.py
 ```
 
-### Rebind the environment to the current repo checkout
-
-After the conda environment is created, reinstall the two repo-local packages
-from the current checkout:
+Preview the complete plan without running TradingAgents or calling OpenAI:
 
 ```bash
-python -m pip install -e . --no-deps
-python -m pip install -e llm_traders/tradingagent --no-deps
+conda run -n finsaber-ta310 python examples/experiments/run_tradingagents_finsaber2.py \
+  --plan \
+  --data-root /path/to/sp500_2000_2025_parquet
 ```
 
-This matters because the snapshot file only recreates the dependency
-environment. The benchmark itself should run against the current local checkout,
-not against any previously published package build.
+The installation commands above were validated from scratch in a temporary
+conda environment with `pip check`, the two test commands, and the full
+manifest `--plan`. These validation steps do not call OpenAI.
 
-### Minimal validation gate
+### Quick Run Commands
 
-The following gate was re-run successfully against a fresh
-`finsaber-ta310-test` environment created from `finsaber_ta310.yml`:
+Preview one ticker-year job:
 
 ```bash
-python -m pytest -q \
-  tests/test_tradingagents_experiment_launcher.py \
-  llm_traders/tradingagent/tests/test_tradingagents_offline_session_adapter.py
+conda run -n finsaber-ta310 python examples/experiments/run_tradingagents_finsaber2.py \
+  --plan \
+  --setups selected_4 \
+  --windows 2025-01-01_2026-01-01 \
+  --tickers COIN \
+  --data-root /path/to/sp500_2000_2025_parquet
 ```
 
-If this gate passes, the environment is ready for the formal launcher path
-documented below.
+`--tickers` accepts one or more symbols and filters the selected setup/window
+jobs. This is useful for overlap cohorts such as `magnificent_7`, where only
+the not-yet-run tickers may need to be launched.
 
-### Real launcher validation status
-
-This guide was revalidated against a fresh `finsaber-ta310-test` environment.
-A real `tmux`-launched one-month `cherry_pick_both_finmem` TradingAgents run:
-
-- started successfully through `run_llm_traders_exp.py`
-- materialized a run root under `tradingagents_artifacts/`
-- created `launcher/run.log`, `manifest.json`, and `namespace_meta.json`
-- created ticker-local traces such as `analyst_input_trace.jsonl`
-- produced `tickers/TSLA/full_state_logs/full_states_log_2024-01-02.json`
-
-That confirms the current environment snapshot and launcher path are usable for
-real TradingAgents execution, not only for unit tests.
-
-## Launcher Entry Point
-
-The formal user-facing entry point is:
+Run one ticker-year job through the resumable orchestrator:
 
 ```bash
-python examples/experiments/run_llm_traders_exp.py
+conda run --no-capture-output -n finsaber-ta310 \
+  python examples/experiments/run_tradingagents_finsaber2.py \
+  --setups selected_4 \
+  --windows 2025-01-01_2026-01-01 \
+  --tickers COIN \
+  --data-root /path/to/sp500_2000_2025_parquet \
+  --output-root tmp/tradingagents-selected4-coin-2025-r1
 ```
 
-This script:
+`--no-capture-output` is recommended for long `conda run` jobs because it lets
+progress lines stream to the terminal or tmux pane in real time.
 
-1. selects a strategy via `--strategy`
-2. selects an experiment family via `--setup`
-3. loads a TradingAgents strategy config via `--strat_config_path`
-4. forwards the resolved request into `ExperimentRunner`
-5. sets `MPLBACKEND=Agg` to avoid GUI-blocking matplotlib behavior
-
-For TradingAgents, the most important arguments are:
-
-- `--setup`
-- `--strategy tradingagents`
-- `--strat_config_path`
-- `--date_from`
-- `--date_to`
-- `--data_root`
-- `--output_dir`
-
-## TradingAgents Strategy Config Files
-
-The checked-in TradingAgents window configs are:
-
-- `strats_configs/tradingagents_window_2024.json`
-- `strats_configs/tradingagents_window_2025.json`
-
-These files are currently minimal and mainly provide:
-
-- `date_from`
-- `date_to`
-- `symbol`
-- `artifact_config`
-
-The most important field for runtime output ownership is:
-
-```json
-"artifact_config": {
-  "enabled": true,
-  "root": "...",
-  "run_key": null
-}
-```
-
-### Important Output Ownership Warning
-
-For `TradingAgentsStrategy`, the real run root is derived from
-`artifact_config.root`, not only from `--output_dir`.
-
-This means:
-
-- if you run `cherry_pick_both_finmem` with the checked-in 2024/2025 configs,
-  the output root matches the expected cherry-pick tree
-- if you reuse those same config files for another setup such as `selected_4` or
-  `random_sp500_5`, the default artifact root will still point into the
-  `cherry_pick_both_finmem` output tree unless you change it
-
-For non-cherry setups, the safest practice is:
-
-1. copy an existing TradingAgents config file
-2. rename it for the intended setup
-3. change `artifact_config.root` to a setup-appropriate output tree
-
-### Concurrency note for the checked-in 2024 and 2025 configs
-
-The checked-in 2024 and 2025 TradingAgents configs already point to different
-artifact roots:
-
-- `tradingagents_window_2024.json`
-  -> `.../tradingagents_window_2024/tradingagents_artifacts`
-- `tradingagents_window_2025.json`
-  -> `.../tradingagents_window_2025/tradingagents_artifacts`
-
-That means the two canonical one-month cherry-pick runs can be launched at the
-same time without writing into the same artifact tree.
-
-In addition, the default `artifact_config.run_key` is `null`, so each launch
-receives a fresh materialized `run_key`. Even repeated launches inside the same
-window config fan out into separate run directories unless you explicitly force
-the same `run_key`.
-
-## Canonical Cherry-Pick Recipes
-
-These are the canonical one-month TradingAgents launcher commands for the
-formal `cherry_pick_both_finmem` benchmark path.
-
-### 2024 One-Month Window
+Run one setup sequentially:
 
 ```bash
-python examples/experiments/run_llm_traders_exp.py \
-  --setup cherry_pick_both_finmem \
-  --strategy tradingagents \
-  --strat_config_path strats_configs/tradingagents_window_2024.json \
-  --date_from 2024-01-02 \
-  --date_to 2024-01-31 \
-  --data_root ./data/sp500_2000_2025_parquet \
-  --output_dir backtest/output
+conda run --no-capture-output -n finsaber-ta310 \
+  python examples/experiments/run_tradingagents_finsaber2.py \
+  --setups selected_4 \
+  --data-root /path/to/sp500_2000_2025_parquet \
+  --output-root tmp/tradingagents-selected4-2024-2026-r1 \
+  --max-parallel 1
 ```
 
-### 2025 One-Month Window
+Run the full public manifest on this local machine:
 
 ```bash
-python examples/experiments/run_llm_traders_exp.py \
-  --setup cherry_pick_both_finmem \
-  --strategy tradingagents \
-  --strat_config_path strats_configs/tradingagents_window_2025.json \
-  --date_from 2025-01-02 \
-  --date_to 2025-01-31 \
-  --data_root ./data/sp500_2000_2025_parquet \
-  --output_dir backtest/output
+conda run --no-capture-output -n finsaber-ta310 \
+  python examples/experiments/run_tradingagents_finsaber2.py \
+  --data-root /path/to/sp500_2000_2025_parquet \
+  --output-root backtest/output/tradingagents_finsaber2_2024_2026 \
+  --max-parallel 2 \
+  --job-timeout-hours 12
 ```
 
-Notes:
+## Manifest
 
-- `cherry_pick_both_finmem` is a fixed 5-ticker setup.
-- Changing the date window does not turn it into a single-ticker run.
-- The fixed basket is currently:
-  - `TSLA`
-  - `NFLX`
-  - `AMZN`
-  - `MSFT`
-  - `COIN`
+The source manifest is:
 
-## Running Other TradingAgents Setup Families
-
-The same launcher path can be reused for other setup families, but you should
-prepare a setup-appropriate TradingAgents config first.
-
-Recommended workflow:
-
-1. copy one of the window configs
-2. rename it for the target setup
-3. change `artifact_config.root`
-4. run with the desired `--setup`
-
-Example command template:
-
-```bash
-python examples/experiments/run_llm_traders_exp.py \
-  --setup <setup_name> \
-  --strategy tradingagents \
-  --strat_config_path <your_tradingagents_config>.json \
-  --date_from <date_from> \
-  --date_to <date_to> \
-  --data_root ./data/sp500_2000_2025_parquet \
-  --output_dir backtest/output
+```text
+examples/experiments/manifests/tradingagents_finsaber2_2024_2026.json
 ```
 
-Examples of valid `setup_name` values:
+It uses the same frozen ticker selections as the FinAgent and FinMem
+FINSABER-2 manifests:
 
-- `selected_5`
+- `selected_4`
 - `random_sp500_5`
 - `momentum_sp500_5`
 - `lowvol_sp500_5`
-- `fincon_selector_sp500_5`
+- `magnificent_7`
 
-Treat these as advanced runs until you have verified:
+The manifest expands to 54 jobs. A job is identified by:
 
-- the intended execution mode
-- the selected ticker behavior
-- the output root
+```text
+setup / window / ticker
+```
+
+For example, `selected_4` has five tickers across two windows, so it expands to
+10 jobs. The `selected_4` name is historical; in this manifest it intentionally
+contains the five cherry-pick FinMem tickers.
+
+Unlike FinMem, TradingAgents does not have an explicit train/test split. Each
+job runs directly over the requested test window, and TradingAgents updates its
+internal memory and reflection state inside that window.
+
+| Window Key | Effective Test Window |
+| --- | --- |
+| `2024-01-01_2025-01-01` | `2024-01-02` to `2024-12-31` |
+| `2025-01-01_2026-01-01` | `2025-01-02` to `2025-12-31` |
+
+The current local-data policy is:
+
+- local market data only;
+- local ticker news only;
+- local 10-K and 10-Q filings only;
+- no online data fallback;
+- benchmark ticker `SPY` is declared but may be unavailable if it is absent
+  from the local parquet price universe.
+
+TradingAgents uses broader filing sections than FinMem:
+
+| Form | Section |
+| --- | --- |
+| `10-K` | `item_1` |
+| `10-K` | `item_1a` |
+| `10-K` | `item_7` |
+| `10-K` | `item_8` |
+| `10-Q` | `part_i_item_1` |
+| `10-Q` | `part_i_item_2` |
+| `10-Q` | `part_ii_item_1a` |
+
+Filing section extraction uses the shared FINSABER filing section extractor. If
+a requested section cannot be safely recovered from the clean parquet text, the
+extractor should leave it unavailable rather than fabricate content.
+
+## Parallel Execution
+
+A runner is one invocation of `examples/experiments/run_tradingagents_finsaber2.py`.
+The runner expands the manifest into `setup/window/ticker` jobs and schedules
+those jobs through one global worker pool.
+
+`--max-parallel` controls how many ticker-year jobs may run at the same time.
+It does not create setup-level or window-level worker pools. If multiple setups
+and windows are selected, the runner still uses one global job queue ordered by
+`setup -> window -> ticker`.
+
+For this local machine, use `--max-parallel 2`. A short probe with
+`--max-parallel 3` started correctly but put too much pressure on memory. On a
+larger machine, increase parallelism only after checking CPU, memory, OpenAI
+rate limits, and budget.
+
+Recommended: use one runner to coordinate multiple setups and windows:
+
+```bash
+conda run --no-capture-output -n finsaber-ta310 \
+  python examples/experiments/run_tradingagents_finsaber2.py \
+  --setups selected_4 random_sp500_5 momentum_sp500_5 lowvol_sp500_5 magnificent_7 \
+  --windows 2024-01-01_2025-01-01 2025-01-01_2026-01-01 \
+  --data-root /path/to/sp500_2000_2025_parquet \
+  --output-root backtest/output/tradingagents_finsaber2_2024_2026 \
+  --max-parallel 2
+```
+
+Do not run multiple runners against the same `--output-root` at the same time.
+Per-ticker directories include the setup name, but top-level files such as
+`runner_manifest.json` and `experiment_config.json` would be overwritten by
+competing runner processes.
+
+If multiple tmux sessions are necessary, give each runner a separate output
+root:
+
+```bash
+# tmux A
+conda run --no-capture-output -n finsaber-ta310 \
+  python examples/experiments/run_tradingagents_finsaber2.py \
+  --setups selected_4 \
+  --data-root /path/to/sp500_2000_2025_parquet \
+  --output-root backtest/output/tradingagents_selected4 \
+  --max-parallel 1
+```
+
+```bash
+# tmux B
+conda run --no-capture-output -n finsaber-ta310 \
+  python examples/experiments/run_tradingagents_finsaber2.py \
+  --setups random_sp500_5 \
+  --data-root /path/to/sp500_2000_2025_parquet \
+  --output-root backtest/output/tradingagents_random5 \
+  --max-parallel 1
+```
+
+## Job Timeout
+
+`--job-timeout-hours` is a per-job timeout. One job means one
+`setup/window/ticker` backtest over one window. The default is
+`--job-timeout-hours 12`.
+
+If a valid full-year job exceeds the timeout, rerun with a larger value. Jobs
+that already have `metrics.json` are skipped, so completed jobs do not call
+TradingAgents or OpenAI again.
+
+## Resume Semantics
+
+Resume is job-level, not trading-day-level. A job is considered complete when
+its scalar `metrics.json` exists under the ticker output directory. Completed
+jobs are skipped on restart.
+
+Incomplete jobs are rerun from scratch. Before rerunning an incomplete job, the
+runner removes that job's stale standard ticker output directory and that
+job's deterministic TradingAgents private artifact run directory. This prevents
+partial CSVs, memory logs, full-state logs, runtime cache files, or JSONL traces
+from being mixed with the replacement run.
+
+Worker stdout/stderr logs are appended across restarts. Seeing pre-interruption
+and post-resume logs in the same ticker log file is expected and useful for
+auditing.
+
+## Output Structure
+
+Each output root contains top-level orchestration artifacts:
+
+```text
+<output_root>/
+  experiment_config.json
+  runner_manifest.json
+  logs/<setup>/<window>/<ticker>.stdout.log
+  logs/<setup>/<window>/<ticker>.stderr.log
+```
+
+`runner_manifest.json` records the source manifest hash, Git commit, resolved
+data/output roots, full ticker selections, selected job list, per-job status,
+completion counts, `max_parallel`, and `job_timeout_hours`.
+
+The runner writes standard FINSABER result artifacts under:
+
+```text
+<output_root>/<setup>/TradingAgentsStrategy/
+  run_config.json
+  run_manifest.json
+  run_summary.csv
+  <test_start>_<test_end>/<ticker>/
+    metrics.json
+    metrics.pkl
+    job_status.json
+    equity_curve.csv
+    trades.csv
+    rejected_orders.csv
+    llm_costs.csv
+    external_costs.csv
+```
+
+Use `run_summary.csv` for setup-level scalar results. Use each ticker leaf
+directory for the raw per-job files. `metrics.pkl` preserves the complete
+metrics object, including DataFrames, while `metrics.json` is the scalar
+completion sentinel used for resume.
+
+At the end of orchestration, the runner rebuilds setup-level standard outputs
+from the selected jobs in the current invocation.
+
+## TradingAgents Artifacts
+
+The public manifest keeps `artifact_config.enabled=true` by default. This is
+recommended for official audit runs because TradingAgents evidence is important
+for interpreting decisions, memory, and reflection behavior.
+
+If no explicit artifact root is provided, the runner places private
+TradingAgents artifacts under the strategy output tree:
+
+```text
+<output_root>/<setup>/TradingAgentsStrategy/
+  <profile_id>/tradingagents_artifacts/<config_key>/<run_key>/
+    manifest.json
+    namespace_meta.json
+    runtime_cache/
+    runtime_results/
+    tickers/<ticker>/
+      ticker_namespace_meta.json
+      full_state_logs/full_states_log_<date>.json
+      memory/trading_memory.md
+      analyst_input_trace.jsonl
+      memory_reads.jsonl
+      memory_writes.jsonl
+      reflection_trace.jsonl
+```
+
+`artifact_config.enabled=false` is not a full artifact-off mode. It disables
+the optional JSONL trace writer files, but TradingAgents still creates core
+runtime directories, namespace metadata, memory files, and full-state logs that
+the strategy needs to operate.
+
+Official experiments should generally keep artifacts enabled and plan disk
+space accordingly.
+
+## Cost And Runtime Planning
+
+Historical full-year TradingAgents cherry-pick runs provide the best local
+cost anchor:
+
+| Run | Jobs | Total LLM Cost | Average Cost Per Job |
+| --- | ---: | ---: | ---: |
+| 2024 selected five tickers | 5 | about `$24.93` | about `$4.99` |
+| 2025 selected five tickers | 5 | about `$23.65` | about `$4.73` |
+| Combined observed average | 10 | about `$48.57` | about `$4.86` |
+
+The full public manifest expands to 54 jobs. A neutral cost estimate is:
+
+```text
+54 * $4.86 ~= $260
+```
+
+Use `$300-$350` as a practical budget buffer, and `$350-$400` as a conservative
+upper bound. Parallelism changes wall-clock time, not total API cost, unless it
+causes failed or repeated jobs.
+
+On the current local machine, `--max-parallel 2` is the recommended default.
+Actual full-manifest runtime is expected to be measured in days rather than
+hours.
 
 ## Tmux Background Execution
 
-Recommended `tmux` launch for the 2024 one-month cherry-pick run:
+Example full-manifest launch:
 
 ```bash
-REPO_ROOT=/path/to/FINSABER
-PYTHON_BIN=/opt/anaconda3/envs/finsaber-ta310/bin/python
-# replace with /opt/anaconda3/envs/finsaber-ta310-test/bin/python when validating
-# a freshly recreated environment
-
-tmux new-session -d -s ta_cp_finmem_2024_01 '
-cd '"$REPO_ROOT"' &&
-'"$PYTHON_BIN"' -u examples/experiments/run_llm_traders_exp.py \
-  --setup cherry_pick_both_finmem \
-  --strategy tradingagents \
-  --strat_config_path strats_configs/tradingagents_window_2024.json \
-  --date_from 2024-01-02 \
-  --date_to 2024-01-31 \
-  --data_root ./data/sp500_2000_2025_parquet \
-  --output_dir backtest/output \
-  2>&1 | tee backtest/output/ta_cp_finmem_2024_01.log
+tmux new-session -d -s ta_finsaber2_full '
+cd /path/to/FINSABER &&
+mkdir -p backtest/output &&
+conda run --no-capture-output -n finsaber-ta310 \
+  python examples/experiments/run_tradingagents_finsaber2.py \
+  --data-root /path/to/sp500_2000_2025_parquet \
+  --output-root backtest/output/tradingagents_finsaber2_2024_2026 \
+  --max-parallel 2 \
+  --job-timeout-hours 12 \
+  2>&1 | tee backtest/output/tradingagents_finsaber2_2024_2026.log
 '
 ```
 
-Useful `tmux` commands:
+Useful monitoring commands:
 
 ```bash
 tmux ls
-tmux attach -t ta_cp_finmem_2024_01
-tmux capture-pane -pt ta_cp_finmem_2024_01 | tail -n 40
-tmux kill-session -t ta_cp_finmem_2024_01
+tmux capture-pane -pt ta_finsaber2_full | tail -n 80
+tail -f backtest/output/tradingagents_finsaber2_2024_2026.log
 ```
 
-## Parallel Tmux Execution for 2024 and 2025
-
-If your API quota allows it, the 2024 and 2025 one-month cherry-pick runs can
-be launched in parallel with two separate `tmux` sessions.
-
-Example:
-
-```bash
-REPO_ROOT=/path/to/FINSABER
-PYTHON_BIN=/opt/anaconda3/envs/finsaber-ta310/bin/python
-# or:
-# PYTHON_BIN=/opt/anaconda3/envs/finsaber-ta310-test/bin/python
-
-tmux new-session -d -s ta_cp_finmem_2024_01 '
-cd '"$REPO_ROOT"' &&
-'"$PYTHON_BIN"' -u examples/experiments/run_llm_traders_exp.py \
-  --setup cherry_pick_both_finmem \
-  --strategy tradingagents \
-  --strat_config_path strats_configs/tradingagents_window_2024.json \
-  --date_from 2024-01-02 \
-  --date_to 2024-01-31 \
-  --data_root ./data/sp500_2000_2025_parquet \
-  --output_dir backtest/output \
-  2>&1 | tee backtest/output/ta_cp_finmem_2024_01.log
-'
-
-tmux new-session -d -s ta_cp_finmem_2025_01 '
-cd '"$REPO_ROOT"' &&
-'"$PYTHON_BIN"' -u examples/experiments/run_llm_traders_exp.py \
-  --setup cherry_pick_both_finmem \
-  --strategy tradingagents \
-  --strat_config_path strats_configs/tradingagents_window_2025.json \
-  --date_from 2025-01-02 \
-  --date_to 2025-01-31 \
-  --data_root ./data/sp500_2000_2025_parquet \
-  --output_dir backtest/output \
-  2>&1 | tee backtest/output/ta_cp_finmem_2025_01.log
-'
-```
-
-Recommended monitoring commands:
-
-```bash
-tmux capture-pane -pt ta_cp_finmem_2024_01 | tail -n 40
-tmux capture-pane -pt ta_cp_finmem_2025_01 | tail -n 40
-```
-
-Important note:
-
-- parallel execution is structurally safe for these two checked-in configs
-  because their artifact roots differ
-- the practical limiting factor is usually API throughput, rate limits, or
-  spend, not filesystem collision
-
-## Output Layout
-
-For TradingAgents, the benchmark output and strategy-local runtime artifacts are
-anchored to the same materialized run identity.
-
-The practical run-root shape is:
-
-```text
-<artifact_root>/<config_key>/<run_key>/
-  benchmark_results/
-  launcher/
-    run.sh
-    run.log
-    strat_config.materialized.json
-  manifest.json
-  namespace_meta.json
-  runtime_cache/
-  runtime_results/
-  tickers/
-    <TICKER>/
-```
-
-Key points:
-
-- `benchmark_results/` holds the outer FINSABER benchmark outputs
-- `tickers/<TICKER>/` holds TradingAgents strategy-local artifacts such as:
-  - `full_state_logs/`
-  - `reflection_trace.jsonl`
-  - `analyst_input_trace.jsonl`
-  - `memory/`
-- `launcher/run.sh` is the run-local replay script
-- `launcher/strat_config.materialized.json` freezes the run-local config snapshot
-- `launcher/run.log` is a launcher metadata snapshot, not the main streaming
-  progress log for the whole experiment
+The runner prints `PROGRESS` lines with completed, failed, running, pending,
+elapsed time, active worker PIDs, and observed `full_state_logs` counts.
 
 ## Validation Checklist
 
-After launching a run, validate the following:
+After launching a run, validate:
 
-1. The process starts without immediate Python import errors.
-2. `launcher/run.log` is created under the materialized run root.
-3. `tickers/<TICKER>/full_state_logs/` begins to populate.
-4. `manifest.json` and `namespace_meta.json` exist at the run root.
-5. `benchmark_results/.../metrics.json` appears after ticker completion.
+1. `experiment_config.json` and `runner_manifest.json` exist under the output
+   root.
+2. `logs/<setup>/<window>/<ticker>.stdout.log` and `.stderr.log` are created.
+3. Active jobs print `PROGRESS` lines in the terminal or tmux pane.
+4. `full_state_logs/full_states_log_<date>.json` begins to populate under the
+   private TradingAgents artifact tree.
+5. A completed ticker has `metrics.json`, `equity_curve.csv`, `trades.csv`,
+   `llm_costs.csv`, and `job_status.json` under its standard result directory.
+6. Setup-level `run_summary.csv` is rebuilt after orchestration completes.
 
 Fast checks:
 
 ```bash
-tail -f backtest/output/ta_cp_finmem_2024_01.log
+conda run -n finsaber-ta310 python examples/experiments/run_tradingagents_finsaber2.py \
+  --plan \
+  --data-root /path/to/sp500_2000_2025_parquet
 ```
 
 ```bash
-find backtest/output/cherry_pick_both_finmem/TradingAgentsStrategy/tradingagents_window_2024/tradingagents_artifacts \
-  -maxdepth 3 -type d | sort | tail -n 20
+find backtest/output/tradingagents_finsaber2_2024_2026 \
+  -path '*/job_status.json' -print | head
 ```
 
 ```bash
-tmux capture-pane -pt ta_cp_finmem_2024_01 | tail -n 40
+find backtest/output/tradingagents_finsaber2_2024_2026 \
+  -path '*/full_state_logs/full_states_log_*.json' -print | head
 ```
 
-## Troubleshooting
+## Known Limits
 
-### The run starts but no `full_state_logs` appear
+Hosted LLM output is not bitwise reproducible because provider-side model
+revisions and sampling can change. Preserve the complete output directory when
+using artifacts for audit.
 
-Check:
+TradingAgents does not provide trading-day-level checkpoint resume in this
+runner. An incomplete ticker-year job is rerun from the beginning.
 
-- the latest materialized run root
-- `launcher/run.log` to confirm the launcher started and to inspect the exact
-  replay command
-- `tmux capture-pane -pt <session>` for the live console stream
-- `tickers/<TICKER>/analyst_input_trace.jsonl` to see whether the daily analyst
-  loop is advancing before `full_state_logs` are emitted
-- whether the process failed before entering the daily TradingAgents loop
+Very short real smoke windows are rejected by the FINSABER ISO backtest engine
+when fewer than 21 trading days are available. Use `--plan` for no-cost static
+checks, and use a 21+ trading-day window for an end-to-end smoke.
 
-### The output shows up under the wrong setup tree
+`SPY` benchmark alpha may be unavailable when `SPY` is absent from the local
+FINSABER-2 parquet price universe. The runner does not add online or sidecar
+benchmark data.
 
-Check `artifact_config.root` in the TradingAgents strat config. The launcher
-does not automatically rewrite it based on `--setup`.
+The older `run_llm_traders_exp.py` launcher still exists, but its setup catalog
+and output ownership differ from the manifest-aligned FinAgent and FinMem
+FINSABER-2 workflows.
 
-### `OPENAI_API_KEY` is present in `.env` but the run still fails
+## Current Status
 
-Verify that the current Python process actually sees the environment variable.
-Using the environment Python directly is safer than relying on shell-local
-activation state in long background jobs.
+The dedicated TradingAgents launcher supports `--plan`, resumable multi-job
+orchestration, per-job worker status files, stdout/stderr logs, deterministic
+job-scoped TradingAgents artifact roots, progress reporting, and standard
+FINSABER result summaries.
 
-### A setup name works for FinAgent but not for TradingAgents
+The latest validation confirmed:
 
-That usually means the cohort exists in a manifest-driven FinAgent workflow but
-has not been added as a first-class `ExperimentRunner` setup for
-TradingAgents yet.
+- the default manifest expands to 54 jobs;
+- artifact paths are isolated by setup, window, and ticker;
+- interrupted incomplete jobs are rerun from scratch with stale standard and
+  private artifact outputs removed first;
+- completed jobs are skipped by `metrics.json`;
+- TA runner tests and legacy TA launcher tests pass in the existing
+  `finsaber-ta310` environment and in a fresh doc-check environment created
+  from the installation commands above;
+- a fresh doc-check environment completed an end-to-end AMZN smoke over a 21+
+  trading-day 2025 window with standard FINSABER outputs and TradingAgents
+  memory/reflection artifacts.
