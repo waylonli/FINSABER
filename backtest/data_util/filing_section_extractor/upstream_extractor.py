@@ -1265,6 +1265,35 @@ def build_index_only_start_meta(candidates: list[HeadingCandidate]) -> dict[str,
     }
 
 
+def is_recoverable_index_like_heading_candidate(
+    lines: list[str],
+    candidate: HeadingCandidate,
+    spec: ItemSpec,
+) -> bool:
+    if not candidate.is_toc_candidate:
+        return False
+
+    # A few 10-Qs expose Part I Item 1 only through a page-mapped table row,
+    # immediately followed by the actual statement bundle. Keep this recovery
+    # narrow so ordinary TOC-only matches are still rejected.
+    if spec.form != "10-Q" or spec.item_key != "part_i_item_1":
+        return False
+    if candidate.boundary_line_number is None:
+        return False
+    if candidate.body_char_count < max(spec.min_chars, 1000):
+        return False
+    if candidate.body_nonempty_line_count < 8:
+        return False
+
+    _, body_text, _, _, _ = build_section_text(
+        lines,
+        candidate.line_index,
+        candidate.boundary_line_number - 1,
+        spec,
+    )
+    return looks_like_financial_statement_payload_body(body_text)
+
+
 def find_best_item_start(lines: list[str], spec: ItemSpec) -> tuple[int | None, dict[str, Any]]:
     candidates: list[HeadingCandidate] = []
     target_item = normalize_item_code(spec.item_code)
@@ -1329,6 +1358,19 @@ def find_best_item_start(lines: list[str], spec: ItemSpec) -> tuple[int | None, 
     # "no usable heading" instead of materializing a fake zero-body section.
     preferred = [candidate for candidate in candidates if not candidate.is_toc_candidate]
     if not preferred:
+        recoverable = [
+            candidate
+            for candidate in candidates
+            if is_recoverable_index_like_heading_candidate(lines, candidate, spec)
+        ]
+        if recoverable:
+            best = max(recoverable, key=lambda item: item.sort_key())
+            return int(best.line_index), {
+                "matched": True,
+                "best_candidate": best.to_debug_payload(),
+                "candidate_count": len(recoverable),
+                "recovered_index_like_candidate": True,
+            }
         return None, build_index_only_start_meta(candidates)
     candidates = preferred
 
@@ -1381,8 +1423,9 @@ def looks_like_toc_heading_candidate(
         return False
     if not looks_like_page_mapped_heading_entry(lines, index):
         return False
-    if any("table of contents" in normalized_text(candidate).lower() for candidate in recent_window):
-        return True
+    # A repeated "Table of Contents" page header can also appear inside the
+    # real filing body. For 10-Ks, only reject page-mapped item headings when
+    # the surrounding shape still looks like the front index itself.
     if looks_like_split_toc_anchor_candidate(lines, index):
         return True
     return looks_like_front_index_heading_candidate(lines, index, heading_window)
@@ -1800,6 +1843,42 @@ def trim_leading_toc_body_lines(body_lines: list[str], spec: ItemSpec) -> tuple[
     return body_lines[trimmed_index:], trimmed_index
 
 
+def trim_leading_internal_outline_body_lines(body_lines: list[str], spec: ItemSpec) -> tuple[list[str], int]:
+    if spec.form != "10-K":
+        return body_lines, 0
+
+    # Some 10-K sections open with a local page map immediately after the item
+    # heading. Keep the audit strict by trimming that directory-like prefix
+    # before the section body is finalized.
+    body_text = "\n".join(body_lines)
+    if not looks_like_internal_outline_open(body_text, spec, max_lines=24):
+        return body_lines, 0
+
+    meaningful_seen = 0
+    outline_signal_count = 0
+    for index, line in enumerate(body_lines[:120]):
+        normalized = normalized_text(line)
+        if not normalized or is_decorative_line(normalized) or PAGE_NUMBER_RE.fullmatch(normalized):
+            continue
+
+        meaningful_seen += 1
+        if (
+            looks_like_toc_line(normalized)
+            or looks_like_statement_bundle_page_map_line(normalized)
+            or looks_like_outline_page_locator_line(normalized)
+        ):
+            outline_signal_count += 1
+            continue
+
+        if not looks_like_prose_line(normalized):
+            continue
+
+        if outline_signal_count >= 2 and meaningful_seen >= 4:
+            return body_lines[index:], index
+
+    return body_lines, 0
+
+
 def materialize_body_from_line_range(
     lines: list[str],
     body_start: int,
@@ -1812,6 +1891,8 @@ def materialize_body_from_line_range(
     leading_trim_offset = 0
     if trim_leading_toc:
         raw_body_lines, leading_trim_offset = trim_leading_toc_body_lines(raw_body_lines, spec)
+        raw_body_lines, outline_trim_offset = trim_leading_internal_outline_body_lines(raw_body_lines, spec)
+        leading_trim_offset += outline_trim_offset
     body_lines = normalize_body_lines(raw_body_lines)
     body_text = "\n".join(body_lines).strip()
     body_nonempty_line_count = sum(1 for line in body_lines if line.strip())
@@ -1923,7 +2004,40 @@ def build_effective_fallback_detail_metas(
     if not resolution_debug:
         return None, None
 
-    if resolution_method == "nontraditional_10q_main_body_fallback_v1":
+    if resolution_method == "front_index_mda_local_index_fallback_v1":
+        fallback_start_line = int(resolution_debug["fallback_line_start"])
+        fallback_start_index = fallback_start_line - 1
+        effective_start_meta = {
+            "matched": True,
+            "reason": "fallback_mda_local_index_body_start",
+            "line_number": fallback_start_line,
+            "heading_preview": preview_text(
+                heading_window_text(lines, fallback_start_index, max_nonempty=4),
+                240,
+            ),
+            "fallback_heading_label": str(resolution_debug["fallback_heading_label"]),
+            "local_index_start_line": int(resolution_debug["local_index_start_line"]),
+            "local_index_end_line": int(resolution_debug["local_index_end_line"]),
+        }
+        fallback_boundary_line = int(resolution_debug["fallback_boundary_heading_line"])
+        fallback_boundary_index = fallback_boundary_line - 1
+        effective_boundary_meta = {
+            "matched": True,
+            "reason": "fallback_statement_page_map_boundary",
+            "boundary_line_number": fallback_boundary_line,
+            "boundary_preview": preview_text(
+                heading_window_text(lines, fallback_boundary_index, max_nonempty=4),
+                200,
+            ),
+            "fallback_boundary_label": str(resolution_debug["fallback_boundary_label"]),
+        }
+        return effective_start_meta, effective_boundary_meta
+
+    if resolution_method in {
+        "nontraditional_10k_mda_landmark_fallback_v1",
+        "nontraditional_10k_main_body_fallback_v1",
+        "nontraditional_10q_main_body_fallback_v1",
+    }:
         fallback_start_line = int(resolution_debug["fallback_line_start"])
         fallback_start_index = fallback_start_line - 1
         effective_start_meta = {
@@ -2035,6 +2149,92 @@ def extract_items_from_filing(*, filing: FilingRow, item_specs: list[ItemSpec]) 
     for spec in item_specs:
         start_index, start_meta = find_best_item_start(lines, spec)
         if start_index is None:
+            fallback_payload = maybe_build_nontraditional_10k_main_body_fallback(
+                lines=lines,
+                spec=spec,
+                start_meta=start_meta,
+            )
+            if fallback_payload is not None:
+                (
+                    payload_start_index,
+                    section_text,
+                    body_text,
+                    body_line_start,
+                    body_line_end,
+                    body_nonempty_line_count,
+                    resolution_method,
+                    resolution_debug,
+                ) = fallback_payload
+                section_payload = build_section_payload(
+                    spec=spec,
+                    start_index=payload_start_index,
+                    section_text=section_text,
+                    body_text=body_text,
+                    body_line_start=body_line_start,
+                    body_line_end=body_line_end,
+                    body_nonempty_line_count=body_nonempty_line_count,
+                    resolution_method=resolution_method,
+                    resolution_debug=resolution_debug,
+                )
+                effective_start_meta, effective_boundary_meta = build_effective_fallback_detail_metas(
+                    lines=lines,
+                    resolution_method=resolution_method,
+                    resolution_debug=resolution_debug,
+                )
+                sections.append(section_payload)
+                section_details[spec.item_key] = build_section_detail(
+                    spec=spec,
+                    matched=True,
+                    start_meta=start_meta,
+                    boundary_meta=None,
+                    section_payload=section_payload,
+                    effective_start_meta=effective_start_meta,
+                    effective_boundary_meta=effective_boundary_meta,
+                )
+                continue
+            fallback_payload = maybe_build_front_index_mda_local_index_fallback(
+                lines=lines,
+                spec=spec,
+                start_meta=start_meta,
+            )
+            if fallback_payload is not None:
+                (
+                    payload_start_index,
+                    section_text,
+                    body_text,
+                    body_line_start,
+                    body_line_end,
+                    body_nonempty_line_count,
+                    resolution_method,
+                    resolution_debug,
+                ) = fallback_payload
+                section_payload = build_section_payload(
+                    spec=spec,
+                    start_index=payload_start_index,
+                    section_text=section_text,
+                    body_text=body_text,
+                    body_line_start=body_line_start,
+                    body_line_end=body_line_end,
+                    body_nonempty_line_count=body_nonempty_line_count,
+                    resolution_method=resolution_method,
+                    resolution_debug=resolution_debug,
+                )
+                effective_start_meta, effective_boundary_meta = build_effective_fallback_detail_metas(
+                    lines=lines,
+                    resolution_method=resolution_method,
+                    resolution_debug=resolution_debug,
+                )
+                sections.append(section_payload)
+                section_details[spec.item_key] = build_section_detail(
+                    spec=spec,
+                    matched=True,
+                    start_meta=start_meta,
+                    boundary_meta=None,
+                    section_payload=section_payload,
+                    effective_start_meta=effective_start_meta,
+                    effective_boundary_meta=effective_boundary_meta,
+                )
+                continue
             fallback_payload = maybe_build_nontraditional_10q_main_body_fallback(
                 lines=lines,
                 spec=spec,
@@ -2682,6 +2882,472 @@ def build_structural_fallback_payload(
         body_nonempty_line_count,
         resolution_method,
         resolution_debug,
+    )
+
+
+def nontraditional_10k_structure_search_start(lines: list[str]) -> int:
+    total_line_count = len(lines)
+    return min(140, max(80, total_line_count // 20))
+
+
+def looks_like_nontraditional_10k_main_body_family(lines: list[str]) -> bool:
+    lowered_lines = [normalized_text(line).lower() for line in lines]
+    if not any("traditional sec form 10-k format" in line for line in lowered_lines):
+        return False
+    if not any("form 10-k cross-reference index" in line for line in lowered_lines):
+        return False
+
+    structure_start = nontraditional_10k_structure_search_start(lines)
+    mda_start, _ = find_first_heading_in_set(
+        lines,
+        ("Management's Discussion and Analysis",),
+        start_index=structure_start,
+    )
+    risk_group_start, _ = find_first_heading_in_set(
+        lines,
+        ("Risk Factors and Other Key Information",),
+        start_index=structure_start,
+    )
+    financial_start, _ = find_first_heading_in_set(
+        lines,
+        (
+            "Financial Statements and Supplemental Details",
+            "Financial Statements and Supplementary Data",
+        ),
+        start_index=structure_start,
+    )
+    controls_start, _ = find_first_heading_in_set(
+        lines,
+        ("Controls and Procedures",),
+        start_index=structure_start,
+    )
+    # This family uses business-specific prose headings instead of canonical SEC
+    # item headings, so do not require every supported item boundary up front.
+    ordered = [mda_start, risk_group_start, financial_start, controls_start]
+    if any(index is None for index in ordered):
+        return False
+    return all(left < right for left, right in zip(ordered, ordered[1:]))
+
+
+def find_nontraditional_10k_item_boundaries(
+    lines: list[str],
+) -> dict[str, tuple[int, int, str, str]] | None:
+    if not looks_like_nontraditional_10k_main_body_family(lines):
+        return None
+
+    structure_start = nontraditional_10k_structure_search_start(lines)
+    business_start, business_label = find_first_heading_in_set(
+        lines,
+        (
+            "Availability of Company Information",
+            "Introduction to Our Business",
+            "Fundamentals of Our Business",
+        ),
+        start_index=structure_start,
+    )
+    mda_start, mda_label = find_first_heading_in_set(
+        lines,
+        ("Management's Discussion and Analysis",),
+        start_index=structure_start,
+    )
+    risk_group_start, risk_group_label = find_first_heading_in_set(
+        lines,
+        ("Risk Factors and Other Key Information",),
+        start_index=structure_start,
+    )
+    risk_start, risk_label = find_first_heading_in_set(
+        lines,
+        ("Risk Factors",),
+        start_index=0 if risk_group_start is None else risk_group_start + 1,
+    )
+    market_risk_start, market_risk_label = find_first_heading_in_set(
+        lines,
+        ("Quantitative and Qualitative Disclosures About Market Risk",),
+        start_index=0 if risk_group_start is None else risk_group_start + 1,
+    )
+    financial_start, financial_label = find_first_heading_in_set(
+        lines,
+        (
+            "Financial Statements and Supplemental Details",
+            "Financial Statements and Supplementary Data",
+        ),
+        start_index=structure_start,
+    )
+    controls_start, controls_label = find_first_heading_in_set(
+        lines,
+        ("Controls and Procedures",),
+        start_index=0 if financial_start is None else financial_start + 1,
+    )
+
+    boundaries: dict[str, tuple[int, int, str, str]] = {}
+    if (
+        business_start is not None
+        and business_label is not None
+        and mda_start is not None
+        and mda_label is not None
+        and business_start < mda_start
+    ):
+        boundaries["item_1"] = (
+            business_start,
+            mda_start,
+            business_label,
+            mda_label,
+        )
+    if (
+        mda_start is not None
+        and mda_label is not None
+        and risk_group_start is not None
+        and risk_group_label is not None
+        and mda_start < risk_group_start
+    ):
+        boundaries["item_7"] = (
+            mda_start,
+            risk_group_start,
+            mda_label,
+            risk_group_label,
+        )
+    if (
+        risk_group_start is not None
+        and risk_start is not None
+        and risk_label is not None
+        and market_risk_start is not None
+        and market_risk_label is not None
+        and risk_group_start <= risk_start < market_risk_start
+    ):
+        boundaries["item_1a"] = (
+            risk_start,
+            market_risk_start,
+            risk_label,
+            market_risk_label,
+        )
+    if (
+        financial_start is not None
+        and financial_label is not None
+        and controls_start is not None
+        and controls_label is not None
+        and financial_start < controls_start
+    ):
+        boundaries["item_8"] = (
+            financial_start,
+            controls_start,
+            financial_label,
+            controls_label,
+        )
+    return boundaries or None
+
+
+def looks_like_nontraditional_10k_landmark_family(lines: list[str]) -> bool:
+    lowered_lines = [normalized_text(line).lower() for line in lines[:220]]
+    return any("traditional sec form 10-k format" in line for line in lowered_lines)
+
+
+def find_nontraditional_10k_mda_landmark_boundary(
+    lines: list[str],
+) -> tuple[int, int, str, str] | None:
+    if not looks_like_nontraditional_10k_landmark_family(lines):
+        return None
+
+    structure_start = nontraditional_10k_structure_search_start(lines)
+    mda_start, mda_label = find_first_heading_in_set(
+        lines,
+        ("Management's Discussion and Analysis",),
+        start_index=structure_start,
+    )
+    product_start, product_label = find_first_heading_in_set(
+        lines,
+        ("Our Products",),
+        start_index=structure_start,
+    )
+    consolidated_start, _ = find_first_heading_in_set(
+        lines,
+        ("Consolidated Results of Operations",),
+        start_index=structure_start,
+    )
+    liquidity_start, _ = find_first_heading_in_set(
+        lines,
+        ("Liquidity and Capital Resources",),
+        start_index=structure_start,
+    )
+    risk_start, risk_label = find_first_heading_in_set(
+        lines,
+        ("Risk Factors",),
+        start_index=structure_start,
+    )
+    if (
+        mda_start is None
+        or mda_label is None
+        or product_start is None
+        or product_label is None
+        or consolidated_start is None
+        or liquidity_start is None
+        or risk_start is None
+        or risk_label is None
+    ):
+        return None
+    if not (mda_start < product_start < consolidated_start < liquidity_start < risk_start):
+        return None
+
+    # This family can interleave Item 7A and critical-accounting discussion in
+    # a nontraditional order. Use the first risk-factor body heading as the
+    # conservative boundary; it prevents the fallback from swallowing Item 1A.
+    return mda_start, risk_start, mda_label, risk_label
+
+
+def maybe_build_nontraditional_10k_main_body_fallback(
+    *,
+    lines: list[str],
+    spec: ItemSpec,
+    start_meta: dict[str, Any],
+) -> tuple[int, str, str, int, int, int, str, dict[str, Any]] | None:
+    if spec.form != "10-K":
+        return None
+    if spec.item_key not in {"item_1", "item_1a", "item_7", "item_8"}:
+        return None
+    if start_meta.get("reason") != "no_heading_candidate":
+        return None
+
+    structural_boundaries = find_nontraditional_10k_item_boundaries(lines)
+    if structural_boundaries is None or spec.item_key not in structural_boundaries:
+        landmark_boundary = (
+            find_nontraditional_10k_mda_landmark_boundary(lines)
+            if spec.item_key == "item_7"
+            else None
+        )
+        if landmark_boundary is None:
+            return None
+        start_index, boundary_index, fallback_heading_label, fallback_boundary_label = landmark_boundary
+        return build_structural_fallback_payload(
+            lines=lines,
+            spec=spec,
+            start_index=start_index,
+            boundary_index=boundary_index,
+            resolution_method="nontraditional_10k_mda_landmark_fallback_v1",
+            fallback_heading_label=fallback_heading_label,
+            fallback_boundary_label=fallback_boundary_label,
+        )
+
+    start_index, boundary_index, fallback_heading_label, fallback_boundary_label = structural_boundaries[spec.item_key]
+    if start_index >= boundary_index:
+        return None
+    return build_structural_fallback_payload(
+        lines=lines,
+        spec=spec,
+        start_index=start_index,
+        boundary_index=boundary_index,
+        resolution_method="nontraditional_10k_main_body_fallback_v1",
+        fallback_heading_label=fallback_heading_label,
+        fallback_boundary_label=fallback_boundary_label,
+    )
+
+
+MDA_BODY_VALIDATION_SIGNALS = (
+    "results of operations",
+    "net income",
+    "net earnings",
+    "total revenues",
+    "net premiums",
+    "net interest income",
+    "underwriting earnings",
+    "liquidity",
+    "capital resources",
+    "cash flows",
+    "same property",
+)
+
+MDA_LOCAL_INDEX_MARKERS = (
+    "forward-looking statements",
+    "overview",
+    "critical accounting",
+    "consolidated operating results",
+    "segment operating results",
+    "liquidity",
+    "capital resources",
+    "net investment income",
+    "interest expense",
+    "ratings",
+)
+
+
+def front_index_candidate_search_start(start_meta: dict[str, Any]) -> int | None:
+    candidate_lines: list[int] = []
+    for candidate in start_meta.get("top_candidates", []) or []:
+        raw_line_index = candidate.get("line_index")
+        if raw_line_index is None:
+            continue
+        candidate_lines.append(int(raw_line_index))
+    if not candidate_lines:
+        return None
+    return max(0, min(candidate_lines))
+
+
+def looks_like_mda_local_index_banner(text: str) -> bool:
+    lowered = normalized_text(text).lower()
+    return "md&a index" in lowered or "mda index" in lowered
+
+
+def find_mda_local_index_body_start(
+    lines: list[str],
+    *,
+    start_index: int,
+) -> tuple[int, int, int, int, int] | None:
+    # Some annual reports expose Item 7 only through a front index, then place a
+    # compact MD&A-specific page map immediately before the body stream. This
+    # resolver only trusts that narrow shape; it does not infer body starts from
+    # page numbers alone.
+    search_end = min(len(lines), start_index + 180)
+    for index in range(max(0, start_index), search_end):
+        if not looks_like_mda_local_index_banner(lines[index]):
+            continue
+
+        entry_count = 0
+        marker_hit_count = 0
+        last_index_line = index
+        cursor = index + 1
+        while cursor < len(lines):
+            normalized = normalized_text(lines[cursor])
+            if not normalized:
+                cursor += 1
+                continue
+            lowered = normalized.lower()
+            if looks_like_page_column_header(normalized):
+                last_index_line = cursor
+                cursor += 1
+                continue
+            if (
+                len(normalized) <= 180
+                and ends_with_page_locator(normalized)
+                and parse_item_code_anchor_at_index(lines, cursor) is None
+            ):
+                entry_count += 1
+                if any(marker in lowered for marker in MDA_LOCAL_INDEX_MARKERS):
+                    marker_hit_count += 1
+                last_index_line = cursor
+                cursor += 1
+                continue
+            break
+
+        if entry_count < 4 or marker_hit_count < 2:
+            continue
+
+        body_start = last_index_line + 1
+        while body_start < len(lines) and not normalized_text(lines[body_start]):
+            body_start += 1
+        if body_start >= len(lines):
+            return None
+        return index, last_index_line, body_start, entry_count, marker_hit_count
+    return None
+
+
+def find_item7_statement_page_map_boundary(lines: list[str], *, body_start: int) -> int | None:
+    item8_spec = item_spec_by_key("10-K", "item_8")
+    if item8_spec is None:
+        return None
+    proxy_shape = find_headingless_item8_statement_page_map_proxy(lines=lines, spec=item8_spec)
+    if proxy_shape is None:
+        return None
+    page_map_start, _ = proxy_shape
+    if page_map_start <= body_start:
+        return None
+    return page_map_start
+
+
+def mda_local_index_body_is_usable(body_text: str, spec: ItemSpec) -> bool:
+    if len(body_text) < max(spec.min_chars, 3000):
+        return False
+    if len(meaningful_body_lines(body_text)) < 20:
+        return False
+    if looks_like_internal_outline_open(body_text, spec, max_lines=20):
+        return False
+    if body_contains_toc_banner_leak(body_text):
+        return False
+
+    probe_text = "\n".join(body_open_lines(body_text, max_lines=120))
+    signal_count = sum(
+        1
+        for signal in MDA_BODY_VALIDATION_SIGNALS
+        if collapsed_text(signal) in collapsed_text(probe_text)
+    )
+    return signal_count >= 2
+
+
+def build_front_index_mda_local_index_payload(
+    *,
+    lines: list[str],
+    spec: ItemSpec,
+    local_index_start: int,
+    local_index_end: int,
+    body_start: int,
+    boundary_index: int,
+    entry_count: int,
+    marker_hit_count: int,
+) -> tuple[int, str, str, int, int, int, str, dict[str, Any]] | None:
+    body_text, body_line_start, body_line_end, body_nonempty_line_count = materialize_body_from_line_range(
+        lines,
+        body_start,
+        boundary_index,
+        spec,
+        trim_leading_toc=True,
+    )
+    if not mda_local_index_body_is_usable(body_text, spec):
+        return None
+
+    section_text = f"{standardized_heading(spec)}\n{body_text}"
+    resolution_debug = {
+        "fallback_line_start": body_start + 1,
+        "fallback_line_end": body_line_end,
+        "fallback_boundary_heading_line": boundary_index + 1,
+        "fallback_body_char_count": len(body_text),
+        "fallback_heading_label": normalized_text(lines[local_index_start]),
+        "fallback_boundary_label": "statement_page_map",
+        "local_index_start_line": local_index_start + 1,
+        "local_index_end_line": local_index_end + 1,
+        "local_index_entry_count": entry_count,
+        "local_index_marker_hit_count": marker_hit_count,
+    }
+    return (
+        body_start,
+        section_text,
+        body_text,
+        body_line_start,
+        body_line_end,
+        body_nonempty_line_count,
+        "front_index_mda_local_index_fallback_v1",
+        resolution_debug,
+    )
+
+
+def maybe_build_front_index_mda_local_index_fallback(
+    *,
+    lines: list[str],
+    spec: ItemSpec,
+    start_meta: dict[str, Any],
+) -> tuple[int, str, str, int, int, int, str, dict[str, Any]] | None:
+    if spec.form != "10-K" or spec.item_key != "item_7":
+        return None
+    if start_meta.get("reason") != "only_index_candidates":
+        return None
+
+    search_start = front_index_candidate_search_start(start_meta)
+    if search_start is None:
+        return None
+    local_index = find_mda_local_index_body_start(lines, start_index=search_start)
+    if local_index is None:
+        return None
+    local_index_start, local_index_end, body_start, entry_count, marker_hit_count = local_index
+
+    boundary_index = find_item7_statement_page_map_boundary(lines, body_start=body_start)
+    if boundary_index is None or boundary_index <= body_start + 10:
+        return None
+
+    return build_front_index_mda_local_index_payload(
+        lines=lines,
+        spec=spec,
+        local_index_start=local_index_start,
+        local_index_end=local_index_end,
+        body_start=body_start,
+        boundary_index=boundary_index,
+        entry_count=entry_count,
+        marker_hit_count=marker_hit_count,
     )
 
 
