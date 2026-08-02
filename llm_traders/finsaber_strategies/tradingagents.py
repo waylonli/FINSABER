@@ -260,7 +260,11 @@ def _to_date(value: Any) -> dt.date:
     if isinstance(value, dt.date):
         return value
     if isinstance(value, str):
-        return dt.datetime.strptime(value, "%Y-%m-%d").date()
+        # Tool-call string arguments can carry harmless boundary whitespace.
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("Unsupported empty date string.")
+        return dt.datetime.strptime(cleaned, "%Y-%m-%d").date()
     raise TypeError(f"Unsupported date value: {value!r}")
 
 
@@ -784,7 +788,21 @@ class TAOfflineSessionAdapter:
         handler = getattr(self, f"_tool_{method_name}", None)
         if handler is None:
             raise ValueError(f"Unsupported local TradingAgents tool: {method_name!r}")
-        output = handler(*args, **kwargs)
+        try:
+            output = handler(*args, **kwargs)
+        except Exception as exc:
+            payload = {
+                "method": method_name,
+                "args": [repr(arg) for arg in args],
+                "kwargs": {str(key): repr(value) for key, value in kwargs.items()},
+                "error": repr(exc),
+            }
+            print(
+                "TradingAgents local tool dispatch failed: "
+                f"{json.dumps(payload, ensure_ascii=False, sort_keys=True)}",
+                file=sys.stderr,
+            )
+            raise
         self._record_analyst_input_trace(
             method_name=method_name,
             args=args,
@@ -956,7 +974,7 @@ class TAOfflineSessionAdapter:
         return self.current_day
 
     def _normalize_decision_day(self, value: Any = None) -> dt.date:
-        if value in (None, ""):
+        if value is None or (isinstance(value, str) and not value.strip()):
             return self._require_bound_day()
         requested = _to_date(value)
         return min(requested, self._require_bound_day())
