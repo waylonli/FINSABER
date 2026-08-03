@@ -50,6 +50,9 @@ def load_manifest(path: Path) -> dict[str, Any]:
     manifest = json.loads(path.read_text(encoding="utf-8"))
     if manifest.get("schema_version") != 1:
         raise ValueError("Unsupported FinMem manifest schema_version.")
+    manifest_seed = manifest.get("seed")
+    if isinstance(manifest_seed, bool) or not isinstance(manifest_seed, int):
+        raise TypeError("FinMem manifest seed must be an integer.")
 
     windows = manifest.get("windows")
     training_windows = manifest.get("training_windows")
@@ -205,6 +208,19 @@ def validate_finmem_settings(
     model: str,
 ) -> FinMemManifestValidation:
     finmem = manifest["finmem"]
+    llm_sampling = manifest.get("llm_sampling")
+    if not isinstance(llm_sampling, dict):
+        raise TypeError("FinMem manifest llm_sampling must be a mapping.")
+    if llm_sampling.get("endpoint") != "chat_completions":
+        raise ValueError("FinMem must use Chat Completions.")
+    if llm_sampling.get("request_seed_status") != "applied":
+        raise ValueError("FinMem request_seed_status must be 'applied'.")
+    temperature = llm_sampling.get("temperature")
+    request_seed = llm_sampling.get("request_seed")
+    if isinstance(temperature, bool) or not isinstance(temperature, int | float):
+        raise TypeError("FinMem temperature must be numeric.")
+    if isinstance(request_seed, bool) or not isinstance(request_seed, int):
+        raise TypeError("FinMem request_seed must be an integer.")
     required = {
         "config_path",
         "use_filing_sections",
@@ -231,6 +247,20 @@ def validate_finmem_settings(
             f"{model!r}, but {config_path} defines [chat].model={toml_model!r}. "
             "Until execution supports materializing an overridden TOML config, "
             "these values must match."
+        )
+    toml_temperature = finmem_toml.get("chat", {}).get("temperature")
+    toml_request_seed = finmem_toml.get("chat", {}).get("seed")
+    if toml_temperature != temperature:
+        raise ValueError(
+            "FinMem temperature mismatch: manifest llm_sampling defines "
+            f"{temperature!r}, but {config_path} defines "
+            f"[chat].temperature={toml_temperature!r}."
+        )
+    if toml_request_seed != request_seed:
+        raise ValueError(
+            "FinMem request seed mismatch: manifest llm_sampling defines "
+            f"{request_seed!r}, but {config_path} defines "
+            f"[chat].seed={toml_request_seed!r}."
         )
 
     payload_kind = str(finmem["filing_payload_kind"]).strip().lower()
@@ -303,7 +333,12 @@ def _validate_artifact_config(artifact_config: Any) -> str:
         if key in artifact_config and not isinstance(artifact_config[key], bool):
             raise TypeError(f"finmem.artifact_config.{key} must be a boolean.")
 
-    enabled = bool(artifact_config.get("enabled", False))
+    from llm_traders.finsaber_strategies.finmem_artifacts import (
+        normalize_finmem_artifact_config,
+    )
+
+    normalized = normalize_finmem_artifact_config(artifact_config)
+    enabled = bool(normalized["enabled"])
     if root not in (None, ""):
         return f"explicit:{resolve_path(root)}"
     if enabled:
@@ -436,8 +471,9 @@ def _artifact_ticker_dir(
         manifest,
         output_root=output_root,
         setup=setup,
+        window=window,
     )
-    if not bool(artifact_config.get("enabled", False)):
+    if not bool(artifact_config["enabled"]):
         return None
 
     import toml
@@ -617,7 +653,8 @@ def _summary_config(
         "data_root": str(data_root),
         "output_root": str(output_root),
         "model": model,
-        "seed": manifest.get("seed"),
+        "seed": manifest["seed"],
+        "llm_sampling": manifest["llm_sampling"],
         "windows": manifest["windows"],
         "training_windows": manifest["training_windows"],
         "evaluation": manifest["evaluation"],
@@ -683,7 +720,6 @@ def prepare_env(seed: int) -> None:
 
     os.chdir(REPO_ROOT)
     os.environ.setdefault("MPLBACKEND", "Agg")
-    os.environ.setdefault("PYTHONHASHSEED", str(seed))
     random.seed(seed)
     if not os.environ.get("OA_OPENAI_KEY") and os.environ.get("OPENAI_API_KEY"):
         os.environ["OA_OPENAI_KEY"] = os.environ["OPENAI_API_KEY"]
@@ -694,9 +730,17 @@ def _materialized_artifact_config(
     *,
     output_root: Path,
     setup: str,
+    window: str,
 ) -> dict[str, Any]:
-    artifact_config = dict(manifest["finmem"]["artifact_config"])
-    if bool(artifact_config.get("enabled", False)) and artifact_config.get("root") in (
+    from llm_traders.finsaber_strategies.finmem_artifacts import (
+        default_finmem_run_key,
+        normalize_finmem_artifact_config,
+    )
+
+    artifact_config = normalize_finmem_artifact_config(
+        manifest["finmem"]["artifact_config"]
+    )
+    if bool(artifact_config["enabled"]) and artifact_config.get("root") in (
         None,
         "",
     ):
@@ -704,6 +748,15 @@ def _materialized_artifact_config(
         # outputs without changing FINSABER's standard result tree.
         artifact_config["root"] = str(
             _strategy_output_dir(output_root, setup) / "finmem_artifacts"
+        )
+    if bool(artifact_config["enabled"]) and artifact_config.get("run_key") in (
+        None,
+        "",
+    ):
+        test_start, test_end = manifest["windows"][window]
+        artifact_config["run_key"] = default_finmem_run_key(
+            date_from=test_start,
+            date_to=test_end,
         )
     return artifact_config
 
@@ -790,6 +843,7 @@ def _build_strat_params(
             manifest,
             output_root=output_root,
             setup=setup,
+            window=window,
         ),
     }
 
@@ -804,7 +858,7 @@ def run_single_job(
     window: str,
     ticker: str,
 ) -> None:
-    prepare_env(int(manifest.get("seed", 2026)))
+    prepare_env(manifest["seed"])
 
     from backtest.finsaber import FINSABER
     from llm_traders.finsaber_strategies.finmem import FinMemStrategy
@@ -953,7 +1007,8 @@ def write_runner_manifest(
             "data_root": str(data_root),
             "output_root": str(output_root),
             "model": model,
-            "seed": manifest.get("seed"),
+            "seed": manifest["seed"],
+            "llm_sampling": manifest["llm_sampling"],
             "strategy": STRATEGY_NAME,
             "data_feed": "FinsaberParquetDataset -> FinMemStrategy",
             "evaluation": manifest["evaluation"],
@@ -1139,7 +1194,11 @@ def orchestrate(
                         cwd=REPO_ROOT,
                         stdout=stdout,
                         stderr=stderr,
-                        env={**os.environ, "PYTHONUNBUFFERED": "1"},
+                        env={
+                            **os.environ,
+                            "PYTHONUNBUFFERED": "1",
+                            "PYTHONHASHSEED": str(manifest["seed"]),
+                        },
                         creationflags=creationflags,
                     )
                 except Exception as exc:
@@ -1276,8 +1335,14 @@ def _print_finmem_options(manifest: dict[str, Any]) -> None:
 
 
 def _print_artifact_options(manifest: dict[str, Any]) -> None:
-    artifact_config = manifest["finmem"]["artifact_config"]
-    print(f"artifact_enabled={artifact_config.get('enabled', False)}")
+    from llm_traders.finsaber_strategies.finmem_artifacts import (
+        normalize_finmem_artifact_config,
+    )
+
+    artifact_config = normalize_finmem_artifact_config(
+        manifest["finmem"]["artifact_config"]
+    )
+    print(f"artifact_enabled={artifact_config['enabled']}")
     for key in (
         "save_agent_checkpoint",
         "save_environment_checkpoint",
@@ -1309,7 +1374,15 @@ def print_plan(
     print(f"schema_version={manifest['schema_version']}")
     print(f"data_root={data_root} exists={data_root.is_dir()}")
     print(f"output_root={output_root}")
-    print(f"model={model} seed={manifest.get('seed')}")
+    print(f"model={model} seed={manifest['seed']}")
+    sampling = manifest["llm_sampling"]
+    print(
+        "llm_sampling="
+        f"endpoint:{sampling['endpoint']},"
+        f"temperature:{sampling['temperature']:g},"
+        f"request_seed:{sampling['request_seed']},"
+        f"request_seed_status:{sampling['request_seed_status']}"
+    )
     print(f"max_parallel={max_parallel} job_timeout_hours={job_timeout_hours:g}")
     print(f"finmem_config={validation.config_path}")
     print(f"finmem_toml_model={validation.toml_model}")

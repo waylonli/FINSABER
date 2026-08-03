@@ -19,6 +19,12 @@ def test_finagent_manifest_has_reproducible_magnificent_7_snapshot():
 
     assert config["model"] == "gpt-4o-mini"
     assert config["seed"] == 2026
+    assert config["llm_sampling"] == {
+        "endpoint": "chat_completions",
+        "temperature": 0.0,
+        "request_seed": 42,
+        "request_seed_status": "applied",
+    }
     assert config["evaluation"]["execution_timing"] == "next_open"
     assert config["evaluation"]["training_years"] == 3
     assert set(selections["magnificent_7"]) == windows

@@ -5,6 +5,12 @@
   "output_root_default": "tmp/finagent-finsaber2-2024-2026",
   "model": "gpt-4o-mini",
   "seed": 2026,
+  "llm_sampling": {
+    "endpoint": "chat_completions",
+    "temperature": 0.0,
+    "request_seed": 42,
+    "request_seed_status": "applied"
+  },
   "windows": {
     "2024-01-01_2025-01-01": ["2024-01-01", "2025-01-01"],
     "2025-01-01_2026-01-01": ["2025-01-01", "2026-01-01"]

@@ -5,6 +5,7 @@ from pathlib import Path
 from llm_traders.finsaber_strategies.finmem_artifacts import (
     ArtifactWindow,
     FinMemArtifactWriter,
+    normalize_finmem_artifact_config,
 )
 
 
@@ -18,7 +19,10 @@ class _DummyCheckpointObject:
         Path(path, "checkpoint.txt").write_text("ok", encoding="utf-8")
 
 
-def _artifact_writer(tmp_path: Path) -> FinMemArtifactWriter:
+def _artifact_writer(
+    tmp_path: Path,
+    artifact_config: dict | None = None,
+) -> FinMemArtifactWriter:
     train_window = ArtifactWindow(
         requested_start=date(2024, 1, 2),
         requested_end=date(2024, 1, 5),
@@ -31,8 +35,8 @@ def _artifact_writer(tmp_path: Path) -> FinMemArtifactWriter:
         effective_start=date(2024, 1, 8),
         effective_end=date(2024, 1, 10),
     )
-    return FinMemArtifactWriter(
-        artifact_config={
+    if artifact_config is None:
+        artifact_config = {
             "enabled": True,
             "root": str(tmp_path),
             "save_agent_checkpoint": False,
@@ -40,10 +44,16 @@ def _artifact_writer(tmp_path: Path) -> FinMemArtifactWriter:
             "save_reflections": False,
             "save_query_trace": True,
             "save_llm_trace": True,
-        },
+        }
+    return FinMemArtifactWriter(
+        artifact_config=artifact_config,
         symbol="AAA",
         config_path="strats_configs/finmem_gpt_config.toml",
-        resolved_strategy_params={"symbol": "AAA"},
+        resolved_strategy_params={
+            "symbol": "AAA",
+            "date_from": "2024-01-08",
+            "date_to": "2024-01-10",
+        },
         finmem_config={"general": {"trading_symbol": "AAA"}},
         requested_train_window=train_window,
         requested_test_window=test_window,
@@ -59,6 +69,42 @@ def _read_jsonl(path: Path) -> list[dict]:
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
+
+
+def test_artifact_defaults_are_enabled_but_allow_explicit_opt_out():
+    defaults = normalize_finmem_artifact_config(None)
+    assert defaults == {
+        "enabled": True,
+        "save_agent_checkpoint": True,
+        "save_environment_checkpoint": True,
+        "save_reflections": True,
+        "save_query_trace": True,
+        "save_llm_trace": True,
+    }
+
+    disabled = normalize_finmem_artifact_config(
+        {"enabled": False, "save_llm_trace": False}
+    )
+    assert disabled["enabled"] is False
+    assert disabled["save_llm_trace"] is False
+    assert disabled["save_query_trace"] is True
+
+
+def test_direct_runs_receive_separate_trace_namespaces(tmp_path):
+    config = {
+        "root": str(tmp_path),
+        "save_agent_checkpoint": False,
+        "save_environment_checkpoint": False,
+        "save_reflections": False,
+    }
+    first = _artifact_writer(tmp_path, config)
+    second = _artifact_writer(tmp_path, config)
+
+    assert first.enabled is True
+    assert first.run_key.startswith("run_direct_")
+    assert second.run_key.startswith("run_direct_")
+    assert first.run_key != second.run_key
+    assert first._ticker_dir() != second._ticker_dir()
 
 
 def test_streamed_traces_survive_phase_snapshots(tmp_path):

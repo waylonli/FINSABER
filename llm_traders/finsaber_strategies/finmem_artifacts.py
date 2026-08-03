@@ -2,10 +2,38 @@ from __future__ import annotations
 
 import hashlib
 import json
+import uuid
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Mapping
+
+
+FINMEM_ARTIFACT_DEFAULTS: dict[str, bool] = {
+    "enabled": True,
+    "save_agent_checkpoint": True,
+    "save_environment_checkpoint": True,
+    "save_reflections": True,
+    "save_query_trace": True,
+    "save_llm_trace": True,
+}
+
+
+def normalize_finmem_artifact_config(
+    artifact_config: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Apply the FinMem artifact defaults while preserving explicit opt-outs."""
+
+    normalized: dict[str, Any] = dict(FINMEM_ARTIFACT_DEFAULTS)
+    normalized.update(dict(artifact_config or {}))
+    return normalized
+
+
+def unique_direct_finmem_run_key() -> str:
+    """Return a collision-resistant namespace for an un-orchestrated run."""
+
+    generated_at = datetime.utcnow().strftime("%Y%m%dT%H%M%S%fZ")
+    return f"run_direct_{generated_at}_{uuid.uuid4().hex[:10]}"
 
 
 @dataclass(frozen=True)
@@ -269,7 +297,13 @@ class FinMemArtifactWriter:
         runtime_market_data: Any,
         filing_options: Mapping[str, Any],
     ) -> None:
-        config = dict(artifact_config or {})
+        config = normalize_finmem_artifact_config(artifact_config)
+        # Formal runners materialize a deterministic run_key so interrupted
+        # jobs can be cleaned and restarted safely. Without that context, use
+        # a unique namespace so append-only traces from independent direct
+        # runs can never be mixed.
+        if config["enabled"] and config.get("run_key") in (None, ""):
+            config["run_key"] = unique_direct_finmem_run_key()
         manifest_strategy_params = {
             key: value
             for key, value in dict(resolved_strategy_params).items()
@@ -278,7 +312,7 @@ class FinMemArtifactWriter:
         config_key_strategy_params = _normalize_strategy_params_for_config_key(
             manifest_strategy_params
         )
-        self.enabled = bool(config.get("enabled", False))
+        self.enabled = bool(config["enabled"])
         self.root = Path(config.get("root", "backtest/output/finmem_artifacts")).expanduser().resolve()
         self.run_key = resolve_finmem_run_key(
             config,
@@ -290,13 +324,13 @@ class FinMemArtifactWriter:
             else str(config.get("profile_name")).strip()
         )
         self.benchmark_results_dir = config.get("benchmark_results_dir")
-        self.save_agent_checkpoint = bool(config.get("save_agent_checkpoint", True))
+        self.save_agent_checkpoint = bool(config["save_agent_checkpoint"])
         self.save_environment_checkpoint = bool(
-            config.get("save_environment_checkpoint", True)
+            config["save_environment_checkpoint"]
         )
-        self.save_reflections = bool(config.get("save_reflections", True))
-        self.save_query_trace = bool(config.get("save_query_trace", True))
-        self.save_llm_trace = bool(config.get("save_llm_trace", True))
+        self.save_reflections = bool(config["save_reflections"])
+        self.save_query_trace = bool(config["save_query_trace"])
+        self.save_llm_trace = bool(config["save_llm_trace"])
         self._manifest_written = False
 
         self.symbol = symbol
