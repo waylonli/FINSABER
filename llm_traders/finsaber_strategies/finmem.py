@@ -13,6 +13,7 @@ from llm_traders.finmem.puppy import MarketEnvironment, LLMAgent, RunMode
 from llm_traders.finsaber_strategies.finmem_artifacts import (
     ArtifactWindow,
     FinMemArtifactWriter,
+    normalize_finmem_artifact_config,
 )
 from dotenv import load_dotenv
 from backtest.toolkit.llm_cost_monitor import get_llm_cost
@@ -112,7 +113,9 @@ class FinMemStrategy(BaseStrategyIso):
             end_date=test_end_date,
         )
         self.agent = LLMAgent.from_config(self.config)
-        normalized_artifact_config = dict(artifact_config or {})
+        normalized_artifact_config = normalize_finmem_artifact_config(
+            artifact_config
+        )
         resolved_strategy_params = {
             "symbol": symbol,
             "config_path": config_path,
@@ -156,12 +159,12 @@ class FinMemStrategy(BaseStrategyIso):
             },
         )
         self.agent.configure_tracing(
-            enabled=bool(normalized_artifact_config.get("enabled", False)),
+            enabled=bool(normalized_artifact_config["enabled"]),
             capture_query_trace=bool(
-                normalized_artifact_config.get("save_query_trace", True)
+                normalized_artifact_config["save_query_trace"]
             ),
             capture_llm_trace=bool(
-                normalized_artifact_config.get("save_llm_trace", True)
+                normalized_artifact_config["save_llm_trace"]
             ),
             query_trace_sink=self.artifact_writer.append_query_trace,
             llm_trace_sink=self.artifact_writer.append_llm_trace,

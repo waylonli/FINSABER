@@ -5,6 +5,12 @@ dataset over the 2024 and 2025 calendar-year windows. The versioned manifest
 fixes ticker selections, model, data modalities, execution assumptions, random
 seed, and TradingAgents artifact policy.
 
+The official profile uses OpenAI's Responses API with `temperature=0.0`.
+The benchmark request seed is `42`, but it is explicitly recorded as not
+applied because the Responses API used by this environment does not support a
+request `seed`. The experiment seed is `2026`; it controls Python, NumPy, and
+the worker interpreter's `PYTHONHASHSEED`.
+
 The formal FINSABER-2 entry point is:
 
 ```text
@@ -296,8 +302,9 @@ Each output root contains top-level orchestration artifacts:
 ```
 
 `runner_manifest.json` records the source manifest hash, Git commit, resolved
-data/output roots, full ticker selections, selected job list, per-job status,
-completion counts, `max_parallel`, and `job_timeout_hours`.
+data/output roots, LLM sampling contract, full ticker selections, selected job
+list, per-job status, completion counts, `max_parallel`, and
+`job_timeout_hours`.
 
 The runner writes standard FINSABER result artifacts under:
 
@@ -448,7 +455,9 @@ find backtest/output/tradingagents_finsaber2_2024_2026 \
 ## Known Limits
 
 Hosted LLM output is not bitwise reproducible because provider-side model
-revisions and sampling can change. Preserve the complete output directory when
+revisions and sampling can change. The Responses API does not apply the
+manifest's requested seed; its status is preserved in `llm_sampling` rather
+than being reported as effective. Preserve the complete output directory when
 using artifacts for audit.
 
 TradingAgents does not provide trading-day-level checkpoint resume in this

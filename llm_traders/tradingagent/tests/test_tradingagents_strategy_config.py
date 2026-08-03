@@ -53,6 +53,7 @@ def test_build_graph_config_uses_official_baseline_by_default():
     assert config["llm_provider"] == "openai"
     assert config["deep_think_llm"] == "gpt-4o-mini"
     assert config["quick_think_llm"] == "gpt-4o-mini"
+    assert config["temperature"] == 0.0
     assert config["data_policy"]["allow_online_market_fallback"] is False
     assert config["data_policy"]["allow_social"] is False
     assert config["data_policy"]["filing_mode"] == "raw_filing_extraction"

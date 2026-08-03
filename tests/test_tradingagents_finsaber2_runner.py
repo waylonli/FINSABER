@@ -144,6 +144,40 @@ def test_default_tradingagents_manifest_matches_shared_baseline_cohorts() -> Non
         assert manifest["selections"] == reference["selections"]
 
 
+def test_default_tradingagents_sampling_matches_runtime_profile() -> None:
+    from llm_traders.finsaber_strategies.tradingagents import (
+        build_tradingagents_graph_config,
+    )
+
+    manifest = _load_default_manifest()
+    assert manifest["llm_sampling"] == runner.TRADINGAGENTS_LLM_SAMPLING
+    assert (
+        build_tradingagents_graph_config()["temperature"]
+        == manifest["llm_sampling"]["temperature"]
+        == 0.0
+    )
+
+
+def test_tradingagents_manifest_rejects_sampling_drift(tmp_path) -> None:
+    manifest = _load_json(runner.DEFAULT_MANIFEST)
+    manifest["llm_sampling"]["temperature"] = 0.5
+    manifest_path = tmp_path / "sampling_drift.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="llm_sampling"):
+        runner.load_manifest(manifest_path)
+
+
+def test_tradingagents_manifest_requires_integer_seed(tmp_path) -> None:
+    manifest = _load_json(runner.DEFAULT_MANIFEST)
+    manifest["seed"] = "2026"
+    manifest_path = tmp_path / "invalid_seed.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(TypeError, match="seed must be an integer"):
+        runner.load_manifest(manifest_path)
+
+
 def test_tradingagents_custom_manifest_can_use_short_smoke_window(tmp_path) -> None:
     manifest = _load_json(runner.DEFAULT_MANIFEST)
     manifest["experiment_name"] = "tradingagents_smoke"
@@ -379,6 +413,7 @@ def test_tradingagents_orchestrate_writes_runner_manifest_and_summary(
 
     monkeypatch.setattr(runner, "git_commit", lambda: "test-commit")
     monkeypatch.setattr(runner.time, "sleep", lambda _: None)
+    monkeypatch.setenv("PYTHONHASHSEED", "999")
 
     class FakeProcess:
         _next_pid = 4000
@@ -452,6 +487,7 @@ def test_tradingagents_orchestrate_writes_runner_manifest_and_summary(
     assert runner_manifest["counts"]["failed"] == 0
     assert runner_manifest["max_parallel"] == 2
     assert runner_manifest["job_timeout_hours"] == 1
+    assert runner_manifest["llm_sampling"] == manifest["llm_sampling"]
     assert FakeProcess.last_env["PYTHONUNBUFFERED"] == "1"
     assert FakeProcess.last_env["PYTHONHASHSEED"] == str(manifest["seed"])
 
@@ -462,7 +498,8 @@ def test_tradingagents_orchestrate_writes_runner_manifest_and_summary(
     )
     assert experiment_config["resolved_max_parallel"] == 2
     assert experiment_config["resolved_job_timeout_hours"] == 1
-    assert (strategy_dir / "run_config.json").exists()
+    run_config = _load_json(strategy_dir / "run_config.json")
+    assert run_config["llm_sampling"] == manifest["llm_sampling"]
     assert (strategy_dir / "run_manifest.json").exists()
     summary = pd.read_csv(strategy_dir / "run_summary.csv")
     assert sorted(summary["ticker"].tolist()) == ["AMZN", "COIN"]

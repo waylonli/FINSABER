@@ -216,10 +216,13 @@ class ExperimentRunner:
 
         from llm_traders.finsaber_strategies.finmem_artifacts import (
             materialize_finmem_run_identity,
+            normalize_finmem_artifact_config,
         )
 
-        artifact_config = dict(strat_config.get("artifact_config") or {})
-        if not bool(artifact_config.get("enabled", False)):
+        artifact_config = normalize_finmem_artifact_config(
+            strat_config.get("artifact_config")
+        )
+        if not bool(artifact_config["enabled"]):
             return trade_config, strat_config, None
 
         config_path = strat_config.get("config_path")

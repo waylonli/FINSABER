@@ -4,6 +4,11 @@ This workflow evaluates FinAgent with the FINSABER-2 parquet dataset over the
 2024 and 2025 calendar-year windows. The versioned manifest fixes the ticker
 selections, model, data modalities, execution assumptions, and random seed.
 
+FinAgent sends Chat Completions with `temperature=0.0` and request `seed=42`.
+The experiment-level seed is `2026`; it controls Python, NumPy, and
+`PYTHONHASHSEED`, not the LLM request. The request seed is a best-effort
+provider control and does not guarantee identical hosted-model responses.
+
 ## Prerequisites
 
 Activate the Python 3.10 environment and configure `OPENAI_API_KEY` in an
@@ -52,11 +57,15 @@ Each output directory contains `experiment_config.json`,
 `runner_manifest.json`, per-job `job_status.json`, scalar `metrics.json`,
 equity/trade/cost CSVs, isolated FinAgent workdirs, generated chart images,
 and stdout/stderr logs. The manifest records the Git commit, Python version,
-model name, seed, resolved dataset path, and exact selections.
+model name, experiment seed, LLM endpoint/temperature/request-seed status,
+resolved dataset path, and exact selections. The orchestrator injects
+`PYTHONHASHSEED=2026` before each future worker interpreter starts; Python and
+NumPy are then seeded inside the worker.
 
 Hosted LLM output is not bitwise reproducible because provider-side model
-revisions and sampling can change. Preserve the complete output directory;
-the prompt, response, chart, and cost artifacts provide the audit trail.
+revisions and sampling can change even with temperature zero and a request
+seed. Preserve the complete output directory; the prompt, response, chart, and
+cost artifacts provide the audit trail.
 
 ## Consolidating Results
 

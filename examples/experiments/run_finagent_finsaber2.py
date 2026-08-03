@@ -19,6 +19,9 @@ from dotenv import load_dotenv
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 DEFAULT_MANIFEST = (
     REPO_ROOT
     / "examples"
@@ -31,7 +34,7 @@ EXPERIMENT_CONFIG: dict = {}
 DATA_ROOT = Path()
 DEFAULT_OUT_ROOT = REPO_ROOT / "tmp" / "finagent-finsaber2-2024-2026"
 MODEL = "gpt-4o-mini"
-SEED = 2026
+SEED: int
 WINDOWS: dict[str, tuple[str, str]] = {}
 SELECTIONS: dict[str, dict[str, list[str]]] = {}
 EVALUATION: dict = {}
@@ -68,6 +71,20 @@ def configure_experiment(
 
     MANIFEST_PATH = manifest_path.resolve()
     EXPERIMENT_CONFIG = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    expected_sampling = {
+        "endpoint": "chat_completions",
+        "temperature": 0.0,
+        "request_seed": 42,
+        "request_seed_status": "applied",
+    }
+    if EXPERIMENT_CONFIG.get("llm_sampling") != expected_sampling:
+        raise ValueError(
+            "FinAgent llm_sampling must match the provider defaults: "
+            f"{expected_sampling}."
+        )
+    manifest_seed = EXPERIMENT_CONFIG.get("seed")
+    if isinstance(manifest_seed, bool) or not isinstance(manifest_seed, int):
+        raise TypeError("FinAgent manifest seed must be an integer.")
     WINDOWS = {
         name: tuple(dates)
         for name, dates in EXPERIMENT_CONFIG["windows"].items()
@@ -75,7 +92,7 @@ def configure_experiment(
     SELECTIONS = EXPERIMENT_CONFIG["selections"]
     EVALUATION = EXPERIMENT_CONFIG["evaluation"]
     MODEL = model or EXPERIMENT_CONFIG["model"]
-    SEED = int(EXPERIMENT_CONFIG.get("seed", 2026))
+    SEED = manifest_seed
 
     configured_data_root = (
         data_root
@@ -206,7 +223,6 @@ def prepare_env() -> None:
     os.chdir(REPO_ROOT)
     sys.path.insert(0, str(REPO_ROOT))
     load_dotenv(REPO_ROOT / ".env")
-    os.environ.setdefault("PYTHONHASHSEED", str(SEED))
     random.seed(SEED)
     np.random.seed(SEED)
     if not os.environ.get("OA_OPENAI_KEY") and os.environ.get("OPENAI_API_KEY"):
@@ -355,6 +371,7 @@ def write_manifest(
             "output_root": str(out_root),
             "model": MODEL,
             "seed": SEED,
+            "llm_sampling": EXPERIMENT_CONFIG["llm_sampling"],
             "data_feed": "FinsaberParquetDataset -> FinsaberTradingDataDataset",
             "evaluation": EVALUATION,
             "max_parallel": max_parallel,
@@ -424,7 +441,11 @@ def orchestrate(
                     cwd=REPO_ROOT,
                     stdout=stdout,
                     stderr=stderr,
-                    env={**os.environ, "PYTHONUNBUFFERED": "1"},
+                    env={
+                        **os.environ,
+                        "PYTHONUNBUFFERED": "1",
+                        "PYTHONHASHSEED": str(SEED),
+                    },
                     creationflags=creationflags,
                 )
                 running[process] = (job, stdout, stderr, time.monotonic())
@@ -542,6 +563,14 @@ def main() -> int:
         print(f"manifest={MANIFEST_PATH}")
         print(f"data_root={DATA_ROOT}")
         print(f"model={MODEL} seed={SEED}")
+        sampling = EXPERIMENT_CONFIG["llm_sampling"]
+        print(
+            "llm_sampling="
+            f"endpoint:{sampling['endpoint']},"
+            f"temperature:{sampling['temperature']:g},"
+            f"request_seed:{sampling['request_seed']},"
+            f"request_seed_status:{sampling['request_seed_status']}"
+        )
         print(f"jobs={len(planned)} max_parallel={args.max_parallel}")
         for setup in setups:
             print(f"{setup}: {len(jobs_for([setup]))}")

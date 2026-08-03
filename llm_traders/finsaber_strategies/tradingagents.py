@@ -45,7 +45,7 @@ _TRADINGAGENTS_GRAPH_BASELINE = {
     "deep_think_llm": "gpt-4o-mini",
     "quick_think_llm": "gpt-4o-mini",
     "backend_url": None,
-    "temperature": None,
+    "temperature": 0.0,
     "output_language": "English",
     "max_debate_rounds": 1,
     "max_risk_discuss_rounds": 1,

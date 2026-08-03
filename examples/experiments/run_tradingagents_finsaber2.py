@@ -33,6 +33,12 @@ STRATEGY_NAME = "TradingAgentsStrategy"
 ARTIFACT_ROOT_LEAF = "tradingagents_artifacts"
 PROGRESS_BAR_WIDTH = 24
 PROGRESS_INTERVAL_SECONDS = 60.0
+TRADINGAGENTS_LLM_SAMPLING = {
+    "endpoint": "responses",
+    "temperature": 0.0,
+    "request_seed": 42,
+    "request_seed_status": "not_applied_responses_api_unsupported",
+}
 Job = tuple[str, str, str]
 
 
@@ -70,6 +76,15 @@ def load_manifest(path: Path) -> dict[str, Any]:
     manifest = json.loads(path.read_text(encoding="utf-8"))
     if manifest.get("schema_version") != 1:
         raise ValueError("Unsupported TradingAgents manifest schema_version.")
+
+    seed = manifest.get("seed")
+    if isinstance(seed, bool) or not isinstance(seed, int):
+        raise TypeError("TradingAgents manifest seed must be an integer.")
+    if manifest.get("llm_sampling") != TRADINGAGENTS_LLM_SAMPLING:
+        raise ValueError(
+            "TradingAgents llm_sampling must match the baseline profile: "
+            f"{TRADINGAGENTS_LLM_SAMPLING}."
+        )
 
     windows = manifest.get("windows")
     selections = manifest.get("selections")
@@ -663,7 +678,8 @@ def _summary_config(
         "data_root": str(data_root),
         "output_root": str(output_root),
         "model": model,
-        "seed": manifest.get("seed"),
+        "seed": manifest["seed"],
+        "llm_sampling": manifest["llm_sampling"],
         "windows": manifest["windows"],
         "evaluation": manifest["evaluation"],
         "tradingagents": manifest["tradingagents"],
@@ -757,7 +773,8 @@ def write_runner_manifest(
             "data_root": str(data_root),
             "output_root": str(output_root),
             "model": model,
-            "seed": manifest.get("seed"),
+            "seed": manifest["seed"],
+            "llm_sampling": manifest["llm_sampling"],
             "strategy": STRATEGY_NAME,
             "data_feed": "FinsaberParquetDataset -> TradingAgentsStrategy",
             "evaluation": manifest["evaluation"],
@@ -803,7 +820,7 @@ def prepare_env(seed: int) -> None:
 
 def worker_env(seed: int) -> dict[str, str]:
     env = {**os.environ, "PYTHONUNBUFFERED": "1"}
-    env.setdefault("PYTHONHASHSEED", str(seed))
+    env["PYTHONHASHSEED"] = str(seed)
     return env
 
 
@@ -929,7 +946,7 @@ def run_single_job(
     window: str,
     ticker: str,
 ) -> None:
-    prepare_env(int(manifest.get("seed", 2026)))
+    prepare_env(manifest["seed"])
 
     from backtest.finsaber import FINSABER
     from llm_traders.finsaber_strategies.tradingagents import TradingAgentsStrategy
@@ -1258,7 +1275,7 @@ def orchestrate(
                         cwd=REPO_ROOT,
                         stdout=stdout,
                         stderr=stderr,
-                        env=worker_env(int(manifest.get("seed", 2026))),
+                        env=worker_env(manifest["seed"]),
                         creationflags=creationflags,
                     )
                 except Exception as exc:
@@ -1448,6 +1465,14 @@ def orchestrate(
 def _print_tradingagents_options(manifest: dict[str, Any]) -> None:
     settings = manifest["tradingagents"]
     artifact_config = settings["artifact_config"]
+    sampling = manifest["llm_sampling"]
+    print(
+        "llm_sampling="
+        f"endpoint:{sampling['endpoint']},"
+        f"temperature:{sampling['temperature']:g},"
+        f"request_seed:{sampling['request_seed']},"
+        f"request_seed_status:{sampling['request_seed_status']}"
+    )
     print(f"tradingagents_profile_id={settings['profile_id']}")
     print(f"selected_analysts={','.join(settings['selected_analysts'])}")
     print(f"filing_merge_policy={settings['filing_merge_policy']}")
@@ -1482,7 +1507,7 @@ def print_plan(
     print(f"planned_at_utc={utc_now()}")
     print(f"data_root={data_root} exists={data_root.is_dir()}")
     print(f"output_root={output_root}")
-    print(f"model={model} seed={manifest.get('seed')}")
+    print(f"model={model} seed={manifest['seed']}")
     print(f"max_parallel={max_parallel} job_timeout_hours={job_timeout_hours:g}")
     print(f"tradingagents_config_key={','.join(config_keys)}")
     _print_tradingagents_options(manifest)

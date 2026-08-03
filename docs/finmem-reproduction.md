@@ -5,6 +5,12 @@ This workflow evaluates FinMem with the FINSABER-2 parquet dataset over the
 selections, explicit FinMem training windows, model, data modalities, execution
 assumptions, and the FinMem TOML configuration.
 
+The official configuration sends Chat Completions with an explicit
+`temperature=0.0` and request `seed=42`. The experiment-level seed remains
+`2026`; it controls Python, NumPy, and `PYTHONHASHSEED` rather than the hosted
+LLM request. The request seed is a best-effort provider control and does not
+make hosted model output bitwise reproducible.
+
 ## Prerequisites
 
 Use the `finsaber2-finmem` conda environment, configure `OPENAI_API_KEY` in an
@@ -96,7 +102,7 @@ It uses the same frozen ticker selections as the FinAgent FINSABER-2 manifest:
 - `lowvol_sp500_5`
 - `magnificent_7`
 
-The manifest expands to 54 jobs. A job is identified by:
+The complete manifest expands to 54 jobs. A job is identified by:
 
 ```text
 setup / window / ticker
@@ -104,6 +110,10 @@ setup / window / ticker
 
 For example, `selected_4` has five tickers across two windows, so it expands to
 10 jobs.
+
+The FINSABER-2 core suite excludes the historical `selected_4` appendix and
+contains 44 jobs across `magnificent_7`, `random_sp500_5`,
+`momentum_sp500_5`, and `lowvol_sp500_5`.
 
 FinMem uses explicit three-year training windows:
 
@@ -143,7 +153,7 @@ Recommended: use one runner to coordinate multiple setups and windows:
 
 ```bash
 conda run -n finsaber2-finmem python examples/experiments/run_finmem_finsaber2.py \
-  --setups selected_4 random_sp500_5 momentum_sp500_5 lowvol_sp500_5 magnificent_7 \
+  --setups magnificent_7 random_sp500_5 momentum_sp500_5 lowvol_sp500_5 \
   --windows 2024-01-01_2025-01-01 2025-01-01_2026-01-01 \
   --data-root /path/to/sp500_2000_2025_parquet \
   --output-root backtest/output/finmem_finsaber2_2024_2026 \
@@ -236,10 +246,11 @@ happen to share the same output root.
 
 ## FinMem Artifacts
 
-The manifest currently keeps `artifact_config.enabled=false` by default.
-However, official audit runs should consider enabling FinMem artifacts so the
-experiment preserves query traces, LLM traces, reflections, and post-train/test
-state checkpoints.
+FinMem artifacts are enabled by default. The official manifest explicitly
+enables query traces, LLM traces, reflections, and post-train/test state
+checkpoints. Every individual save flag also defaults to enabled. A caller can
+still opt out explicitly with `artifact_config.enabled=false`, or disable an
+individual artifact class with its corresponding save flag.
 
 Artifact capture can add meaningful storage overhead because checkpoints and
 state pickles are written per ticker job. Plan disk space before enabling it for
@@ -271,11 +282,25 @@ If `artifact_config.root` is set explicitly, do not share the same root across
 concurrent experiments unless the resulting `config_key/run_key/ticker` paths
 are known not to collide.
 
+The dedicated runner and the general experiment runner materialize a stable
+window-scoped `run_key`. This lets an incomplete ticker be removed and rerun
+without touching completed ticker artifacts. A direct `FinMemStrategy` or
+`FinMemArtifactWriter` call without an explicit `run_key` instead receives a
+unique `run_direct_*` namespace, preventing append-only JSONL traces from two
+independent runs from being mixed. Pass an explicit `run_key` only when the
+caller intentionally owns the namespace and its cleanup policy.
+
 ## Known Limits
 
 Hosted LLM output is not bitwise reproducible because provider-side model
-revisions and sampling can change. Preserve the complete output directory when
-using artifacts for audit.
+revisions and sampling can change even with temperature zero and a request
+seed. Preserve the complete output directory when using artifacts for audit.
+
+The orchestrator injects `PYTHONHASHSEED=2026` into each worker subprocess
+before the Python interpreter starts, then seeds Python and NumPy inside the
+worker. Setting `PYTHONHASHSEED` from inside an already running interpreter is
+too late to control that interpreter's hash randomization, which is why this is
+done in the parent process.
 
 The runner does not provide trading-day-level checkpoint resume. An incomplete
 ticker job is rerun from scratch and may incur additional LLM cost.
@@ -289,11 +314,11 @@ FinMem can use substantial CPU and memory even for one ticker. Increase
 ## Current Status
 
 The dedicated FinMem launcher supports `--plan`, resumable multi-job
-orchestration, per-job worker status files, stdout/stderr logs, optional FinMem
-artifact capture, and standard FINSABER result summaries. It intentionally keeps
-FinMem strategy logic and FINSABER core execution unchanged.
+orchestration, per-job worker status files, stdout/stderr logs, default-on
+FinMem artifact capture, and standard FINSABER result summaries. It
+intentionally keeps FinMem trading logic and FINSABER core execution unchanged.
 
-The latest plan validation confirmed the manifest, model/TOML match, filing
-section map, dataset root, and all 54 planned jobs. The launcher has also been
-validated with no-artifact resume and artifact-enabled interrupted resume smoke
-runs.
+The latest plan validation confirmed the manifest, model/TOML sampling match,
+filing section map, dataset root, all 54 manifest jobs, and the 44-job core
+subset. The launcher has also been validated with no-artifact resume and
+artifact-enabled interrupted resume smoke runs.
