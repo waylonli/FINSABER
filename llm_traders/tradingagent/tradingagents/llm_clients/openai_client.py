@@ -243,6 +243,8 @@ _PASSTHROUGH_KWARGS = (
     "api_key", "callbacks", "http_client", "http_async_client",
 )
 
+_DEFAULT_REQUEST_TIMEOUT_SECONDS = 600.0
+
 # Provider base URLs. API-key env vars live in api_key_env.PROVIDER_API_KEY_ENV
 # (one canonical mapping consulted by both this client and the CLI's
 # interactive key-prompt). Dual-region providers (qwen/glm/minimax) keep
@@ -327,6 +329,9 @@ class OpenAIClient(BaseLLMClient):
         for key in _PASSTHROUGH_KWARGS:
             if key in self.kwargs:
                 llm_kwargs[key] = self.kwargs[key]
+
+        if llm_kwargs.get("timeout") is None:
+            llm_kwargs["timeout"] = _DEFAULT_REQUEST_TIMEOUT_SECONDS
 
         # Native OpenAI: use Responses API for consistent behavior across
         # all model families. Third-party providers use Chat Completions.
