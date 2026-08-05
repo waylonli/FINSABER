@@ -38,6 +38,7 @@ class OpenAILongerThanContextEmb:
             api_key=openai_api_key or os.environ.get("OPENAI_API_KEY"),
             chunk_size=chunk_size,
             show_progress_bar=verbose,
+            request_timeout=600.0,
         )
 
     def _emb(self, text: Union[List[str], str]) -> List[List[float]]:

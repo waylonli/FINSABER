@@ -5,6 +5,7 @@ import toml
 
 from examples.experiments import run_finmem_finsaber2 as finmem_runner
 from llm_traders.finmem.puppy.chat import ChatOpenAICompatible
+from llm_traders.finmem.puppy.embedding import OpenAILongerThanContextEmb
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -53,6 +54,13 @@ def test_finmem_sampling_config_reaches_chat_payload(monkeypatch):
     assert client.guardrail_endpoint()("test") == "{}"
     assert payload["temperature"] == 0.0
     assert payload["seed"] == 42
+
+
+def test_finmem_embedding_uses_finite_request_timeout():
+    embedding = OpenAILongerThanContextEmb(openai_api_key="placeholder")
+
+    assert embedding.emb_model.request_timeout == 600.0
+    assert embedding.emb_model.client._client.timeout == 600.0
 
 
 def test_finmem_runner_materializes_stable_artifact_run_key(tmp_path):
