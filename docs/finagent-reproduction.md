@@ -11,6 +11,10 @@ provider control and does not guarantee identical hosted-model responses.
 
 ## Prerequisites
 
+[Prepare the dataset](data.md#prepare-a-local-dataset) first. Run the commands
+below from the repository root. They use `data/sp500_2000_2025_parquet` by default;
+pass `--data-root` with your own dataset location if it differs.
+
 Activate the Python 3.10 environment and configure `OPENAI_API_KEY` in an
 ignored `.env` file. Download the FINSABER-2 dataset and pass its local root
 explicitly. The expected folders are `price_daily/`, `news_items/`, `filingk/`,
@@ -20,7 +24,7 @@ Preview the complete plan without sending data to OpenAI:
 
 ```bash
 python examples/experiments/run_finagent_finsaber2.py --plan \
-  --data-root /path/to/sp500_2000_2025_parquet
+  --data-root data/sp500_2000_2025_parquet
 ```
 
 Run only the Magnificent 7 extension:
@@ -28,7 +32,7 @@ Run only the Magnificent 7 extension:
 ```bash
 python examples/experiments/run_finagent_finsaber2.py \
   --setups magnificent_7 \
-  --data-root /path/to/sp500_2000_2025_parquet \
+  --data-root data/sp500_2000_2025_parquet \
   --output-root tmp/finagent-magnificent7-2024-2026-r1 \
   --max-parallel 4
 ```
@@ -42,7 +46,7 @@ Run the matching non-LLM benchmark suite:
 ```bash
 python examples/experiments/run_finsaber2_benchmarks.py \
   --setup magnificent_7 \
-  --data-root /path/to/sp500_2000_2025_parquet \
+  --data-root data/sp500_2000_2025_parquet \
   --output-root tmp/magnificent7-benchmarks-2024-2026-r1
 ```
 

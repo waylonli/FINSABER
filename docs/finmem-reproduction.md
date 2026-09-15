@@ -51,7 +51,7 @@ Preview the complete plan without running FinMem or calling OpenAI:
 ```bash
 conda run -n finsaber2-finmem python examples/experiments/run_finmem_finsaber2.py \
   --plan \
-  --data-root /path/to/sp500_2000_2025_parquet
+  --data-root data/sp500_2000_2025_parquet
 ```
 
 Preview one ticker-year job:
@@ -62,7 +62,7 @@ conda run -n finsaber2-finmem python examples/experiments/run_finmem_finsaber2.p
   --setups selected_4 \
   --windows 2025-01-01_2026-01-01 \
   --tickers COIN \
-  --data-root /path/to/sp500_2000_2025_parquet
+  --data-root data/sp500_2000_2025_parquet
 ```
 
 Run one ticker-year job through the resumable orchestrator:
@@ -72,7 +72,7 @@ conda run -n finsaber2-finmem python examples/experiments/run_finmem_finsaber2.p
   --setups selected_4 \
   --windows 2025-01-01_2026-01-01 \
   --tickers COIN \
-  --data-root /path/to/sp500_2000_2025_parquet \
+  --data-root data/sp500_2000_2025_parquet \
   --output-root tmp/finmem-selected4-coin-2025-r1
 ```
 
@@ -81,7 +81,7 @@ Run one setup sequentially:
 ```bash
 conda run -n finsaber2-finmem python examples/experiments/run_finmem_finsaber2.py \
   --setups selected_4 \
-  --data-root /path/to/sp500_2000_2025_parquet \
+  --data-root data/sp500_2000_2025_parquet \
   --output-root tmp/finmem-selected4-2024-2026-r1 \
   --max-parallel 1
 ```
@@ -155,7 +155,7 @@ Recommended: use one runner to coordinate multiple setups and windows:
 conda run -n finsaber2-finmem python examples/experiments/run_finmem_finsaber2.py \
   --setups magnificent_7 random_sp500_5 momentum_sp500_5 lowvol_sp500_5 \
   --windows 2024-01-01_2025-01-01 2025-01-01_2026-01-01 \
-  --data-root /path/to/sp500_2000_2025_parquet \
+  --data-root data/sp500_2000_2025_parquet \
   --output-root backtest/output/finmem_finsaber2_2024_2026 \
   --max-parallel 2
 ```
@@ -172,7 +172,7 @@ root:
 # tmux A
 conda run -n finsaber2-finmem python examples/experiments/run_finmem_finsaber2.py \
   --setups selected_4 \
-  --data-root /path/to/sp500_2000_2025_parquet \
+  --data-root data/sp500_2000_2025_parquet \
   --output-root backtest/output/finmem_selected4 \
   --max-parallel 1
 ```
@@ -181,7 +181,7 @@ conda run -n finsaber2-finmem python examples/experiments/run_finmem_finsaber2.p
 # tmux B
 conda run -n finsaber2-finmem python examples/experiments/run_finmem_finsaber2.py \
   --setups random_sp500_5 \
-  --data-root /path/to/sp500_2000_2025_parquet \
+  --data-root data/sp500_2000_2025_parquet \
   --output-root backtest/output/finmem_random5 \
   --max-parallel 1
 ```

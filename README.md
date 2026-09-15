@@ -74,13 +74,18 @@ Read the FINSABER-2 documentation at [https://waylonli.github.io/FINSABER/](http
 
 ## Quick Start
 
+Download [FINSABER-V2-Data](https://huggingface.co/datasets/finsaber-team/FINSABER-V2-Data)
+into `data/sp500_2000_2025_parquet`, relative to your working directory, or replace
+the example path with your own dataset root. The root must directly contain
+`price_daily/` and any optional modality directories; the loader does not download data.
+
 Run a Buy-and-Hold backtest on the parquet dataset:
 
 ```python
 from finsaber import FINSABERBt, FinsaberParquetDataset
 from finsaber.strategy.timing import BuyAndHoldStrategy
 
-data = FinsaberParquetDataset("/path/to/sp500_2000_2025_parquet")
+data = FinsaberParquetDataset("data/sp500_2000_2025_parquet")
 
 config = {
     "data_loader": data,

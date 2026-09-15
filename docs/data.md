@@ -1,5 +1,28 @@
 # Data
 
+## Prepare a Local Dataset
+
+Download [FINSABER-V2-Data](https://huggingface.co/datasets/finsaber-team/FINSABER-V2-Data)
+into a directory of your choice, following the dataset card's usage terms.
+These examples use `data/sp500_2000_2025_parquet` under your working directory.
+The root must directly contain `price_daily/` and any optional `news_items/`,
+`filingk/`, and `filingq/` directories. Pass this root to the loader, not a ZIP,
+an individual parquet file, or the `price_daily` subdirectory.
+
+Relative paths resolve from the directory where you run Python or your notebook,
+not from the package installation directory. Forward-slash paths work with Python
+on Windows, macOS, and Linux. Replace the example path if your data is stored
+elsewhere. Loading a path does not download the dataset.
+
+```python
+from pathlib import Path
+
+data_root = Path("data/sp500_2000_2025_parquet")
+print(data_root.resolve())
+assert (data_root / "price_daily").is_dir(), "Check the dataset root and working directory"
+```
+
+
 Data is the most important part of a backtest. A good strategy can look bad on broken data, and a bad strategy can look good if future information leaks into the past.
 
 ## Mental Model

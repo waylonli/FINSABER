@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "experiment_name": "finagent_finsaber2_2024_2026",
-  "data_root_default": "I:\\Data\\finsaber2\\sp500_2000_2025_parquet",
+  "data_root_default": "data/sp500_2000_2025_parquet",
   "output_root_default": "tmp/finagent-finsaber2-2024-2026",
   "model": "gpt-4o-mini",
   "seed": 2026,

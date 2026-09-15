@@ -84,13 +84,17 @@ The dataset implements `TradingData`, the config defines the market universe and
 
 ## Start Quickly
 
+First [prepare the dataset](data.md#prepare-a-local-dataset). The example path
+`data/sp500_2000_2025_parquet` is relative to your working directory; replace it
+with your own dataset root if needed.
+
 === "Package usage"
 
     ```python
     from finsaber import FINSABERBt, FinsaberParquetDataset
     from finsaber.strategy.timing import BuyAndHoldStrategy
 
-    data = FinsaberParquetDataset(r"I:\Data\finsaber2\sp500_2000_2025_parquet")
+    data = FinsaberParquetDataset("data/sp500_2000_2025_parquet")
 
     config = {
         "data_loader": data,

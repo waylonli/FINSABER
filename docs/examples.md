@@ -1,5 +1,9 @@
 # Examples
 
+First [prepare the dataset](data.md#prepare-a-local-dataset). The example path
+`data/sp500_2000_2025_parquet` is relative to your working directory; replace it
+with your own dataset root if needed.
+
 Examples are ordered from simplest to most research-specific. Start with package examples before running paper-specific agents.
 
 ## Custom Dataset
@@ -35,7 +39,7 @@ python examples/experiments/run_llm_traders_exp.py \
 from finsaber import FINSABERBt, FinsaberParquetDataset
 from finsaber.strategy.timing import BuyAndHoldStrategy
 
-data = FinsaberParquetDataset("path/to/sp500_2000_2025_parquet")
+data = FinsaberParquetDataset("data/sp500_2000_2025_parquet")
 config = {
     "data_loader": data,
     "tickers": ["AAPL"],
