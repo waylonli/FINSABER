@@ -27,6 +27,7 @@ except ImportError:
 
 load_dotenv()
 HF_ACCESS_TOKEN = os.getenv("HF_ACCESS_TOKEN")
+INDICATOR_WARMUP_CALENDAR_DAYS = 60
 try:
     import pwb_toolbox.datasets as pwb_ds
 except Exception:
@@ -110,10 +111,14 @@ def get_tickers_price(
       - RSI
       - MACD (plus signal and histogram)
 
-    Note: To obtain SMA_30 correctly from the first day, we load 30 days before `date_from` and then filter them out.
+    Load 60 calendar days before `date_from` for the 30-session indicators,
+    then remove the warmup rows from the test frame.
     """
-    # Extend the start date to fetch enough data for 30-day calculations
-    extended_date_from = (pd.to_datetime(date_from) - datetime.timedelta(days=30)).strftime("%Y-%m-%d")
+    # Calendar days include closures; allow enough history for 30 sessions.
+    extended_date_from = (
+        pd.to_datetime(date_from)
+        - datetime.timedelta(days=INDICATOR_WARMUP_CALENDAR_DAYS)
+    ).strftime("%Y-%m-%d")
 
     # Load data from your source
     if isinstance(tickers, list):
@@ -138,7 +143,10 @@ def get_tickers_price_from_data_loader(
     return_original: bool = False,
     adjust: bool = True,
 ) -> pd.DataFrame:
-    extended_date_from = (pd.to_datetime(date_from) - datetime.timedelta(days=30)).strftime("%Y-%m-%d")
+    extended_date_from = (
+        pd.to_datetime(date_from)
+        - datetime.timedelta(days=INDICATOR_WARMUP_CALENDAR_DAYS)
+    ).strftime("%Y-%m-%d")
 
     if hasattr(data_loader, "get_price_dataframe"):
         df = data_loader.get_price_dataframe(
@@ -235,7 +243,14 @@ def _compute_indicators(g):
 def _prepare_price_frame(df: pd.DataFrame, date_from: str, date_to: str, return_original: bool = False) -> pd.DataFrame:
     df = df.copy()
     df["date"] = pd.to_datetime(df["date"])
-    df = df[(df["date"] >= pd.to_datetime(date_from) - datetime.timedelta(days=30)) & (df["date"] < pd.to_datetime(date_to))]
+    df = df[
+        (
+            df["date"]
+            >= pd.to_datetime(date_from)
+            - datetime.timedelta(days=INDICATOR_WARMUP_CALENDAR_DAYS)
+        )
+        & (df["date"] < pd.to_datetime(date_to))
+    ]
     df = df.sort_values(["symbol", "date"])
     df = pd.concat(
         [_compute_indicators(group) for _, group in df.groupby("symbol", sort=False)],
@@ -262,17 +277,7 @@ def _prepare_price_frame(df: pd.DataFrame, date_from: str, date_to: str, return_
         aggfunc="first",
     )
 
-    # Reindex to ensure all dates are represented
-    try:
-        full_date_range = pd.date_range(
-            start=df["date"].min(),
-            end=df["date"].max(),
-            freq="D"
-        )
-        pivot_df = pivot_df.reindex(full_date_range)
-    except Exception:
-        return None
-
+    # Preserve observed sessions: synthetic calendar bars can execute orders.
     return pivot_df
 
 
@@ -288,8 +293,12 @@ def add_tickers_data(cerebro, pivot_df: pd.DataFrame):
         symbol_df.reset_index(inplace=True)
         symbol_df.rename(columns={"index": "date"}, inplace=True)
         symbol_df.set_index("date", inplace=True)
+        symbol_df.dropna(
+            subset=["open", "high", "low", "close"],
+            how="all",
+            inplace=True,
+        )
         symbol_df.ffill(inplace=True)
-        symbol_df.bfill(inplace=True)
 
         data = bt.feeds.PandasData(dataname=symbol_df)
         datas.append((symbol, data))

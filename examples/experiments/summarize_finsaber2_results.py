@@ -36,15 +36,18 @@ STRATEGY_FAMILIES = {
     "ARIMAPredictorStrategy": "Statistical predictor",
     "XGBoostPredictorStrategy": "ML predictor",
     "FinRLStrategy": "RL",
+    "FinRLA2CStrategy": "RL",
+    "FinRLPPOStrategy": "RL",
+    "FinRLSACStrategy": "RL",
+    "FinRLTD3Strategy": "RL",
     "FinAgentStrategy": "LLM",
 }
 
 EXPECTED_ROWS = {
-    "selected_4": 110,
-    "random_sp500_5": 110,
-    "momentum_sp500_5": 110,
-    "lowvol_sp500_5": 110,
-    "magnificent_7": 154,
+    "random_sp500_5": 140,
+    "momentum_sp500_5": 140,
+    "lowvol_sp500_5": 140,
+    "magnificent_7": 196,
 }
 
 
@@ -83,36 +86,25 @@ def git_commit(repo_root: Path) -> str:
 
 
 def source_trees(tmp_root: Path) -> list[ResultTree]:
-    return [
+    setups = tuple(EXPECTED_ROWS)
+    trees = [
         ResultTree(
-            "selected_traditional",
-            tmp_root / "traditional-selected4-2024-2026-r1",
-            ("selected_4",),
+            f"corrected_non_llm_{setup}",
+            tmp_root / "corrected-nonllm-2024-2026-r1" / f"{setup}-job",
+            (setup,),
+        )
+        for setup in setups
+    ]
+    return trees + [
+        ResultTree(
+            "finrl_10y",
+            tmp_root / "finrl-10y-2024-2026-r2",
+            setups,
         ),
         ResultTree(
-            "selected_buyhold",
-            tmp_root / "buyhold-selected4-2024-2026-r1",
-            ("selected_4",),
-        ),
-        ResultTree(
-            "composite_non_llm",
-            tmp_root / "composite-2024-2026-official-r3",
-            ("random_sp500_5", "momentum_sp500_5", "lowvol_sp500_5"),
-        ),
-        ResultTree(
-            "finagent_four_selectors",
-            tmp_root / "finagent-all-2024-2026-official-r1",
-            ("selected_4", "random_sp500_5", "momentum_sp500_5", "lowvol_sp500_5"),
-        ),
-        ResultTree(
-            "magnificent_7_non_llm",
-            tmp_root / "magnificent7-benchmarks-2024-2026-r1",
-            ("magnificent_7",),
-        ),
-        ResultTree(
-            "finagent_magnificent_7",
-            tmp_root / "finagent-magnificent7-2024-2026-r1",
-            ("magnificent_7",),
+            "finagent_newsfixed",
+            tmp_root / "finagent-finsaber2-2024-2026-newsfixed-r3",
+            setups,
         ),
     ]
 
@@ -131,6 +123,11 @@ def recompute_risk_metrics(
         raise FileNotFoundError(f"Missing equity curve: {equity_path}")
 
     equity_curve = pd.read_csv(equity_path)
+    dates = pd.to_datetime(equity_curve["datetime"], errors="raise")
+    if dates.isna().any() or dates.duplicated().any() or not dates.is_monotonic_increasing:
+        raise ValueError(f"Invalid or unordered equity dates: {equity_path}")
+    if (dates.dt.dayofweek >= 5).any():
+        raise ValueError(f"Weekend equity bars: rerun with observed trading sessions: {equity_path}")
     if "equity" not in equity_curve:
         raise ValueError(f"Missing equity column: {equity_path}")
     equity = pd.to_numeric(equity_curve["equity"], errors="coerce")
@@ -167,6 +164,8 @@ def load_rows(
                 if not strategy_dir.is_dir() or strategy_dir.name not in STRATEGY_FAMILIES:
                     continue
                 strategy = strategy_dir.name
+                if strategy == "FinRLStrategy" and setup != "selected_4":
+                    continue
                 for path in sorted(strategy_dir.glob("*/*/metrics.json")):
                     window = path.parent.parent.name
                     ticker = path.parent.name
@@ -204,6 +203,9 @@ def load_rows(
                             "recomputed_sharpe_ratio": recomputed_sharpe,
                             "reported_sharpe_ratio": (
                                 recomputed_sharpe if sharpe_defined else np.nan
+                            ),
+                            "reported_sortino_ratio": (
+                                recomputed_sortino if sharpe_defined else np.nan
                             ),
                             "sharpe_status": "defined" if sharpe_defined else "near_zero_volatility",
                             "stored_sortino_ratio": number(metrics, "sortino_ratio"),
@@ -249,6 +251,10 @@ def summarize(rows: pd.DataFrame) -> pd.DataFrame:
                 "mean_ticker_year_return": group["total_return"].mean(),
                 "median_ticker_year_return": group["total_return"].median(),
                 "mean_reported_sharpe": group["reported_sharpe_ratio"].mean(),
+                "mean_reported_sortino": group[
+                    "reported_sortino_ratio"
+                ].mean(),
+                "mean_annual_volatility": group["annual_volatility"].mean(),
                 "defined_sharpe_runs": group["reported_sharpe_ratio"].notna().sum(),
                 "undefined_sharpe_runs": group["reported_sharpe_ratio"].isna().sum(),
                 "mean_max_drawdown": group["max_drawdown"].mean(),
@@ -336,8 +342,8 @@ def markdown_report(
                 f"## {selector}",
                 "",
                 "| Rank | Strategy | Family | 2024 | 2025 | Two-year | "
-                "Sharpe | Mean MDD | Total cost |",
-                "|---:|---|---|---:|---:|---:|---:|---:|---:|",
+                "Sharpe | Sortino | Mean AV | Mean MDD | Total cost |",
+                "|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|",
             ]
         )
         for row in table.itertuples(index=False):
@@ -347,6 +353,8 @@ def markdown_report(
                 f"{format_percent(row.return_2025)} | "
                 f"{format_percent(row.equal_weight_compounded_return)} | "
                 f"{format_ratio(row.mean_reported_sharpe)} | "
+                f"{format_ratio(row.mean_reported_sortino)} | "
+                f"{row.mean_annual_volatility:.2%} | "
                 f"{row.mean_max_drawdown:.2f}% | "
                 f"${row.total_trading_cost:,.2f} |"
             )
@@ -357,18 +365,6 @@ def markdown_report(
         lines.append(
             f"- `{item['name']}`: {item['metric_rows']} rows from `{item['root']}`"
         )
-    lines.extend(
-        [
-            "",
-            "## Known Limitation",
-            "",
-            "FinRL results remain preliminary. Several runs had near-zero capital",
-            "exposure because the exported action was interpreted as a one-share",
-            "order. Action scaling and longer training windows require a controlled",
-            "rerun before final publication.",
-            "",
-        ]
-    )
     return "\n".join(lines)
 
 
@@ -462,8 +458,9 @@ def main() -> int:
         raise ValueError(
             f"Incomplete result inventory: expected {EXPECTED_ROWS}, got {actual_counts}"
         )
-    if len(rows) != 594:
-        raise ValueError(f"Expected 594 ticker-year rows, got {len(rows)}")
+    expected_total = sum(EXPECTED_ROWS.values())
+    if len(rows) != expected_total:
+        raise ValueError(f"Expected {expected_total} ticker-year rows, got {len(rows)}")
 
     rows.to_csv(output_root / "all_ticker_year_results.csv", index=False)
     summary.to_csv(output_root / "strategy_summary.csv", index=False)
